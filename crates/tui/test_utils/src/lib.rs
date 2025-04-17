@@ -1119,7 +1119,8 @@ where
 	cmd.env("NGITTEST", "TRUE");
 	cmd.env("RUST_BACKTRACE", "0");
 	cmd.args(args);
-	// using branch for PR https://github.com/rust-cli/rexpect/pull/103 to strip ansi escape codes
+	// using branch for PR
+	// https://github.com/rust-cli/rexpect/pull/103 to strip ansi escape codes
 	rexpect::session::spawn_with_options(
 		cmd,
 		Options {
