@@ -26,6 +26,7 @@ jobs:
       GNOSTR: "gnostr"
       NOSTRIL: "nostril"
       POW: "5"
+      DAMUS: "wss://relay.damus.io"
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
@@ -38,6 +39,7 @@ jobs:
           echo NOSTRIL=${{ env.NOSTRIL }}
           echo MEMPOOL=${{ env.MEMPOOL }}
           echo POW=${{ env.POW }}
+          echo DAMUS=${{ env.DAMUS }}
         env:
           MEMPOOL: "mempool"
       - uses: styfle/cancel-workflow-action@0.11.0
@@ -124,7 +126,7 @@ jobs:
           text-note --content "🦀"
       - run: |
           gnostr -d ${{ env.POW }} \
-          -r wss://nos.lol \
+          -r ${{ env.DAMUS }} \
           --nsec "$(gnostr-sha256)" \
           set-metadata \
           -n gnostr \
