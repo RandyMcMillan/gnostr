@@ -25,7 +25,7 @@ jobs:
     env:
       GNOSTR: "gnostr"
       NOSTRIL: "nostril"
-      POW: "8"
+      POW: "16"
       DAMUS: "wss://relay.damus.io"
     strategy:
       matrix:
