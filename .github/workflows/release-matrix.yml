@@ -96,7 +96,7 @@ jobs:
         if: matrix.os == 'macos-latest'
 
       ## objective: streamline gnostr installation on macos/brewlinux
-      - run: brew link openssl@3 || true
+      - run: brew unlink openssl@3 && brew link openssl@3 || true
         if: matrix.os == 'macos-latest'
 
       ## objective: streamline gnostr installation on macos/brewlinux
