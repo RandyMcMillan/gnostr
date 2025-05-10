@@ -118,13 +118,16 @@ jobs:
       - run: gnostr --help
       #- run: gnostr ngit >/dev/null || true
       - run: gnostr ngit --help
+      - run: gnostr ngit login --help
+      - run: gnostr ngit --nsec $(gnostr-sha256) login
       - run: gnostr ngit fetch --help
+      - run: gnostr ngit fetch || true
       - run: gnostr ngit init --help
       - run: gnostr ngit send --help
       - run: gnostr ngit list --help
+      - run: gnostr ngit list || true
       - run: gnostr ngit push --help
       - run: gnostr ngit pull --help
-      - run: gnostr ngit login --help
       - run: |
           gnostr -d ${{ env.POW }} \
           --nsec $(gnostr --hash 🦀) \
