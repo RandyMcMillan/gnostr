@@ -26,6 +26,7 @@ use futures::{
     future::join_all,
     stream::{self, StreamExt},
 };
+use gnostr_crawler::processor::BOOTSTRAP_RELAYS;
 use indicatif::{MultiProgress, ProgressBar, ProgressDrawTarget, ProgressState, ProgressStyle};
 #[cfg(test)]
 use mockall::*;
@@ -107,30 +108,19 @@ impl Connect for Client {
                 "ws://localhost:8052".to_string(),
             ]
         } else {
-            //TODO relay crawler
-            vec![
-                "wss://relay.damus.io".to_string(), /* free, good reliability, have been known
-                                                     * to delete all messages */
-                "wss://nos.lol".to_string(),
-                "wss://cfrelay.haorendashu.workers.dev".to_string(),
-            ]
+            BOOTSTRAP_RELAYS.to_vec()
         };
 
-        let more_fallback_relays: Vec<String> = if std::env::var("NGITTEST").is_ok() {
+        let mut more_fallback_relays: Vec<String> = if std::env::var("NGITTEST").is_ok() {
             vec![
                 "ws://localhost:8055".to_string(),
                 "ws://localhost:8056".to_string(),
             ]
         } else {
-            vec![
-                "wss://purplerelay.com".to_string(), /* free but reliability not tested */
-                "wss://purplepages.es".to_string(),  /* for profile
-                                                      * events but
-                                                      * unreliable */
-                "wss://relayable.org".to_string(), /* free but not
-                                                    * always reliable */
-            ]
+            BOOTSTRAP_RELAYS.to_vec()
         };
+
+        more_fallback_relays.push("wss://relayable.org".to_string());
 
         let blaster_relays: Vec<String> = if std::env::var("NGITTEST").is_ok() {
             vec!["ws://localhost:8057".to_string()]
@@ -651,8 +641,14 @@ fn get_dedup_events(relay_results: Vec<Result<Vec<nostr_0_34_1::Event>>>) -> Vec
     dedup_events
 }
 
-pub async fn sign_event(event_builder: EventBuilder, signer: &NostrSigner) -> Result<nostr_0_34_1::Event> {
-    if signer.r#type().eq(&nostr_signer_0_34_0::NostrSignerType::NIP46) {
+pub async fn sign_event(
+    event_builder: EventBuilder,
+    signer: &NostrSigner,
+) -> Result<nostr_0_34_1::Event> {
+    if signer
+        .r#type()
+        .eq(&nostr_signer_0_34_0::NostrSignerType::NIP46)
+    {
         let term = console::Term::stderr();
         term.write_line("signing event with remote signer...")?;
         let event = signer
@@ -769,7 +765,10 @@ pub async fn get_event_from_global_cache(
         .context("cannot execute query on opened ngit nostr cache database")
 }
 
-pub async fn save_event_in_cache(git_repo_path: &Path, event: &nostr_0_34_1::Event) -> Result<bool> {
+pub async fn save_event_in_cache(
+    git_repo_path: &Path,
+    event: &nostr_0_34_1::Event,
+) -> Result<bool> {
     get_local_cache_database(git_repo_path)
         .await?
         .save_event(event)

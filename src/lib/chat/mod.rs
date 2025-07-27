@@ -25,9 +25,8 @@ use tui_input::Input;
 use crate::utils::parse_json;
 use crate::utils::split_json_string;
 
-pub mod p2p;
 pub mod ui;
-pub use p2p::evt_loop;
+use crate::p2p::evt_loop;
 pub mod msg;
 pub use msg::*;
 
@@ -287,7 +286,7 @@ pub fn global_rt() -> &'static tokio::runtime::Runtime {
 }
 
 pub fn chat(key: &String, sub_command_args: &ChatSubCommands) -> Result<(), Box<dyn Error>> {
-    let mut args = sub_command_args.clone();
+    let args = sub_command_args.clone();
     let env_args: Vec<String> = env::args().collect();
     let level = if args.debug {
         LevelFilter::DEBUG
