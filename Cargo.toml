@@ -1,6 +1,6 @@
 [package]
 name = "gnostr"
-version = "0.0.108"
+version = "0.0.111"
 edition = "2021"
 description = "gnostr:a git+nostr workflow utility"
 authors = [
@@ -121,6 +121,7 @@ git2 = "^0.18" ## asyncgit ^0.19
 #anyhow = "1.0"
 gnostr-asyncgit = { path = "./asyncgit", version = "0.0.4", default-features = false }
 gnostr-crawler = { version = "0.0.8", path = "crawler" }
+gnostr-query = { version = "0.0.8", path = "query" }
 gnostr-types = { version = "0.7.6", path = "types" }
 #gnostr-types = "0.7.6"
 gnostr_qr = { version = "0.0.7", path = "qr" }
@@ -149,18 +150,28 @@ libp2p = { version = "0.54.1", features = [
 
 log = "0.4"
 
-nostr_0_34_1 = { package = "nostr", version = "0.34.1" }
-nostr-database_0_34_0 = { package = "nostr-database", version ="0.34.0" }
-nostr-sdk_0_34_0 = { package = "nostr-sdk", version = "0.34.0" }
+#nostr-database_0_34_0 = { package = "nostr-database", version = "0.34.0" }
+nostr-database_0_34_0 = { package = "nostr-database", version = "0.34.0" }
+
 nostr-sdk_0_19_1 = { package = "nostr-sdk", version = "0.19.1" }
 nostr-sdk_0_32_0 = { package = "nostr-sdk", version = "0.32.0" }
+
+#nostr-sdk_0_34_0 = { package = "nostr-sdk", version = "0.34.0" }
+nostr-sdk_0_34_0 = { package = "nostr-sdk", version = "0.34.0" }
+
 nostr-sdk_0_37_0 = { package = "nostr-sdk", version = "0.37.0" }
+
+#nostr-signer_0_34_0 = { package = "nostr-signer", version = "0.34.0" }
 nostr-signer_0_34_0 = { package = "nostr-signer", version = "0.34.0" }
+#nostr-sqlite_0_34_0 = { package = "nostr-sqlite", version = "0.34.0" }
 nostr-sqlite_0_34_0 = { package = "nostr-sqlite", version = "0.34.0" }
-#log = "0.4"
 
 ##cli
 nostr_0_32_0 = { package = "nostr", version = "0.32.0" }
+
+##primary nostr dep
+nostr_0_34_1 = { package = "nostr", version = "0.34.1" }
+
 notify = "6.1"
 notify-debouncer-mini = "0.4"
 num-bigint = "0.4.6"
@@ -247,7 +258,7 @@ sd-notify = "0.4.1"
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 
 [dev-dependencies]
-cargo-depgraph = "1.6.0"
+##cargo-depgraph = "1.6.0"
 ##nostr
 env_logger = "0.11"
 gnostr-bins = "0.0.71"
