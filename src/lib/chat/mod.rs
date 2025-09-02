@@ -1,11 +1,11 @@
 use crate::blockheight::blockheight_sync;
 use anyhow::Result;
-use clap::{Args, Parser};
+use clap::{Args, Parser, ValueEnum};
 use git2::{ObjectType, Repository};
 use gnostr_asyncgit::sync::commit::deserialize_commit;
 use gnostr_asyncgit::sync::commit::padded_commit_id;
 use gnostr_asyncgit::sync::commit::serialize_commit;
-use libp2p::gossipsub;
+use libp2p::{gossipsub, Multiaddr, PeerId};
 //
 use nostr_sdk_0_37_0::prelude::*;
 //
@@ -13,6 +13,7 @@ use once_cell::sync::OnceCell;
 use serde_json;
 use std::borrow::Cow;
 use std::collections::HashMap;
+use std::str::FromStr;
 use std::{env, error::Error, time::Duration};
 use tokio::{io, io::AsyncBufReadExt};
 use tracing::{debug, info, trace};
@@ -22,12 +23,12 @@ use tracing_subscriber::{fmt, layer::SubscriberExt, EnvFilter, Registry};
 use tui_input::Input;
 
 // src/lib/utils.rs
+use crate::sub_commands::list_events::{list_events, ListEventsSubCommand};
 use crate::utils::parse_json;
 use crate::utils::split_json_string;
 
-pub mod p2p;
 pub mod ui;
-pub use p2p::evt_loop;
+use crate::p2p::evt_loop;
 pub mod msg;
 pub use msg::*;
 
@@ -187,7 +188,7 @@ pub fn generate_nostr_keys_from_commit_hash(commit_id: &str) -> Result<Keys> {
 }
 
 /// gnostr chat - p2p chat
-#[derive(Debug, Parser)]
+#[derive(Clone, Debug, Parser)]
 #[command(name = "gnostr")]
 #[command(author = "gnostr <admin@gnostr.org>, 0xtr. <oxtrr@protonmail.com")]
 #[command(version = "0.0.1")]
@@ -202,7 +203,7 @@ pub struct ChatCli {
     )]
     pub name: Option<String>,
     ///
-    #[arg(short, long, value_name = "NSEC", help = "gnostr --nsec <sha256>",
+    #[arg(long, value_name = "NSEC", help = "gnostr --nsec <sha256>",
 		action = clap::ArgAction::Append,
 		default_value = "0000000000000000000000000000000000000000000000000000000000000001")]
     pub nsec: Option<String>,
@@ -221,7 +222,7 @@ pub struct ChatCli {
 		default_values_t = ["wss://relay.damus.io".to_string(),"wss://nos.lol".to_string(), "wss://nostr.band".to_string()])]
     pub relays: Vec<String>,
     /// Enable debug logging
-    #[clap(
+    #[arg(
         long,
         value_name = "DEBUG",
         help = "gnostr --debug",
@@ -229,7 +230,7 @@ pub struct ChatCli {
     )]
     pub debug: bool,
     /// Enable info logging
-    #[clap(
+    #[arg(
         long,
         value_name = "INFO",
         help = "gnostr --info",
@@ -237,7 +238,7 @@ pub struct ChatCli {
     )]
     pub info: bool,
     /// Enable trace logging
-    #[clap(
+    #[arg(
         long,
         value_name = "TRACE",
         help = "gnostr --trace",
@@ -271,6 +272,57 @@ pub struct ChatSubCommands {
     ///// disable spinner animations
     #[arg(long, action, default_value = "false")]
     pub disable_cli_spinners: bool,
+    #[arg(long)]
+    pub secret: Option<u8>,
+
+    // peer implies lookup by dht default --network ipfs
+    #[arg(long)]
+    peer: Option<String>,
+
+    // multiaddr implies direct connect
+    #[arg(long)]
+    multiaddr: Option<Multiaddr>,
+
+    // network
+    #[arg(long, value_enum, default_value = &"ipfs")]
+    network: Option<crate::p2p::Network>,
+
+    #[arg(long)]
+    flag_topo_order: bool,
+    #[arg(long)]
+    flag_date_order: bool,
+    #[arg(long)]
+    flag_reverse: bool,
+    #[arg(long)]
+    flag_author: Option<String>,
+    #[arg(long)]
+    flag_committer: Option<String>,
+    #[arg(long = "grep")]
+    flag_grep: Option<String>,
+    #[arg(long = "git-dir")]
+    flag_git_dir: Option<String>,
+    #[arg(long)]
+    flag_skip: Option<usize>,
+    #[arg(long)]
+    flag_max_count: Option<usize>,
+    #[arg(long)]
+    flag_merges: bool,
+    #[arg(long)]
+    flag_no_merges: bool,
+    #[arg(long)]
+    flag_no_min_parents: bool,
+    #[arg(long)]
+    flag_no_max_parents: bool,
+    #[arg(long)]
+    flag_max_parents: Option<usize>,
+    #[arg(long)]
+    flag_min_parents: Option<usize>,
+    #[arg(long, short)]
+    flag_patch: bool,
+    arg_commit: Vec<String>,
+    #[arg(last = true)]
+    arg_spec: Vec<String>,
+
     #[arg(long, action)]
     pub info: bool,
     #[arg(long, action)]
@@ -286,9 +338,13 @@ pub fn global_rt() -> &'static tokio::runtime::Runtime {
     RT.get_or_init(|| tokio::runtime::Runtime::new().unwrap())
 }
 
-pub fn chat(key: &String, sub_command_args: &ChatSubCommands) -> Result<(), Box<dyn Error>> {
+pub async fn chat(
+    key: &String,
+    sub_command_args: &mut ChatSubCommands,
+) -> Result<(), Box<dyn Error>> {
     let mut args = sub_command_args.clone();
     let env_args: Vec<String> = env::args().collect();
+
     let level = if args.debug {
         LevelFilter::DEBUG
     } else if args.trace {
@@ -323,10 +379,35 @@ pub fn chat(key: &String, sub_command_args: &ChatSubCommands) -> Result<(), Box<
         trace!("arg={:?}", arg);
     }
 
-    if let Some(name) = args.name {
+    let author = Keys::parse(key.clone())?;
+    //let authors: Vec<String> = [author.public_key()];
+    let pubkey: String = author.public_key().to_hex();
+    let mut authors: Vec<String> = vec![];
+    authors.push(pubkey.clone());
+    let mut relays: Vec<String> = vec![];
+    relays.push("wss://relay.damus.io".to_string());
+
+    let listevents_subcommand = ListEventsSubCommand {
+        atag: None,
+        dtag: None,
+        etag: None,
+        authors: Some(authors),
+        ids: None,
+        kinds: None,
+        ptag: None,
+        limit: None,
+        output: Some(format!("{}.json", pubkey)),
+        since: None,
+        timeout: None,
+        until: None,
+    };
+    if let Some(ref name) = args.name {
         env::set_var("USER", &name); //detected later from env
     };
 
+    let list_events = list_events(relays, &listevents_subcommand).await;
+    debug!("{:?}", listevents_subcommand);
+    debug!("{:?}", list_events);
     //create a HashMap of custom_tags
     //used to insert commit tags
     let mut custom_tags = HashMap::new();
@@ -336,7 +417,7 @@ pub fn chat(key: &String, sub_command_args: &ChatSubCommands) -> Result<(), Box<
         "blockheight".to_string(),
         vec![format!("{}", blockheight_sync())],
     );
-    if !args.topic.is_none() {
+    if args.topic.is_some() {
         custom_tags.insert(
             "topic".to_string(),
             vec![args.topic.clone().expect("REASON")],
@@ -348,8 +429,8 @@ pub fn chat(key: &String, sub_command_args: &ChatSubCommands) -> Result<(), Box<
         Keys::parse("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855").unwrap();
 
     //args.nsec
-    if !args.nsec.is_none() {
-        keys = Keys::parse(&args.nsec.unwrap())?;
+    if args.nsec.is_some() {
+        keys = Keys::parse(args.nsec.clone().unwrap())?;
     }
     ////args.hash overrides args.nsec
     //if !args.hash.clone().is_none() {
@@ -375,7 +456,7 @@ pub fn chat(key: &String, sub_command_args: &ChatSubCommands) -> Result<(), Box<
 
     global_rt().spawn(async move {
         //send to create_event function with &"custom content"
-        let signed_event = create_event(keys, custom_tags, &"gnostr-chat:event").await;
+        let signed_event = create_event(keys, custom_tags, "gnostr-chat:event").await;
         debug!("signed_event:\n{:?}", signed_event);
     });
 
@@ -413,7 +494,7 @@ pub fn chat(key: &String, sub_command_args: &ChatSubCommands) -> Result<(), Box<
         global_rt().spawn(async move {
             //send to create_event function with &"custom content"
             let signed_event =
-                create_event(padded_keys.clone(), custom_tags, &"gnostr-chat:event").await;
+                create_event(padded_keys.clone(), custom_tags, "gnostr-chat:event").await;
             debug!("signed_event:\n{:?}", signed_event);
         });
 
@@ -452,7 +533,7 @@ pub fn chat(key: &String, sub_command_args: &ChatSubCommands) -> Result<(), Box<
         // Accessing parent commits (merge may be array)
         if let Some(parent) = value.get("parents") {
             if let Value::Array(arr) = parent {
-                if let Some(parent) = arr.get(0) {
+                if let Some(parent) = arr.first() {
                     debug!("parent:\n{}", parent.as_str().unwrap_or("initial commit"));
                 }
                 if let Some(parent) = arr.get(1) {
@@ -478,7 +559,7 @@ pub fn chat(key: &String, sub_command_args: &ChatSubCommands) -> Result<(), Box<
 
         //split the commit message into a Vec<String>
         if let Some(message) = value.get("message") {
-            let parts = split_json_string(&message, "\n");
+            let parts = split_json_string(message, "\n");
             for part in parts {
                 debug!("\n{}", part);
             }
@@ -560,16 +641,18 @@ pub fn chat(key: &String, sub_command_args: &ChatSubCommands) -> Result<(), Box<
 
         //TODO construct git commit message header
 
+        //add diff to serialized_commit
         let serialized_commit = serialize_commit(&commit)?;
         let value: Value = parse_json(&serialized_commit.clone())?;
         //info!("value:\n{}", value);
 
+        //initial display in chat
         // Accessing object elements.
         if let Some(id) = value.get("id") {
             debug!("id:\n{}", id.as_str().unwrap_or(""));
             app.add_message(
                 Msg::default()
-                    .set_content(String::from(id.as_str().unwrap_or("")), 0 as usize)
+                    .set_content(String::from(id.as_str().unwrap_or("")), 0_usize)
                     .set_kind(MsgKind::GitCommitId),
             );
         }
@@ -577,18 +660,18 @@ pub fn chat(key: &String, sub_command_args: &ChatSubCommands) -> Result<(), Box<
             debug!("tree:\n{}", tree.as_str().unwrap_or(""));
             app.add_message(
                 Msg::default()
-                    .set_content(String::from(tree.as_str().unwrap_or("")), 0 as usize)
+                    .set_content(String::from(tree.as_str().unwrap_or("")), 0_usize)
                     .set_kind(MsgKind::GitCommitTree),
             );
         }
         // Accessing parent commits (merge may be array)
         if let Some(parent) = value.get("parents") {
             if let Value::Array(arr) = parent {
-                if let Some(parent) = arr.get(0) {
+                if let Some(parent) = arr.first() {
                     debug!("parent:\n{}", parent.as_str().unwrap_or("initial commit"));
                     app.add_message(
                         Msg::default()
-                            .set_content(String::from(parent.as_str().unwrap_or("")), 0 as usize)
+                            .set_content(String::from(parent.as_str().unwrap_or("")), 0_usize)
                             .set_kind(MsgKind::GitCommitParent),
                     );
                 }
@@ -596,7 +679,7 @@ pub fn chat(key: &String, sub_command_args: &ChatSubCommands) -> Result<(), Box<
                     debug!("parent:\n{}", parent.as_str().unwrap_or(""));
                     app.add_message(
                         Msg::default()
-                            .set_content(String::from(parent.as_str().unwrap_or("")), 0 as usize)
+                            .set_content(String::from(parent.as_str().unwrap_or("")), 0_usize)
                             .set_kind(MsgKind::GitCommitParent),
                     );
                 }
@@ -606,7 +689,7 @@ pub fn chat(key: &String, sub_command_args: &ChatSubCommands) -> Result<(), Box<
             debug!("author_name:\n{}", author_name.as_str().unwrap_or(""));
             app.add_message(
                 Msg::default()
-                    .set_content(String::from(author_name.as_str().unwrap_or("")), 0 as usize)
+                    .set_content(String::from(author_name.as_str().unwrap_or("")), 0_usize)
                     .set_kind(MsgKind::GitCommitAuthor),
             );
         }
@@ -614,10 +697,7 @@ pub fn chat(key: &String, sub_command_args: &ChatSubCommands) -> Result<(), Box<
             debug!("author_email:\n{}", author_email.as_str().unwrap_or(""));
             app.add_message(
                 Msg::default()
-                    .set_content(
-                        String::from(author_email.as_str().unwrap_or("")),
-                        0 as usize,
-                    )
+                    .set_content(String::from(author_email.as_str().unwrap_or("")), 0_usize)
                     .set_kind(MsgKind::GitCommitEmail),
             );
         }
@@ -625,10 +705,7 @@ pub fn chat(key: &String, sub_command_args: &ChatSubCommands) -> Result<(), Box<
             debug!("committer_name:\n{}", committer_name.as_str().unwrap_or(""));
             app.add_message(
                 Msg::default()
-                    .set_content(
-                        String::from(committer_name.as_str().unwrap_or("")),
-                        0 as usize,
-                    )
+                    .set_content(String::from(committer_name.as_str().unwrap_or("")), 0_usize)
                     .set_kind(MsgKind::GitCommitName),
             );
         }
@@ -641,7 +718,7 @@ pub fn chat(key: &String, sub_command_args: &ChatSubCommands) -> Result<(), Box<
                 Msg::default()
                     .set_content(
                         String::from(committer_email.as_str().unwrap_or("")),
-                        0 as usize,
+                        0_usize,
                     )
                     .set_kind(MsgKind::GitCommitEmail),
             );
@@ -666,7 +743,7 @@ pub fn chat(key: &String, sub_command_args: &ChatSubCommands) -> Result<(), Box<
 
             app.add_message(
                 Msg::default()
-                    .set_content(time.to_string(), 0 as usize)
+                    .set_content(time.to_string(), 0_usize)
                     .set_kind(MsgKind::GitCommitTime),
             );
         }
@@ -711,18 +788,18 @@ pub fn chat(key: &String, sub_command_args: &ChatSubCommands) -> Result<(), Box<
         });
 
         //
-        let mut topic = String::from(commit_id.to_string());
-        if !args.topic.is_none() {
-            topic = args.topic.expect("");
-        } else {
+        let mut topic = commit_id.to_string();
+        if args.topic.is_some() {
+            topic = args.topic.clone().expect("");
         }
 
         app.topic = Input::new(topic.clone().to_string());
 
         let topic = gossipsub::IdentTopic::new(format!("{:?}", topic.clone()));
 
+        //evt_loop
         global_rt().spawn(async move {
-            evt_loop(input_rx, peer_tx, topic).await.unwrap();
+            evt_loop(args, input_rx, peer_tx, topic).await.unwrap();
         });
 
         // recv from peer
@@ -742,7 +819,7 @@ pub fn chat(key: &String, sub_command_args: &ChatSubCommands) -> Result<(), Box<
                 .send(
                     Msg::default()
                         .set_kind(MsgKind::Join)
-                        .set_content(env::var("USER".to_string()).expect("env $USER fail!"), 0)
+                        .set_content(env::var("USER").expect("env $USER fail!"), 0)
                         .set_content("1".to_string(), 1),
                 )
                 .await
@@ -767,7 +844,7 @@ pub async fn input_loop(
     let mut stdin = io::BufReader::new(io::stdin()).lines();
     while let Some(line) = stdin.next_line().await? {
         //TODO interator for git commit data
-        let msg = Msg::default().set_content(line, 0 as usize);
+        let msg = Msg::default().set_content(line, 0_usize);
         debug!("msg:\n{}", msg);
         if let Ok(b) = serde_json::to_vec(&msg) {
             self_input.send(b).await?;

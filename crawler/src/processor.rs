@@ -5,19 +5,29 @@ use crate::stats::Stats;
 use nostr_sdk::prelude::{Event, Kind, Tag, Timestamp};
 use std::sync::LazyLock;
 
+pub const BOOTSTRAP_RELAY0: &str = "wss://nos.lol";
 pub const BOOTSTRAP_RELAY1: &str = "wss://relay.nostr.band";
-pub const BOOTSTRAP_RELAY2: &str = "wss://nos.lol";
+pub const BOOTSTRAP_RELAY2: &str = "wss://bitcoiner.social";
 pub const BOOTSTRAP_RELAY3: &str = "wss://relay.damus.io";
-pub const BOOTSTRAP_RELAY4: &str = "wss://sendit.nosflare.com";
+pub const BOOTSTRAP_RELAY4: &str = "wss://purplerelay.com";
+pub const BOOTSTRAP_RELAY5: &str = "wss://nos.lol";
+pub const BOOTSTRAP_RELAY6: &str = "wss://offchain.pub";
+pub const BOOTSTRAP_RELAY7: &str = "wss://relay.primal.net";
+pub const BOOTSTRAP_RELAY8: &str = "wss://relay.nostr.band/all";
 
 pub static BOOTSTRAP_RELAYS: LazyLock<Vec<String>> = LazyLock::new(|| {
     // The vec! macro and String::from calls are now inside a closure,
     // which is executed at runtime when the static variable is first needed.
     vec![
+        String::from(BOOTSTRAP_RELAY0),
         String::from(BOOTSTRAP_RELAY1),
         String::from(BOOTSTRAP_RELAY2),
         String::from(BOOTSTRAP_RELAY3),
         String::from(BOOTSTRAP_RELAY4),
+        String::from(BOOTSTRAP_RELAY5),
+        String::from(BOOTSTRAP_RELAY6),
+        String::from(BOOTSTRAP_RELAY7),
+        String::from(BOOTSTRAP_RELAY8),
     ]
 });
 

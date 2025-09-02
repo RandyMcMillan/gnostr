@@ -14,7 +14,6 @@ use sync::CommitTags;
 use super::style::Detail;
 use crate::{
     app::Environment,
-    chat,
     components::{
         chat_details::style::style_detail,
         dialog_paragraph,
@@ -120,7 +119,7 @@ impl DetailsComponent {
         }
     }
 
-    fn get_wrapped_text_message(&self, width: usize, height: usize) -> Vec<Line> {
+    fn get_wrapped_text_message(&self, width: usize, height: usize) -> Vec<Line<'_>> {
         let (wrapped_title, wrapped_message) = Self::get_wrapped_lines(&self.data, width);
 
         [&wrapped_title[..], &wrapped_message[..]]
@@ -139,7 +138,7 @@ impl DetailsComponent {
     }
 
     #[allow(unstable_name_collisions, clippy::too_many_lines)]
-    fn get_text_info(&self) -> Vec<Line> {
+    fn get_text_info(&self) -> Vec<Line<'_>> {
         self.data.as_ref().map_or_else(Vec::new, |data| {
             let mut res = vec![
                 //
@@ -159,12 +158,7 @@ impl DetailsComponent {
                 //
                 Line::from(vec![
                     Span::styled(
-                        Cow::from(format!(
-                            //"162:chat_details/details.rs {}",
-                            //"162:{}",
-                            "{}",
-                            strings::commit::details_sha()
-                        )),
+                        Cow::from(strings::commit::details_sha().to_string()),
                         self.theme.text(false, false),
                     ),
                     Span::styled(Cow::from(data.hash.clone()), self.theme.text(true, false)),
@@ -197,12 +191,7 @@ impl DetailsComponent {
                     Line::from(vec![
                         style_detail(&self.theme, &Detail::Date),
                         Span::styled(
-                            Cow::from(format!(
-                                //"197:chat_details:details.rs:get_text_info {}",
-                                //"197:{}",
-                                "{}",
-                                time_to_string(committer.time, false)
-                            )),
+                            Cow::from(time_to_string(committer.time, false).to_string()),
                             self.theme.text(true, false),
                         ),
                     ]),

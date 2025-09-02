@@ -1,3 +1,6 @@
+data/
+gnostr-gnit-key
+gnostr-gnit-key.pub
 .gnostr
 executable
 test
@@ -19,8 +22,6 @@ act/
 aes.o
 base64.o
 bash_profile.log
-bin/
-bins/
 bits/
 cat/
 cli/
@@ -41,7 +42,6 @@ gnostr-get-relays
 gnostr-get-relays-test
 gnostr-git
 gnostr-gnode
-gnostr-legit
 gnostr-pi
 gnostr-req
 gnostr-set-relays
@@ -57,7 +57,6 @@ hyper-nostr/
 hyper-sdk/
 jj/
 jq/
-legit/
 lfs/
 libnostr.a
 libsecp256k1.a
@@ -70,7 +69,6 @@ org/
 proxy/
 pubkeys.txt
 py/
-relay/
 response.txt
 secp256k1/
 server.crt

@@ -62,7 +62,7 @@ pub async fn launch(
         .get_main_or_master_branch()
         .context("the default branches (main or master) do not exist")?;
     #[cfg(test)]
-    let mut client: &mut crate::client::MockConnect = &mut Default::default();
+    let client: &mut crate::client::MockConnect = &mut Default::default();
     //let mut client: &mut Client::MockConnect = &mut Default::default();
     #[cfg(not(test))]
     let mut client = Client::default();
@@ -383,9 +383,11 @@ async fn get_root_proposal_id_and_mentions_from_in_reply_to(
                 marker: _,
                 public_key: _,
             }) => {
-                let events =
-                    get_events_from_cache(git_repo_path, vec![nostr_0_34_1::Filter::new().id(*event_id)])
-                        .await?;
+                let events = get_events_from_cache(
+                    git_repo_path,
+                    vec![nostr_0_34_1::Filter::new().id(*event_id)],
+                )
+                .await?;
 
                 if let Some(first) = events.iter().find(|e| e.id.eq(event_id)) {
                     if event_is_patch_set_root(first) {

@@ -1,10 +1,12 @@
 use anyhow::Result;
 use clap::{Parser /*, Subcommand*/};
+use gnostr::cli::*;
 use gnostr::cli::{get_app_cache_path, setup_logging, GnostrCli, GnostrCommands};
-use gnostr::{blockheight, sub_commands};
+use gnostr::sub_commands;
+use gnostr_asyncgit::sync::RepoPath;
 use sha2::{Digest, Sha256};
 use std::env;
-use tracing::{debug, error, info, trace, warn};
+use tracing::{debug, trace};
 use tracing_core::metadata::LevelFilter;
 use tracing_subscriber::FmtSubscriber;
 
@@ -12,62 +14,123 @@ use serde::ser::StdError;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn StdError>> {
-    env::set_var("BLOCKHEIGHT", blockheight::blockheight_sync());
-    let mut args: GnostrCli = GnostrCli::parse();
+    env::set_var("WEEBLE", "0");
+    env::set_var("BLOCKHEIGHT", "0");
+    env::set_var("WOBBLE", "0");
+    let mut gnostr_cli_args: GnostrCli = GnostrCli::parse();
+
     let app_cache = get_app_cache_path();
-    let _logging = if args.logging {
+    if gnostr_cli_args.logging {
         let logging = setup_logging();
         trace!("{:?}", logging);
     };
-    let level = if args.debug {
+    let level = if gnostr_cli_args.debug {
         LevelFilter::DEBUG
-    } else if args.trace {
+    } else if gnostr_cli_args.trace {
         LevelFilter::TRACE
-    } else if args.info {
+    } else if gnostr_cli_args.info {
         LevelFilter::INFO
-    } else if args.warn {
+    } else if gnostr_cli_args.warn {
         LevelFilter::WARN
     } else {
         LevelFilter::OFF
     };
+    let env_args: Vec<String> = env::args().collect();
+    for arg in &env_args {
+        debug!("40:arg={:?}", arg);
+    }
+
+    if env_args.contains(&String::from("--gitdir")) {
+        debug!("44:The --gitdir argument was found!");
+    } else {
+        debug!("46:The --gitdir argument was not found.");
+    }
+
+    let mut gitdir_value: Option<String> = None;
+
+    for i in 0..env_args.len() {
+        if env_args[i] == "--gitdir" {
+            if i + 1 < env_args.len() {
+                // We found --gitdir and there's a next argument
+                gitdir_value = Some(env_args[i + 1].clone());
+            }
+            break; // We found what we're looking for, no need to continue the loop
+        }
+    }
+
+    match gitdir_value.clone() {
+        Some(value) => {
+            debug!("63:The --gitdir value is: {}", value);
+            let repo_path: RepoPath = RepoPath::from(gitdir_value.clone().unwrap().as_str());
+            debug!("main:73:repo_path={:?}", repo_path);
+            // Convert the RepoPath to an OsStr reference
+            let path_os_str = repo_path.as_path().as_os_str();
+
+            // Now set the environment variable
+            env::set_var("GNOSTR_GITDIR", path_os_str);
+        }
+        None => debug!("72:The --gitdir argument was not found or has no value."),
+    }
+
     let subscriber = FmtSubscriber::builder().with_max_level(level).finish();
     tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
     trace!("{:?}", app_cache);
 
-    let env_args: Vec<String> = env::args().collect();
+    //if gnostr_cli_args.gitdir.is_some() {
+    //    // Assuming 'args' and 'gitdir' are correctly defined elsewhere
+    //    let repo_path: RepoPath = gnostr_cli_args.gitdir.clone().expect("");
+    //    debug!("main:73:repo_path={:?}", repo_path);
+    //    // Convert the RepoPath to an OsStr reference
+    //    let path_os_str = repo_path.as_path().as_os_str();
 
-    for arg in &env_args {
-        trace!("arg={:?}", arg);
-    }
-    if !args.hash.is_none() {
+    //    // Now set the environment variable
+    //    env::set_var("GNOSTR_GITDIR", path_os_str);
+
+    //    debug!("main:80:{:?}", gnostr_cli_args.gitdir.clone().expect(""));
+    //    //env::set_var("GNOSTR_GITDIR", args.gitdir.clone().expect(""));
+    //    debug!("82:{}", env::var("GNOSTR_GITDIR").unwrap().to_string());
+    //    //replace gnostr tui --gitdir
+    //    //std::process::exit(0);
+    //}
+    if gnostr_cli_args.workdir.is_some() {}
+    if gnostr_cli_args.directory.is_some() {}
+    if gnostr_cli_args.hash.is_some() {
         //not none
-        if let Some(input_string) = args.hash {
+        if let Some(input_string) = gnostr_cli_args.hash {
             let mut hasher = Sha256::new();
             hasher.update(input_string.as_bytes());
             let result = hasher.finalize();
             //Usage: gnostr --hash <string>
             //Usage: gnostr --debug --hash <string>
-            if env_args.len().clone() >= 3 && env_args.len().clone() <= 4
+            if env_args.len() >= 3 && env_args.len() <= 4
             /*--debug, --trace, --info, etc...*/
             {
                 print!("{:x}", result);
                 std::process::exit(0);
             }
-            args.nsec = format!("{:x}", result).into();
-        } else {
+            gnostr_cli_args.nsec = format!("{:x}", result).into();
         }
-    } else {
     }
 
     // Post event
-    match &args.command {
-        Some(GnostrCommands::Tui(sub_command_args)) => {
-            debug!("sub_command_args:{:?}", sub_command_args);
-            sub_commands::tui::tui(sub_command_args).await
-        }
+    match &gnostr_cli_args.command {
+        ////
+        //Some(GnostrCommands::Tui(sub_command_args)) => {
+        //    debug!("sub_command_args:{:?}", sub_command_args);
+        //    sub_commands::tui::tui(sub_command_args).await
+        //}
+        ////
         Some(GnostrCommands::Chat(sub_command_args)) => {
             debug!("sub_command_args:{:?}", sub_command_args);
-            sub_commands::chat::chat(&args.nsec.unwrap().to_string(), sub_command_args).await
+            sub_commands::chat::chat(
+                &gnostr_cli_args.nsec.unwrap().to_string(),
+                &mut sub_command_args.clone(),
+            )
+            .await
+        }
+        Some(GnostrCommands::Legit(sub_command_args)) => {
+            debug!("sub_command_args:{:?}", sub_command_args);
+            sub_commands::legit::legit(sub_command_args).await
         }
         Some(GnostrCommands::Ngit(sub_command_args)) => {
             debug!("sub_command_args:{:?}", sub_command_args);
@@ -77,9 +140,9 @@ async fn main() -> Result<(), Box<dyn StdError>> {
             debug!("sub_command_args:{:?}", sub_command_args);
             {
                 sub_commands::set_metadata::set_metadata(
-                    args.nsec,
-                    args.relays,
-                    args.difficulty_target,
+                    gnostr_cli_args.nsec,
+                    gnostr_cli_args.relays,
+                    gnostr_cli_args.difficulty_target,
                     sub_command_args,
                 )
             }
@@ -88,9 +151,9 @@ async fn main() -> Result<(), Box<dyn StdError>> {
         Some(GnostrCommands::Note(sub_command_args)) => {
             debug!("sub_command_args:{:?}", sub_command_args);
             sub_commands::note::broadcast_textnote(
-                args.nsec,
-                args.relays,
-                args.difficulty_target,
+                gnostr_cli_args.nsec,
+                gnostr_cli_args.relays,
+                gnostr_cli_args.difficulty_target,
                 sub_command_args,
             )
             .await
@@ -98,9 +161,9 @@ async fn main() -> Result<(), Box<dyn StdError>> {
         Some(GnostrCommands::PublishContactListCsv(sub_command_args)) => {
             debug!("sub_command_args:{:?}", sub_command_args);
             sub_commands::publish_contactlist_csv::publish_contact_list_from_csv_file(
-                args.nsec,
-                args.relays,
-                args.difficulty_target,
+                gnostr_cli_args.nsec,
+                gnostr_cli_args.relays,
+                gnostr_cli_args.difficulty_target,
                 sub_command_args,
             )
             .await
@@ -108,9 +171,9 @@ async fn main() -> Result<(), Box<dyn StdError>> {
         Some(GnostrCommands::DeleteEvent(sub_command_args)) => {
             debug!("sub_command_args:{:?}", sub_command_args);
             sub_commands::delete_event::delete(
-                args.nsec,
-                args.relays,
-                args.difficulty_target,
+                gnostr_cli_args.nsec,
+                gnostr_cli_args.relays,
+                gnostr_cli_args.difficulty_target,
                 sub_command_args,
             )
             .await
@@ -118,9 +181,9 @@ async fn main() -> Result<(), Box<dyn StdError>> {
         Some(GnostrCommands::DeleteProfile(sub_command_args)) => {
             debug!("sub_command_args:{:?}", sub_command_args);
             sub_commands::delete_profile::delete(
-                args.nsec,
-                args.relays,
-                args.difficulty_target,
+                gnostr_cli_args.nsec,
+                gnostr_cli_args.relays,
+                gnostr_cli_args.difficulty_target,
                 sub_command_args,
             )
             .await
@@ -128,16 +191,16 @@ async fn main() -> Result<(), Box<dyn StdError>> {
         Some(GnostrCommands::React(sub_command_args)) => {
             debug!("sub_command_args:{:?}", sub_command_args);
             sub_commands::react::react_to_event(
-                args.nsec,
-                args.relays,
-                args.difficulty_target,
+                gnostr_cli_args.nsec,
+                gnostr_cli_args.relays,
+                gnostr_cli_args.difficulty_target,
                 sub_command_args,
             )
             .await
         }
         Some(GnostrCommands::ListEvents(sub_command_args)) => {
             debug!("sub_command_args:{:?}", sub_command_args);
-            sub_commands::list_events::list_events(args.relays, sub_command_args).await
+            sub_commands::list_events::list_events(gnostr_cli_args.relays, sub_command_args).await
         }
         Some(GnostrCommands::GenerateKeypair(sub_command_args)) => {
             debug!("sub_command_args:{:?}", sub_command_args);
@@ -154,9 +217,9 @@ async fn main() -> Result<(), Box<dyn StdError>> {
         Some(GnostrCommands::CreatePublicChannel(sub_command_args)) => {
             debug!("sub_command_args:{:?}", sub_command_args);
             sub_commands::create_public_channel::create_public_channel(
-                args.nsec,
-                args.relays,
-                args.difficulty_target,
+                gnostr_cli_args.nsec,
+                gnostr_cli_args.relays,
+                gnostr_cli_args.difficulty_target,
                 sub_command_args,
             )
             .await
@@ -164,9 +227,9 @@ async fn main() -> Result<(), Box<dyn StdError>> {
         Some(GnostrCommands::SetChannelMetadata(sub_command_args)) => {
             debug!("sub_command_args:{:?}", sub_command_args);
             sub_commands::set_channel_metadata::set_channel_metadata(
-                args.nsec,
-                args.relays,
-                args.difficulty_target,
+                gnostr_cli_args.nsec,
+                gnostr_cli_args.relays,
+                gnostr_cli_args.difficulty_target,
                 sub_command_args,
             )
             .await
@@ -174,9 +237,9 @@ async fn main() -> Result<(), Box<dyn StdError>> {
         Some(GnostrCommands::SendChannelMessage(sub_command_args)) => {
             debug!("sub_command_args:{:?}", sub_command_args);
             sub_commands::send_channel_message::send_channel_message(
-                args.nsec,
-                args.relays,
-                args.difficulty_target,
+                gnostr_cli_args.nsec,
+                gnostr_cli_args.relays,
+                gnostr_cli_args.difficulty_target,
                 sub_command_args,
             )
             .await
@@ -184,9 +247,9 @@ async fn main() -> Result<(), Box<dyn StdError>> {
         Some(GnostrCommands::HidePublicChannelMessage(sub_command_args)) => {
             debug!("sub_command_args:{:?}", sub_command_args);
             sub_commands::hide_public_channel_message::hide_public_channel_message(
-                args.nsec,
-                args.relays,
-                args.difficulty_target,
+                gnostr_cli_args.nsec,
+                gnostr_cli_args.relays,
+                gnostr_cli_args.difficulty_target,
                 sub_command_args,
             )
             .await
@@ -194,9 +257,9 @@ async fn main() -> Result<(), Box<dyn StdError>> {
         Some(GnostrCommands::MutePublicKey(sub_command_args)) => {
             debug!("sub_command_args:{:?}", sub_command_args);
             sub_commands::mute_publickey::mute_publickey(
-                args.nsec,
-                args.relays,
-                args.difficulty_target,
+                gnostr_cli_args.nsec,
+                gnostr_cli_args.relays,
+                gnostr_cli_args.difficulty_target,
                 sub_command_args,
             )
             .await
@@ -204,8 +267,8 @@ async fn main() -> Result<(), Box<dyn StdError>> {
         Some(GnostrCommands::BroadcastEvents(sub_command_args)) => {
             debug!("sub_command_args:{:?}", sub_command_args);
             sub_commands::broadcast_events::broadcast_events(
-                Some(args.nsec.expect("")),
-                args.relays,
+                Some(gnostr_cli_args.nsec.expect("")),
+                gnostr_cli_args.relays,
                 sub_command_args,
             )
             .await
@@ -213,9 +276,9 @@ async fn main() -> Result<(), Box<dyn StdError>> {
         Some(GnostrCommands::CreateBadge(sub_command_args)) => {
             debug!("sub_command_args:{:?}", sub_command_args);
             sub_commands::create_badge::create_badge(
-                args.nsec,
-                args.relays,
-                args.difficulty_target,
+                gnostr_cli_args.nsec,
+                gnostr_cli_args.relays,
+                gnostr_cli_args.difficulty_target,
                 sub_command_args,
             )
             .await
@@ -223,9 +286,9 @@ async fn main() -> Result<(), Box<dyn StdError>> {
         Some(GnostrCommands::AwardBadge(sub_command_args)) => {
             debug!("sub_command_args:{:?}", sub_command_args);
             sub_commands::award_badge::award_badge(
-                args.nsec,
-                args.relays,
-                args.difficulty_target,
+                gnostr_cli_args.nsec,
+                gnostr_cli_args.relays,
+                gnostr_cli_args.difficulty_target,
                 sub_command_args,
             )
             .await
@@ -233,9 +296,9 @@ async fn main() -> Result<(), Box<dyn StdError>> {
         Some(GnostrCommands::ProfileBadges(sub_command_args)) => {
             debug!("sub_command_args:{:?}", sub_command_args);
             sub_commands::profile_badges::set_profile_badges(
-                args.nsec,
-                args.relays,
-                args.difficulty_target,
+                gnostr_cli_args.nsec,
+                gnostr_cli_args.relays,
+                gnostr_cli_args.difficulty_target,
                 sub_command_args,
             )
             .await
@@ -243,9 +306,9 @@ async fn main() -> Result<(), Box<dyn StdError>> {
         Some(GnostrCommands::CustomEvent(sub_command_args)) => {
             debug!("sub_command_args:{:?}", sub_command_args);
             sub_commands::custom_event::create_custom_event(
-                args.nsec,
-                args.relays,
-                args.difficulty_target,
+                gnostr_cli_args.nsec,
+                gnostr_cli_args.relays,
+                gnostr_cli_args.difficulty_target,
                 sub_command_args,
             )
             .await
@@ -253,17 +316,50 @@ async fn main() -> Result<(), Box<dyn StdError>> {
         Some(GnostrCommands::SetUserStatus(sub_command_args)) => {
             debug!("sub_command_args:{:?}", sub_command_args);
             sub_commands::user_status::set_user_status(
-                args.nsec,
-                args.relays,
-                args.difficulty_target,
+                gnostr_cli_args.nsec,
+                gnostr_cli_args.relays,
+                gnostr_cli_args.difficulty_target,
                 sub_command_args,
             )
             .await
         }
+        Some(GnostrCommands::Tui(sub_command_args)) => {
+            debug!("main:318:sub_command_args:{:?}", sub_command_args.clone());
+            let mut sub_command_args_mut = sub_command_args.clone();
+
+            if let Ok(gitdir_env_value) = env::var("GNOSTR_GITDIR") {
+                // This block is only entered if the env var is found and is valid.
+                debug!(
+                    "333:The GNOSTR_GITDIR environment variable is set to: {}",
+                    gitdir_env_value
+                );
+
+                if let Some(git_dir_value) = gitdir_value {
+                    // You have the value!
+                    debug!("339:OVERRIDE!! The git directory is: {:?}", git_dir_value);
+                    let gitdir_string = format!("{}", gitdir_env_value);
+                    debug!(
+                        "342:OVERRIDE!! The git directory is: {:?}",
+                        gitdir_string.clone()
+                    );
+                    sub_command_args_mut.gitdir = Some(RepoPath::from(gitdir_string.as_str()));
+                    sub_commands::tui::tui(sub_command_args_mut.clone()).await
+                } else {
+                    Ok({
+                        debug!("No git directory specified.");
+                    })
+                }
+            } else {
+                // This block is entered if the env var is not found.
+                debug!("354:The GNOSTR_GITDIR environment variable is not set.");
+                sub_commands::tui::tui(sub_command_args.clone()).await
+            }
+        }
         None => {
             {
+                //TODO handle more scenarios
                 let gnostr_subcommands = gnostr::gnostr::GnostrSubCommands::default();
-                let _ = sub_commands::tui::tui(&gnostr_subcommands).await;
+                let _ = sub_commands::tui::tui(gnostr_subcommands).await;
             };
             Ok(())
         }

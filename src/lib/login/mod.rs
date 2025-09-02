@@ -587,7 +587,10 @@ fn extract_user_metadata(
     })
 }
 
-fn extract_user_relays(public_key: &nostr_0_34_1::PublicKey, events: &[nostr_0_34_1::Event]) -> UserRelays {
+fn extract_user_relays(
+    public_key: &nostr_0_34_1::PublicKey,
+    events: &[nostr_0_34_1::Event],
+) -> UserRelays {
     let event = events
         .iter()
         .filter(|e| e.kind.eq(&nostr_0_34_1::Kind::RelayList) && e.pubkey.eq(public_key))
@@ -603,10 +606,9 @@ fn extract_user_relays(public_key: &nostr_0_34_1::PublicKey, events: &[nostr_0_3
                 .tags
                 .iter()
                 .filter(|t| {
-                    t.kind()
-                        .eq(&nostr_0_34_1::TagKind::SingleLetter(SingleLetterTag::lowercase(
-                            Alphabet::R,
-                        )))
+                    t.kind().eq(&nostr_0_34_1::TagKind::SingleLetter(
+                        SingleLetterTag::lowercase(Alphabet::R),
+                    ))
                 })
                 .map(|t| UserRelayRef {
                     //url: (t.as_vec().len() == 2 || t.as_vec()[1].clone()).to_string(),
@@ -684,11 +686,7 @@ pub async fn get_logged_in_user(git_repo_path: &Path) -> Result<Option<PublicKey
     let git_repo = Repo::from_path(&git_repo_path.to_path_buf())?;
     Ok(
         if let Some(npub) = git_repo.get_git_config_item("nostr.npub", None)? {
-            if let Ok(pubic_key) = PublicKey::parse(npub) {
-                Some(pubic_key)
-            } else {
-                None
-            }
+            PublicKey::parse(npub).ok()
         } else {
             None
         },
@@ -723,11 +721,7 @@ pub async fn get_user_ref_from_cache(
 pub fn get_curent_user(git_repo: &Repo) -> Result<Option<PublicKey>> {
     Ok(
         if let Some(npub) = git_repo.get_git_config_item("nostr.npub", None)? {
-            if let Ok(public_key) = PublicKey::parse(npub) {
-                Some(public_key)
-            } else {
-                None
-            }
+            PublicKey::parse(npub).ok()
         } else {
             None
         },

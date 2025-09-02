@@ -1,9 +1,12 @@
 use std::{
     cell::{Cell, RefCell},
+    env,
     path::{Path, PathBuf},
     rc::Rc,
 };
 
+use crate::weeble::weeble_sync;
+use crate::wobble::wobble_sync;
 use anyhow::{bail, Result};
 use crossbeam_channel::Sender;
 use crossterm::event::{Event, KeyEvent};
@@ -379,6 +382,10 @@ impl App {
     ///
     pub fn update_async(&mut self, ev: AsyncNotification) -> Result<()> {
         log::trace!("update_async: {:?}", ev);
+
+        env::set_var("WEEBLE", weeble_sync().unwrap().to_string());
+        env::set_var("WOBBLE", wobble_sync().unwrap().to_string());
+        log::debug!("WEEBLE: {:?}", env::var("WEEBLE"));
 
         if let AsyncNotification::Git(ev) = ev {
             //chat_tab.update_git

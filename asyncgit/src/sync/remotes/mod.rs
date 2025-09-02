@@ -51,7 +51,7 @@ pub fn get_default_remote(repo_path: &RepoPath) -> Result<String> {
 /// Gets the current branch the user is on.
 /// Returns none if they are not on a branch
 /// and Err if there was a problem finding the branch
-fn get_current_branch(repo: &Repository) -> Result<Option<git2::Branch>> {
+fn get_current_branch(repo: &Repository) -> Result<Option<git2::Branch<'_>>> {
     for b in repo.branches(None)? {
         let branch = b?.0;
         if branch.is_head() {
@@ -64,7 +64,7 @@ fn get_current_branch(repo: &Repository) -> Result<Option<git2::Branch>> {
 /// Tries to find the default repo to fetch from based on
 /// configuration.
 ///
-/// > branch.<name>.remote
+/// > branch.`<name>`.remote
 /// >
 /// > When on branch `<name>`, it tells `git fetch` and `git push`
 /// > which remote to fetch from or
@@ -111,7 +111,7 @@ pub(crate) fn get_default_remote_for_fetch_in_repo(repo: &Repository) -> Result<
 /// > `branch.<name>.remote` for all branches, and is
 /// > overridden by `branch.<name>.pushRemote` for specific branches.
 ///
-/// > branch.<name>.remote
+/// > branch.`<name>`.remote
 /// >
 /// > When on branch `<name>`, it tells `git fetch` and `git push`
 /// > which remote to fetch from or

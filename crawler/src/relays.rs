@@ -36,8 +36,8 @@ impl Relays {
         self.r.len()
     }
 
-    pub fn de_dup(&self, list: &Vec<Url>) -> Vec<Url> {
-        let list: Vec<Url> = list.clone().into_iter().collect();
+    pub fn de_dup(&self, list: &[Url]) -> Vec<Url> {
+        let list: Vec<Url> = list.to_vec();
         list
     }
 
@@ -53,9 +53,13 @@ impl Relays {
         res
     }
 
+    pub fn get_all(&self) -> Vec<String> {
+        self.r.iter().map(|u| u.to_string()).collect()
+    }
+
     pub fn print(&self) {
         for u in &self.r {
-            let mut relay = format!("{}", u.to_string());
+            let mut relay = format!("{}", u);
             if relay.ends_with('/') {
                 relay.pop();
                 println!("{}", relay);

@@ -735,7 +735,7 @@ fn create_rejected_refspecs_and_remotes_refspecs(
                                     ).as_str(),
                                 )?;
                             }
-                        };
+                        }
                     } else {
                         // remote_value oid is not present locally
                         // TODO can we download the remote reference?
@@ -1011,7 +1011,9 @@ async fn create_merge_status(
                         "{merge_commit}"
                     ))),
                     Tag::custom(
-                        nostr_0_34_1::TagKind::Custom(std::borrow::Cow::Borrowed("merge-commit-id")),
+                        nostr_0_34_1::TagKind::Custom(std::borrow::Cow::Borrowed(
+                            "merge-commit-id",
+                        )),
                         vec![format!("{merge_commit}")],
                     ),
                 ],

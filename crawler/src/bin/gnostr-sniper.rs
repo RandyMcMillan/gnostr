@@ -29,7 +29,7 @@ fn load_file(filename: impl AsRef<Path>) -> io::Result<Vec<String>> {
 async fn main() -> Result<(), reqwest::Error> {
     let args: Vec<String> = env::args().collect();
     let mut nip_lower: i32 = 1;
-    let _nip_upper: i32;
+    //let mut nip_upper: i32 = 1;
     if args.len() > 1 {
         let first_argument = &args[1];
 
@@ -46,8 +46,8 @@ async fn main() -> Result<(), reqwest::Error> {
         let second_argument = &args[2];
 
         match second_argument.parse::<i32>() {
-            Ok(number) => {
-                _nip_upper = number;
+            Ok(_number) => {
+                //nip_upper = number;
             }
             Err(e) => {
                 eprintln!("Error converting first argument to i32: {}", e);
@@ -63,7 +63,7 @@ async fn main() -> Result<(), reqwest::Error> {
             let client = &client;
             async move {
                 let resp = client
-                    .get(&url.replace("wss://", "https://"))
+                    .get(url.replace("wss://", "https://"))
                     .header(ACCEPT, "application/nostr+json")
                     .send()
                     .await?;
@@ -109,11 +109,9 @@ async fn main() -> Result<(), reqwest::Error> {
                     && !url.contains("nostr.datamagik.com")
                     && !url.contains("nostrid")
                     && !url.contains("damus.io")
-                    && !url.contains("nos.lol")
                     && !url.contains(".local")
                 {
                     //we want a view of the network
-                    ()
                 }
                 r
             }
