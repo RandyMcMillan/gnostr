@@ -537,24 +537,28 @@ fn list_from_remote_url(
     let git_config = git_repo.git_repo.config()?;
 
     let mut git_server_remote = git_repo.git_repo.remote_anonymous(git_server_remote_url)?;
-    // authentication may be required
-    let auth = {
-        if dont_authenticate {
-            GitAuthenticator::default()
-        } else if git_server_remote_url.contains("git@") {
-            if let Some(ssh_key_file) = ssh_key_file {
-                GitAuthenticator::default()
-                    .add_ssh_key_from_file(PathBuf::from_str(ssh_key_file)?, None)
-            } else {
-                GitAuthenticator::default()
-            }
-        } else {
-            GitAuthenticator::default()
-        }
-    };
+    let ssh_key_file = ssh_key_file.map(PathBuf::from_str).transpose()?;
     let mut remote_callbacks = git2::RemoteCallbacks::new();
     if !dont_authenticate {
-        remote_callbacks.credentials(auth.credentials(&git_config));
+        remote_callbacks.credentials({
+            let git_config = git_config;
+            move |url, username_from_url, allowed_types| {
+                if allowed_types.contains(CredentialType::USER_PASS_PLAINTEXT) {
+                    Cred::credential_helper(&git_config, url, username_from_url)
+                } else if allowed_types.contains(CredentialType::SSH_KEY) {
+                    let username = username_from_url.unwrap_or("git");
+                    if let Some(ref ssh_key_file) = ssh_key_file {
+                        Cred::ssh_key(username, None, ssh_key_file.as_path(), None)
+                    } else {
+                        Cred::ssh_key_from_agent(username)
+                    }
+                } else if allowed_types.contains(CredentialType::USERNAME) {
+                    Cred::username(username_from_url.unwrap_or("git"))
+                } else {
+                    Cred::default()
+                }
+            }
+        });
     }
     git_server_remote.connect_auth(git2::Direction::Fetch, Some(remote_callbacks), None)?;
     let mut state = HashMap::new();
