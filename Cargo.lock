@@ -573,7 +573,7 @@ dependencies = [
  "objc2-foundation",
  "parking_lot 0.12.5",
  "percent-encoding",
- "windows-sys 0.59.0",
+ "windows-sys 0.60.2",
  "x11rb",
 ]
 
@@ -1114,8 +1114,8 @@ dependencies = [
  "easy-cast",
  "env_logger 0.11.10",
  "fuzzy-matcher",
- "git2",
- "git2-hooks 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "git2 0.21.0",
+ "git2-hooks",
  "gix 0.78.0",
  "invalidstring",
  "log",
@@ -1241,7 +1241,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4888bf91cce63baf1670512d0f12b5d636179a4abbad6504812ac8ab124b3efe"
 dependencies = [
  "dirs 6.0.0",
- "git2",
+ "git2 0.20.4",
  "terminal-prompt",
 ]
 
@@ -3826,7 +3826,7 @@ dependencies = [
  "libc",
  "option-ext",
  "redox_users 0.5.2",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -4307,7 +4307,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -5134,29 +5134,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "git2"
+version = "0.21.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ddddbf932745a6be37109b6112d3ee09696106f848449069d3a57bba937ab82e"
+dependencies = [
+ "bitflags 2.11.1",
+ "libc",
+ "libgit2-sys",
+ "log",
+ "url",
+]
+
+[[package]]
 name = "git2-hooks"
 version = "0.7.0"
 dependencies = [
- "git2",
+ "git2 0.21.0",
  "gix-path 0.11.2",
  "gnostr-git2-testing",
  "log",
  "pretty_assertions",
  "shellexpand",
  "tempfile",
- "thiserror 2.0.18",
-]
-
-[[package]]
-name = "git2-hooks"
-version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9e21a2c5eee3085f2b622805d4f4c878d9519bf70fa76bed0923b82a25f24199"
-dependencies = [
- "git2",
- "gix-path 0.11.2",
- "log",
- "shellexpand",
  "thiserror 2.0.18",
 ]
 
@@ -6729,7 +6729,7 @@ dependencies = [
  "gag",
  "getopts",
  "gh-emoji",
- "git2",
+ "git2 0.20.4",
  "gitui",
  "gix 0.66.0",
  "globset",
@@ -6956,7 +6956,7 @@ dependencies = [
  "futures-util",
  "fuzzy-matcher",
  "git-version",
- "git2",
+ "git2 0.20.4",
  "gix 0.66.0",
  "gnostr-git2-hooks",
  "gnostr-grammar",
@@ -7079,7 +7079,7 @@ dependencies = [
  "futures",
  "futures-util",
  "git-version",
- "git2",
+ "git2 0.20.4",
  "gnostr",
  "gnostr-asyncgit",
  "gnostr-blossom-tui",
@@ -7162,7 +7162,7 @@ dependencies = [
  "clap 4.6.1",
  "crossterm 0.29.0",
  "futures",
- "git2",
+ "git2 0.20.4",
  "gnostr-asyncgit",
  "gnostr-crawler",
  "gnostr-p2p",
@@ -7202,7 +7202,7 @@ dependencies = [
  "dns-lookup",
  "env_logger 0.11.10",
  "futures",
- "git2",
+ "git2 0.20.4",
  "gnostr-asyncgit",
  "gnostr-filetreelist",
  "indicatif 0.14.0",
@@ -7274,7 +7274,7 @@ dependencies = [
 name = "gnostr-git2-hooks"
 version = "949455.1873.486970"
 dependencies = [
- "git2-hooks 0.7.0",
+ "git2-hooks",
 ]
 
 [[package]]
@@ -7282,7 +7282,7 @@ name = "gnostr-git2-testing"
 version = "949455.1873.486970"
 dependencies = [
  "env_logger 0.11.10",
- "git2",
+ "git2 0.20.4",
  "log",
  "tempfile",
 ]
@@ -7349,7 +7349,7 @@ dependencies = [
  "chrono",
  "clap 4.6.1",
  "env_logger 0.10.2",
- "git2",
+ "git2 0.20.4",
  "gnostr-asyncgit",
  "log",
  "rust-crypto",
@@ -7489,7 +7489,7 @@ dependencies = [
  "flate2",
  "futures",
  "futures-util",
- "git2",
+ "git2 0.20.4",
  "gix 0.66.0",
  "gnostr-relay",
  "handlebars",
@@ -8411,7 +8411,7 @@ dependencies = [
  "libc",
  "percent-encoding",
  "pin-project-lite",
- "socket2 0.5.10",
+ "socket2 0.6.3",
  "system-configuration",
  "tokio",
  "tower-service",
@@ -8431,7 +8431,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.57.0",
+ "windows-core 0.62.2",
 ]
 
 [[package]]
@@ -9154,7 +9154,7 @@ checksum = "3640c1c38b8e4e43584d8df18be5fc6b0aa314ce6ebf51b53313d4306cca8e46"
 dependencies = [
  "hermit-abi 0.5.2",
  "libc",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -9250,7 +9250,7 @@ dependencies = [
  "portable-atomic",
  "portable-atomic-util",
  "serde_core",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -9538,9 +9538,9 @@ dependencies = [
 
 [[package]]
 name = "libgit2-sys"
-version = "0.18.3+1.9.2"
+version = "0.18.4+1.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c9b3acc4b91781bb0b3386669d325163746af5f6e4f73e6d2d630e09a35f3487"
+checksum = "9b26f66f35e1871b22efcf7191564123d2a446ca0538cde63c23adfefa9b15b7"
 dependencies = [
  "cc",
  "libc",
@@ -11619,7 +11619,7 @@ dependencies = [
  "pin-project-lite",
  "rustc-hash 2.1.2",
  "rustls 0.23.39",
- "socket2 0.5.10",
+ "socket2 0.6.3",
  "thiserror 2.0.18",
  "tokio",
  "tokio-stream",
@@ -11662,7 +11662,7 @@ checksum = "bb9be4fedd6b98f3ba82ccd3506f4d0219fb723c3f97c67e12fe1494aa020e44"
 dependencies = [
  "cfg_aliases",
  "libc",
- "socket2 0.5.10",
+ "socket2 0.6.3",
  "tracing",
  "windows-sys 0.61.2",
 ]
@@ -12178,7 +12178,7 @@ version = "0.50.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7957b9740744892f114936ab4a57b3f487491bbeafaf8083688b16841a4240e5"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -13928,7 +13928,7 @@ dependencies = [
  "quinn-udp",
  "rustc-hash 2.1.2",
  "rustls 0.23.39",
- "socket2 0.5.10",
+ "socket2 0.6.3",
  "thiserror 2.0.18",
  "tokio",
  "tracing",
@@ -13966,9 +13966,9 @@ dependencies = [
  "cfg_aliases",
  "libc",
  "once_cell",
- "socket2 0.5.10",
+ "socket2 0.6.3",
  "tracing",
- "windows-sys 0.59.0",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -15147,7 +15147,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys 0.12.1",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -15220,7 +15220,7 @@ dependencies = [
  "security-framework",
  "security-framework-sys",
  "webpki-root-certs",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -15468,7 +15468,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5b55fb86dfd3a2f5f76ea78310a88f96c4ea21a3031f8d212443d56123fd0521"
 dependencies = [
  "libc",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -16933,7 +16933,7 @@ dependencies = [
  "getrandom 0.4.2",
  "once_cell",
  "rustix 1.1.4",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -17020,7 +17020,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "230a1b821ccbd75b185820a1f1ff7b14d21da1e442e22c0863ea5f08771a8874"
 dependencies = [
  "rustix 1.1.4",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -17056,7 +17056,7 @@ dependencies = [
  "dialoguer",
  "directories",
  "futures",
- "git2",
+ "git2 0.20.4",
  "nostr 0.44.2",
  "nostr-database 0.44.0",
  "nostr-lmdb",
@@ -18992,7 +18992,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.48.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
