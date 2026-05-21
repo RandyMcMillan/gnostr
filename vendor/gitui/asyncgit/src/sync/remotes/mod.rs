@@ -88,8 +88,12 @@ pub fn get_remotes(repo_path: &RepoPath) -> Result<Vec<String>> {
 
 	let repo = repo(repo_path)?;
 	let remotes = repo.remotes()?;
-	let remotes: Vec<String> =
-		remotes.iter().flatten().map(String::from).collect();
+	let mut remotes = Vec::new();
+	for remote in remotes.iter() {
+		if let Some(remote) = remote? {
+			remotes.push(remote.to_owned());
+		}
+	}
 
 	Ok(remotes)
 }
@@ -241,25 +245,26 @@ pub(crate) fn get_default_remote_in_repo(
 	let remotes = repo.remotes()?;
 
 	// if `origin` exists return that
-	let found_origin = remotes
-		.iter()
-		.any(|r| r.is_some_and(|r| r == DEFAULT_REMOTE_NAME));
+	let mut found_origin = false;
+	for remote in remotes.iter() {
+		if let Some(remote) = remote? {
+			if remote == DEFAULT_REMOTE_NAME {
+				found_origin = true;
+				break;
+			}
+		}
+	}
 	if found_origin {
 		return Ok(DEFAULT_REMOTE_NAME.into());
 	}
 
 	//if only one remote exists pick that
 	if remotes.len() == 1 {
-		let first_remote = remotes
-			.iter()
-			.next()
-			.flatten()
-			.map(String::from)
-			.ok_or_else(|| {
-				Error::Generic("no remote found".into())
-			})?;
+		let first_remote = remotes.get(0)?.ok_or_else(|| {
+			Error::Generic("no remote found".into())
+		})?;
 
-		return Ok(first_remote);
+		return Ok(first_remote.to_owned());
 	}
 
 	//inconclusive
@@ -306,9 +311,12 @@ pub fn fetch_all(
 	let remotes = repo
 		.remotes()?
 		.iter()
-		.flatten()
-		.map(String::from)
-		.collect::<Vec<_>>();
+		.try_fold(Vec::new(), |mut acc, remote| {
+			if let Some(remote) = remote? {
+				acc.push(remote.to_owned());
+			}
+			Ok::<_, git2::Error>(acc)
+		})?;
 	let remotes_count = remotes.len();
 
 	for (idx, remote) in remotes.into_iter().enumerate() {
