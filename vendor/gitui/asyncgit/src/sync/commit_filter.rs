@@ -197,10 +197,11 @@ pub fn filter_commit_by_search(
 				let author = get_author_of_commit(&commit, &mailmap);
 				let author_haystacks =
 					[author.email().ok(), author.name().ok()];
-				author_haystacks
+				let author_match = author_haystacks
 					.into_iter()
 					.flatten()
-					.any(|haystack| filter.match_text(haystack))
+					.any(|haystack| filter.match_text(haystack));
+				author_match
 			} else {
 				false
 			};
