@@ -87,10 +87,10 @@ pub fn get_remotes(repo_path: &RepoPath) -> Result<Vec<String>> {
 	scope_time!("get_remotes");
 
 	let repo = repo(repo_path)?;
-	let remotes = repo.remotes()?;
+	let remote_names = repo.remotes()?;
 	let mut remotes = Vec::new();
-	for remote in remotes.iter() {
-		if let Some(remote) = remote? {
+	for idx in 0..remote_names.len() {
+		if let Some(remote) = remote_names.get(idx)? {
 			remotes.push(remote.to_owned());
 		}
 	}
@@ -105,11 +105,7 @@ pub fn get_remote_url(
 ) -> Result<Option<String>> {
 	let repo = repo(repo_path)?;
 	let remote = repo.find_remote(remote_name)?.clone();
-	let url = remote.url();
-	if let Some(u) = url {
-		return Ok(Some(u.to_string()));
-	}
-	Ok(None)
+	Ok(Some(remote.url()?.to_owned()))
 }
 
 /// tries to find origin or the only remote that is defined if any

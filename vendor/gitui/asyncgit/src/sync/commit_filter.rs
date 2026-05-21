@@ -195,11 +195,8 @@ pub fn filter_commit_by_search(
 				.contains(SearchFields::AUTHORS)
 			{
 				let author = get_author_of_commit(&commit, &mailmap);
-				[
-					author.email().ok(),
-					author.name().ok(),
-				]
-				.iter()
+				[author.email().ok(), author.name().ok()]
+				.into_iter()
 				.flatten()
 				.any(|haystack| filter.match_text(haystack))
 			} else {

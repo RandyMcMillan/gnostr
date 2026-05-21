@@ -67,11 +67,7 @@ fn remote_tag_refs(
 	let remote_heads = conn.list()?;
 	let remote_tags = remote_heads
 		.iter()
-		.filter_map(|head| {
-			head.name()
-				.ok()
-				.map(|name| name.to_owned())
-		})
+		.map(|head| head.name().to_owned())
 		.filter(|name| name.starts_with("refs/tags/") && !name.ends_with("^{}"))
 		.collect::<Vec<_>>();
 

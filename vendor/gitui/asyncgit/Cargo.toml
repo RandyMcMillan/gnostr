@@ -55,6 +55,7 @@ version = "0.3"
 
 [dependencies.git2]
 version = "0.21"
+features = ["cred"]
 
 [dependencies.git2-hooks]
 path = "../git2-hooks"
