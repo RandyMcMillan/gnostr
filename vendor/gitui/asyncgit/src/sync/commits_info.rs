@@ -20,7 +20,7 @@ pub struct CommitId(Oid);
 
 impl Default for CommitId {
 	fn default() -> Self {
-		Self(Oid::zero())
+		Self(Oid::ZERO_SHA1)
 	}
 }
 
