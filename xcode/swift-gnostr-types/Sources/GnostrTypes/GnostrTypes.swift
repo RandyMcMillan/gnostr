@@ -46,6 +46,16 @@ public struct Id: Codable, Hashable, Sendable, CustomStringConvertible {
     }
 
     public var description: String { self.hex }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self.hex = try container.decode(String.self).lowercased()
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(self.hex)
+    }
 }
 
 public struct PublicKey: Codable, Hashable, Sendable, CustomStringConvertible {
@@ -56,6 +66,16 @@ public struct PublicKey: Codable, Hashable, Sendable, CustomStringConvertible {
     }
 
     public var description: String { self.hex }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self.hex = try container.decode(String.self).lowercased()
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(self.hex)
+    }
 }
 
 public struct Signature: Codable, Hashable, Sendable, CustomStringConvertible {
@@ -66,6 +86,16 @@ public struct Signature: Codable, Hashable, Sendable, CustomStringConvertible {
     }
 
     public var description: String { self.hex }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self.hex = try container.decode(String.self).lowercased()
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(self.hex)
+    }
 }
 
 public struct Unixtime: Codable, Hashable, Sendable, CustomStringConvertible {
@@ -76,6 +106,16 @@ public struct Unixtime: Codable, Hashable, Sendable, CustomStringConvertible {
     }
 
     public var description: String { String(self.value) }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self.value = try container.decode(Int64.self)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(self.value)
+    }
 }
 
 public struct Tag: Codable, Hashable, Sendable {
@@ -106,6 +146,22 @@ public struct Tag: Codable, Hashable, Sendable {
 
     public func tagName() -> String { self.fields.first ?? "" }
     public func value() -> String { self.fields.dropFirst().first ?? "" }
+
+    public init(from decoder: any Decoder) throws {
+        var container = try decoder.unkeyedContainer()
+        var fields: [String] = []
+        while !container.isAtEnd {
+            fields.append(try container.decode(String.self))
+        }
+        self.fields = fields
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.unkeyedContainer()
+        for field in self.fields {
+            try container.encode(field)
+        }
+    }
 }
 
 public struct PreEvent: Codable, Hashable, Sendable {
@@ -121,6 +177,14 @@ public struct PreEvent: Codable, Hashable, Sendable {
         self.kind = kind
         self.tags = tags
         self.content = content
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case pubkey
+        case createdAt = "created_at"
+        case kind
+        case tags
+        case content
     }
 }
 
@@ -141,6 +205,16 @@ public struct Event: Codable, Hashable, Sendable {
         self.sig = sig
         self.content = content
         self.tags = tags
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case pubkey
+        case createdAt = "created_at"
+        case kind
+        case sig
+        case content
+        case tags
     }
 }
 
@@ -230,6 +304,21 @@ public struct RepoRef: Codable, Hashable, Sendable {
         self.maintainers = maintainers
         self.trustedMaintainer = trustedMaintainer
         self.maintainersWithoutAnnouncement = maintainersWithoutAnnouncement
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case name
+        case description
+        case identifier
+        case rootCommit = "root_commit"
+        case gitServer = "git_server"
+        case web
+        case relays
+        case blossoms
+        case hashtags
+        case maintainers
+        case trustedMaintainer = "trusted_maintainer"
+        case maintainersWithoutAnnouncement = "maintainers_without_announcement"
     }
 }
 

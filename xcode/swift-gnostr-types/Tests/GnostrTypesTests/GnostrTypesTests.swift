@@ -33,6 +33,25 @@ import Testing
     #expect(Tag.pubkey(key, relay: "wss://example.com", marker: "reply").fields == ["p", "abcd", "wss://example.com", "reply"])
 }
 
+@Test func rustJsonShapesMatch() throws {
+    let event = Event(
+        id: Id(hex: "deadbeef"),
+        pubkey: PublicKey(hex: "cafebabe"),
+        createdAt: Unixtime(1234),
+        kind: .patches,
+        sig: Signature(hex: "facefeed"),
+        content: "hello",
+        tags: [Tag.event(Id(hex: "0123"), marker: "root")]
+    )
+
+    let data = try JSONEncoder().encode(event)
+    let json = String(decoding: data, as: UTF8.self)
+    #expect(json.contains(#""created_at":1234"#))
+    #expect(json.contains(#""tags":[["e","0123","root"]]"#))
+    #expect(json.contains(#""id":"deadbeef""#))
+    #expect(json.contains(#""sig":"facefeed""#))
+}
+
 @Test func leadingZeroBitsCountMatchesExamples() {
     #expect(getLeadingZeroBits([0x00, 0x00, 0x10]) == 19)
     #expect(getLeadingZeroBits([0xff]) == 0)
