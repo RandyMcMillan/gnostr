@@ -17,6 +17,7 @@ use std::collections::{HashMap, HashSet};
 use std::future;
 use std::fs as sync_fs;
 use std::net::SocketAddr;
+use std::sync::mpsc;
 use std::path::{Component, Path, PathBuf};
 use std::process::{Command, Stdio};
 use tokio::fs;
@@ -1628,6 +1629,17 @@ pub async fn run_api_server_with_shutdown<F>(
 where
     F: std::future::Future<Output = ()> + Send + 'static,
 {
+    run_api_server_with_shutdown_and_ready(port, shutdown, None).await
+}
+
+pub async fn run_api_server_with_shutdown_and_ready<F>(
+    port: u16,
+    shutdown: F,
+    ready: Option<mpsc::Sender<Result<(), String>>>,
+) -> Result<(), Box<dyn std::error::Error>>
+where
+    F: std::future::Future<Output = ()> + Send + 'static,
+{
     debug!("run_api_server: Starting API server on port {}", port);
 
     let client = reqwest::Client::new();
@@ -1682,7 +1694,18 @@ where
 
     let addr = SocketAddr::from(([127, 0, 0, 1], port));
     info!("run_api_server: listening on {}", addr);
-    let listener = tokio::net::TcpListener::bind(&addr).await?;
+    let listener = match tokio::net::TcpListener::bind(&addr).await {
+        Ok(listener) => listener,
+        Err(error) => {
+            if let Some(ready) = ready {
+                let _ = ready.send(Err(error.to_string()));
+            }
+            return Err(Box::new(error));
+        }
+    };
+    if let Some(ready) = ready {
+        let _ = ready.send(Ok(()));
+    }
     axum::serve(listener, app.into_make_service())
         .with_graceful_shutdown(shutdown)
         .await?;
