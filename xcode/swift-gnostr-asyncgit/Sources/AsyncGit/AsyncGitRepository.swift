@@ -46,7 +46,7 @@ public struct AsyncGitRepository: Sendable {
         note: GitNote,
         privateKeyHex: String,
         powTargetBits: UInt8 = 0
-    ) throws -> Data {
+    ) throws -> String {
         try RustAsyncGitBridge.shared.generateGitNoteEvent(
             note: note,
             privateKeyHex: privateKeyHex,

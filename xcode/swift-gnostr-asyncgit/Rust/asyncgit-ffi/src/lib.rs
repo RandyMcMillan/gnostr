@@ -128,7 +128,10 @@ pub unsafe extern "C" fn asyncgit_generate_git_note_event_json(
     };
 
     match event {
-        Ok(event) => encode(&Envelope::ok(event)),
+        Ok(event) => match serde_json::to_string(&event) {
+            Ok(event_json) => encode(&Envelope::ok(event_json)),
+            Err(error) => encode(&Envelope::<String>::err(error.to_string())),
+        },
         Err(error) => encode(&Envelope::<String>::err(error.to_string())),
     }
 }

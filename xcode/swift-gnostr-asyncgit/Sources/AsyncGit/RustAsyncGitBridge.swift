@@ -62,7 +62,7 @@ final class RustAsyncGitBridge {
         self.call(self.gitNoteEventIdFn, input: commitID)
     }
 
-    func generateGitNoteEvent(note: GitNote, privateKeyHex: String, powTargetBits: UInt8) throws -> Data {
+    func generateGitNoteEvent(note: GitNote, privateKeyHex: String, powTargetBits: UInt8) throws -> String {
         let encoder = JSONEncoder()
         encoder.keyEncodingStrategy = .convertToSnakeCase
         let noteData = try encoder.encode(note)
@@ -70,7 +70,7 @@ final class RustAsyncGitBridge {
             throw CocoaError(.coderInvalidValue)
         }
 
-        guard let value: RustEnvelope<Data> = self.call(
+        guard let value: RustEnvelope<String> = self.call(
             self.generateGitNoteEventFn,
             input: noteJSON,
             extraInput: privateKeyHex,
@@ -106,11 +106,6 @@ final class RustAsyncGitBridge {
                 guard let envelope, envelope.ok, let value = envelope.data else { return nil }
                 return value as? T
             }
-            if T.self == Data.self {
-                let envelope = try? decoder.decode(RustEnvelope<Data>.self, from: data)
-                guard let envelope, envelope.ok, let value = envelope.data else { return nil }
-                return value as? T
-            }
             return nil
         }
         return result
@@ -136,8 +131,8 @@ final class RustAsyncGitBridge {
                 let json = String(cString: rawResult)
                 guard let data = json.data(using: .utf8) else { return nil }
                 let decoder = JSONDecoder()
-                if T.self == Data.self {
-                    let envelope = try? decoder.decode(RustEnvelope<Data>.self, from: data)
+                if T.self == String.self {
+                    let envelope = try? decoder.decode(RustEnvelope<String>.self, from: data)
                     guard let envelope, envelope.ok, let value = envelope.data else { return nil }
                     return value as? T
                 }
