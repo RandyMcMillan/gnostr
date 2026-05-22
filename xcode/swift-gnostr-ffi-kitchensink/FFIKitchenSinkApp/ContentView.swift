@@ -76,10 +76,83 @@ final class EmbeddedCrawlerService: @unchecked Sendable {
     }
 }
 
+final class EmbeddedRelayService: @unchecked Sendable {
+    static let shared = EmbeddedRelayService()
+
+    private let lock = NSLock()
+    private var running = false
+    private var pid: UInt32?
+    private var nextPID: UInt32 = 32_000
+
+    func status() -> RelayProcessState {
+        lock.lock()
+        defer { lock.unlock() }
+
+        if running {
+            return RelayProcessState(
+                running: true,
+                pid: pid,
+                message: "Embedded relay service running (pid \(pid.map(String.init) ?? "unknown"))"
+            )
+        }
+
+        return RelayProcessState(running: false, message: "Embedded relay service stopped")
+    }
+
+    func start() -> RelayProcessState {
+        lock.lock()
+        defer { lock.unlock() }
+
+        if running {
+            return RelayProcessState(
+                running: true,
+                pid: pid,
+                message: "Embedded relay service already running (pid \(pid.map(String.init) ?? "unknown"))"
+            )
+        }
+
+        nextPID &+= 1
+        pid = nextPID
+        running = true
+        return RelayProcessState(
+            running: true,
+            pid: pid,
+            message: "Embedded relay service started (pid \(pid.map(String.init) ?? "unknown"))"
+        )
+    }
+
+    func stop() -> RelayProcessState {
+        lock.lock()
+        defer { lock.unlock() }
+
+        running = false
+        let stoppedPID = pid
+        pid = nil
+        return RelayProcessState(
+            running: false,
+            pid: stoppedPID,
+            message: "Embedded relay service stopped"
+        )
+    }
+
+    func discoveryEntries() -> [RelayDiscoveryEntry] {
+        [
+            RelayDiscoveryEntry(
+                url: "http://127.0.0.1:3030",
+                description: "In-app relay backend",
+                name: "Embedded Relay",
+                software: "gnostr-ffi-kitchensink",
+                version: "embedded",
+                supportedNips: [1, 2, 9, 11, 14, 15, 16, 20, 22, 33, 40, 42, 46, 50, 59, 65, 78, 98, 100, 111, 112, 113, 114, 118, 119, 125, 126, 128, 131, 168, 176, 200, 201, 202, 205, 210, 222, 231, 242, 244, 246, 280, 284, 295, 302, 303, 315, 319, 320, 321, 333, 334, 345, 349, 363, 373, 383, 390, 391, 399, 402, 404, 408, 432, 434, 436, 440, 442, 444, 450, 454, 456, 457, 458, 459, 460, 461, 462, 463, 500, 585, 7000, 7001, 7100, 8000, 9000, 9734, 9735, 10002, 10166, 13194, 13235, 15015, 17375, 17550, 22242, 23194, 24133, 27235, 30023, 30024, 30078, 30079, 30361, 30362, 31890, 31922, 31923, 31924, 31925, 31926, 31927, 31928, 31989, 31990, 33333, 34550, 37375, 38383]
+            )
+        ]
+    }
+}
+
 final class EmbeddedCrawlerURLProtocol: URLProtocol {
     override class func canInit(with request: URLRequest) -> Bool {
         guard let url = request.url else { return false }
-        guard let host = url.host?.lowercased(), host == "127.0.0.1" || host == "localhost" else {
+        guard let host = url.host?.lowercased(), Self.embeddedHosts.contains(host) else {
             return false
         }
         return true
@@ -114,6 +187,17 @@ final class EmbeddedCrawlerURLProtocol: URLProtocol {
     override func stopLoading() {}
 
     private static func handle(url: URL, method: String) -> (Int, [String: String], Data) {
+        switch hostKind(url.host?.lowercased()) {
+        case .crawler:
+            return handleCrawler(method: method, url: url)
+        case .relay:
+            return handleRelay(method: method, url: url)
+        case .unknown:
+            return jsonError(statusCode: 404, message: "unknown embedded host")
+        }
+    }
+
+    private static func handleCrawler(method: String, url: URL) -> (Int, [String: String], Data) {
         let path = url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         switch (method, path) {
         case ("GET", "api/relay/status"):
@@ -128,6 +212,24 @@ final class EmbeddedCrawlerURLProtocol: URLProtocol {
             return textResponse(queryResponse(for: url))
         default:
             return jsonError(statusCode: 405, message: "unsupported embedded crawler request")
+        }
+    }
+
+    private static func handleRelay(method: String, url: URL) -> (Int, [String: String], Data) {
+        let path = url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        switch (method, path) {
+        case ("GET", "api/relay/status"):
+            return json(EmbeddedRelayService.shared.status())
+        case ("POST", "api/relay/start"):
+            return json(EmbeddedRelayService.shared.start())
+        case ("POST", "api/relay/stop"):
+            return json(EmbeddedRelayService.shared.stop())
+        case ("GET", "api/relay/discovery"):
+            return json(EmbeddedRelayService.shared.discoveryEntries())
+        case ("GET", _):
+            return textResponse(queryResponse(for: url))
+        default:
+            return jsonError(statusCode: 405, message: "unsupported embedded relay request")
         }
     }
 
@@ -153,6 +255,28 @@ final class EmbeddedCrawlerURLProtocol: URLProtocol {
 
         let data = (try? JSONEncoder().encode(EmbeddedErrorPayload(error: message))) ?? Data()
         return (statusCode, ["Content-Type": "application/json"], data)
+    }
+
+    private enum HostKind {
+        case crawler
+        case relay
+        case unknown
+    }
+
+    private static let embeddedHosts: Set<String> = [
+        "crawler.localhost",
+        "relay.localhost",
+    ]
+
+    private static func hostKind(_ host: String?) -> HostKind {
+        switch host {
+        case "crawler.localhost":
+            return .crawler
+        case "relay.localhost":
+            return .relay
+        default:
+            return .unknown
+        }
     }
 }
 
@@ -213,9 +337,12 @@ final class KitchenSinkViewModel: ObservableObject {
     let sampleNote: GitNote
     let crawlerBaseURL = URL(string: "http://127.0.0.1:3030")!
     let relayBaseURL = URL(string: "http://127.0.0.1:3030")!
+    let embeddedCrawlerBaseURL = URL(string: "http://crawler.localhost:3030")!
+    let embeddedRelayBaseURL = URL(string: "http://relay.localhost:3030")!
     let crawlerClient: CrawlerClient
     let embeddedCrawlerClient: CrawlerClient
     let relayClient: RelayClient
+    let embeddedRelayClient: RelayClient
     let crawlerServerController: CrawlerServerController
     let supportsLocalCrawlerControl: Bool
 
@@ -242,9 +369,14 @@ final class KitchenSinkViewModel: ObservableObject {
         )
         self.crawlerClient = FFIKitchenSink.crawlerClient()
         self.embeddedCrawlerClient = FFIKitchenSink.crawlerClient(
+            baseURL: embeddedCrawlerBaseURL,
             session: Self.embeddedCrawlerSession()
         )
         self.relayClient = FFIKitchenSink.relayClient()
+        self.embeddedRelayClient = FFIKitchenSink.relayClient(
+            baseURL: embeddedRelayBaseURL,
+            session: Self.embeddedCrawlerSession()
+        )
         self.crawlerServerController = CrawlerServerController()
         #if os(macOS) || targetEnvironment(macCatalyst)
         self.supportsLocalCrawlerControl = true
@@ -266,6 +398,14 @@ final class KitchenSinkViewModel: ObservableObject {
 
     private var crawlerServiceClient: CrawlerClient {
         supportsLocalCrawlerControl ? crawlerClient : embeddedCrawlerClient
+    }
+
+    private var relayServiceClient: RelayClient {
+        #if os(macOS) || targetEnvironment(macCatalyst)
+        relayClient
+        #else
+        embeddedRelayClient
+        #endif
     }
 
     var crawlerQueryParameters: CrawlerQueryParameters {
@@ -538,7 +678,7 @@ final class KitchenSinkViewModel: ObservableObject {
     func refreshRelayStatus() {
         Task {
             do {
-                let state = try await relayClient.status()
+                let state = try await relayServiceClient.status()
                 await MainActor.run {
                     relayStatus = state
                     relayStatusMessage = state.message
@@ -556,7 +696,7 @@ final class KitchenSinkViewModel: ObservableObject {
     func startRelay() {
         Task {
             do {
-                let state = try await relayClient.start()
+                let state = try await relayServiceClient.start()
                 await MainActor.run {
                     relayStatus = state
                     relayStatusMessage = state.message
@@ -574,7 +714,7 @@ final class KitchenSinkViewModel: ObservableObject {
     func stopRelay() {
         Task {
             do {
-                let state = try await relayClient.stop()
+                let state = try await relayServiceClient.stop()
                 await MainActor.run {
                     relayStatus = state
                     relayStatusMessage = state.message
@@ -592,7 +732,7 @@ final class KitchenSinkViewModel: ObservableObject {
     func refreshRelayDiscovery() {
         Task {
             do {
-                let discovery = try await relayClient.discovery()
+                let discovery = try await relayServiceClient.discovery()
                 await MainActor.run {
                     relayDiscovery = discovery
                     relayStatusMessage = "Loaded \(discovery.count) discovery entries"
