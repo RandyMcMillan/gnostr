@@ -97,6 +97,7 @@ final class EmbeddedCrawlerService: @unchecked Sendable {
         do {
             try fileManager.createDirectory(at: root, withIntermediateDirectories: true)
             let relayURLs = entries.map(\.url)
+            relayURLs.forEach { appTrace("EmbeddedCrawlerService.writeBucketTree relay=\($0)") }
             try writeBucketFiles(at: root, relays: relayURLs)
             let recent = root.appendingPathComponent("recent", isDirectory: true)
             try writeBucketFiles(at: recent, relays: relayURLs)
@@ -115,6 +116,7 @@ final class EmbeddedCrawlerService: @unchecked Sendable {
             guard let relayURL = URL(string: entry.url) else { continue }
             let host = relayHostComponent(from: relayURL)
             for nip in entry.supportedNips {
+                appTrace("EmbeddedCrawlerService.writeNipBuckets relay=\(entry.url) nip=\(nip) file=\(host).json")
                 relaysByNip[nip, default: []].append(entry.url)
                 let nipDirectory = root.appendingPathComponent(String(nip), isDirectory: true)
                 try FileManager.default.createDirectory(at: nipDirectory, withIntermediateDirectories: true)
@@ -154,12 +156,16 @@ final class EmbeddedCrawlerService: @unchecked Sendable {
         let yamlURL = directory.appendingPathComponent("relays.yaml")
         let jsonURL = directory.appendingPathComponent("relays.json")
         let txtURL = directory.appendingPathComponent("relays.txt")
+        relays.forEach { appTrace("EmbeddedCrawlerService.writeBucketFiles dir=\(directory.path) relay=\($0)") }
         let yaml = relays.map { "- \($0)" }.joined(separator: "\n") + (relays.isEmpty ? "" : "\n")
         let jsonData = try JSONEncoder().encode(relays)
         let txt = relays.joined(separator: " ")
         try yaml.write(to: yamlURL, atomically: true, encoding: .utf8)
+        appTrace("EmbeddedCrawlerService.writeBucketFiles wrote=\(yamlURL.path)")
         try jsonData.write(to: jsonURL, options: .atomic)
+        appTrace("EmbeddedCrawlerService.writeBucketFiles wrote=\(jsonURL.path)")
         try txt.write(to: txtURL, atomically: true, encoding: .utf8)
+        appTrace("EmbeddedCrawlerService.writeBucketFiles wrote=\(txtURL.path)")
     }
 }
 
@@ -854,6 +860,7 @@ final class KitchenSinkViewModel: ObservableObject {
 
                 let parsed = Self.relayTargets(fromBucketFile: fileURL, data: data)
                 appTrace("KitchenSinkViewModel.sampleRelayTargets parsed=\(parsed.count) file=\(fileURL.path)")
+                parsed.forEach { appTrace("KitchenSinkViewModel.sampleRelayTargets relay=\($0)") }
                 relays.append(contentsOf: parsed)
                 if relays.count >= limit {
                     break
@@ -866,6 +873,7 @@ final class KitchenSinkViewModel: ObservableObject {
         }
         let unique = Array(Set(relays)).sorted()
         appTrace("KitchenSinkViewModel.sampleRelayTargets result=\(unique.count)")
+        unique.forEach { appTrace("KitchenSinkViewModel.sampleRelayTargets result relay=\($0)") }
         return Array(unique.prefix(limit))
     }
 
@@ -876,6 +884,7 @@ final class KitchenSinkViewModel: ObservableObject {
         case "json":
             if let decoded = try? JSONDecoder().decode([String].self, from: data) {
                 appTrace("KitchenSinkViewModel.relayTargets json decoded=\(decoded.count) file=\(fileURL.path)")
+                decoded.forEach { appTrace("KitchenSinkViewModel.relayTargets json relay=\($0)") }
                 return decoded
                     .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
                     .filter { !$0.isEmpty }
