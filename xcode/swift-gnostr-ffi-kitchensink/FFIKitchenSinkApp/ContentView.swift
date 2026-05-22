@@ -63,7 +63,7 @@ final class EmbeddedCrawlerService: @unchecked Sendable {
     }
 
     func discoveryEntries() -> [RelayDiscoveryEntry] {
-        let entries = [
+        [
             RelayDiscoveryEntry(
                 url: "http://127.0.0.1:3030",
                 description: "In-app crawler backend",
@@ -73,11 +73,15 @@ final class EmbeddedCrawlerService: @unchecked Sendable {
                 supportedNips: [1, 7, 11, 13, 42, 30023, 30078, 31922, 31923, 31924]
             )
         ]
-        Self.syncDiskBuckets(relays: entries.map(\.url))
-        return entries
     }
 
-    static func syncDiskBuckets(relays: [String]) {
+    func primeBuckets() -> CrawlerBucketRefreshState {
+        let relays = discoveryEntries().map(\.url)
+        Self.writeBucketFiles(relays: relays)
+        return CrawlerBucketRefreshState(ok: true, message: "Embedded crawler buckets primed")
+    }
+
+    static func writeBucketFiles(relays: [String]) {
         let fileManager = FileManager.default
         let root = crawlerConfigDirectoryURL()
         do {
@@ -243,6 +247,8 @@ final class EmbeddedCrawlerURLProtocol: URLProtocol {
             return json(EmbeddedCrawlerService.shared.stop())
         case ("GET", "api/relay/discovery"):
             return json(EmbeddedCrawlerService.shared.discoveryEntries())
+        case ("POST", "api/relays/prime"):
+            return json(EmbeddedCrawlerService.shared.primeBuckets())
         case ("GET", "relays.yaml"), ("GET", "relays.json"), ("GET", "relays.txt"):
             return crawlerBucketResponse(bucket: nil, fileName: path)
         default:
@@ -276,12 +282,7 @@ final class EmbeddedCrawlerURLProtocol: URLProtocol {
         let directory = bucket.map { root.appendingPathComponent($0, isDirectory: true) } ?? root
         let fileURL = directory.appendingPathComponent(fileName)
         if !FileManager.default.fileExists(atPath: fileURL.path) {
-            let relays = EmbeddedCrawlerService.shared.discoveryEntries().map(\.url)
-            do {
-                try EmbeddedCrawlerService.writeBucketFiles(at: directory, relays: relays)
-            } catch {
-                return jsonError(statusCode: 500, message: "failed to write crawler bucket: \(error.localizedDescription)")
-            }
+            EmbeddedCrawlerService.writeBucketFiles(relays: EmbeddedCrawlerService.shared.discoveryEntries().map(\.url))
         }
 
         do {
@@ -950,40 +951,47 @@ final class KitchenSinkViewModel: ObservableObject {
 
     func refreshCrawlerBuckets() {
         let fileManager = FileManager.default
-        do {
-            try fileManager.createDirectory(at: crawlerBucketsRootURL, withIntermediateDirectories: true)
-            let directory = crawlerBucketCurrentDirectoryURL
-            let values: Set<URLResourceKey> = [.isDirectoryKey, .fileSizeKey, .contentModificationDateKey]
-            let entries = try fileManager.contentsOfDirectory(
-                at: directory,
-                includingPropertiesForKeys: Array(values),
-                options: [.skipsHiddenFiles]
-            )
-            let mapped: [CrawlerBucketEntry] = entries.compactMap { url in
-                let resourceValues = try? url.resourceValues(forKeys: values)
-                return CrawlerBucketEntry(
-                    url: url,
-                    isDirectory: resourceValues?.isDirectory ?? false,
-                    size: resourceValues?.fileSize.map(UInt64.init),
-                    modifiedAt: resourceValues?.contentModificationDate
+        Task {
+            do {
+                _ = try await crawlerServiceClient.primeBuckets()
+                try fileManager.createDirectory(at: crawlerBucketsRootURL, withIntermediateDirectories: true)
+                let directory = crawlerBucketCurrentDirectoryURL
+                let values: Set<URLResourceKey> = [.isDirectoryKey, .fileSizeKey, .contentModificationDateKey]
+                let entries = try fileManager.contentsOfDirectory(
+                    at: directory,
+                    includingPropertiesForKeys: Array(values),
+                    options: [.skipsHiddenFiles]
                 )
+                let mapped: [CrawlerBucketEntry] = entries.compactMap { url in
+                    let resourceValues = try? url.resourceValues(forKeys: values)
+                    return CrawlerBucketEntry(
+                        url: url,
+                        isDirectory: resourceValues?.isDirectory ?? false,
+                        size: resourceValues?.fileSize.map(UInt64.init),
+                        modifiedAt: resourceValues?.contentModificationDate
+                    )
+                }
+                .sorted {
+                    if $0.isDirectory != $1.isDirectory { return $0.isDirectory && !$1.isDirectory }
+                    return $0.name.localizedStandardCompare($1.name) == .orderedAscending
+                }
+                await MainActor.run {
+                    crawlerBucketEntries = mapped
+                    crawlerBucketStatusMessage = mapped.isEmpty
+                        ? "Bucket directory is empty."
+                        : "Loaded \(mapped.count) bucket items."
+                    crawlerBucketPreviewPath = crawlerBucketCurrentDirectoryURL.path
+                    if crawlerBucketPreview.isEmpty {
+                        crawlerBucketPreview = "Select a bucket file to inspect it."
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    crawlerBucketEntries = []
+                    crawlerBucketStatusMessage = "Bucket browser failed: \(error.localizedDescription)"
+                    crawlerBucketPreview = error.localizedDescription
+                }
             }
-            .sorted {
-                if $0.isDirectory != $1.isDirectory { return $0.isDirectory && !$1.isDirectory }
-                return $0.name.localizedStandardCompare($1.name) == .orderedAscending
-            }
-            crawlerBucketEntries = mapped
-            crawlerBucketStatusMessage = mapped.isEmpty
-                ? "Bucket directory is empty."
-                : "Loaded \(mapped.count) bucket items."
-            crawlerBucketPreviewPath = crawlerBucketCurrentDirectoryURL.path
-            if crawlerBucketPreview.isEmpty {
-                crawlerBucketPreview = "Select a bucket file to inspect it."
-            }
-        } catch {
-            crawlerBucketEntries = []
-            crawlerBucketStatusMessage = "Bucket browser failed: \(error.localizedDescription)"
-            crawlerBucketPreview = error.localizedDescription
         }
     }
 
