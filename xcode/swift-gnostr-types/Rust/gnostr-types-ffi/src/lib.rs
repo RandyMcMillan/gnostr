@@ -4,8 +4,8 @@ use std::{
 };
 
 use gnostr_types::nostr::{
-    generate_git_note_event, generate_git_note_event_with_pow, git_note_event_id, git_note_tags,
-    GitNote, PrivateKey,
+    nip34::{generate_git_note_event, generate_git_note_event_with_pow, git_note_event_id, git_note_tags, GitNote},
+    PrivateKey,
 };
 use serde::Serialize;
 
