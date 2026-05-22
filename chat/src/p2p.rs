@@ -31,6 +31,7 @@ use crate::{
     msg::{Msg, MsgKind},
 };
 use gnostr_p2p::kvs::{FileRequest, FileResponse};
+use gnostr_p2p::utils::multiaddr_with_peer_id;
 use libp2p::identity;
 
 /// Handle for the local p2p relay service started by chat.
@@ -520,13 +521,25 @@ pub async fn evt_loop(
                 SwarmEvent::Behaviour(MyBehaviourEvent::Mdns(mdns::Event::Discovered(list))) => {
                     for (peer_id, multiaddr) in list {
                         debug!("mDNS discovered a new peer: {peer_id}");
+                        let peer_id_label = peer_id.to_string();
                         swarm.behaviour_mut().gossipsub.add_explicit_peer(&peer_id);
-                        swarm.behaviour_mut().autonat.add_server(peer_id, Some(multiaddr.clone()));
+                        let address_with_p2p = multiaddr_with_peer_id(&multiaddr, &peer_id);
+                        swarm
+                            .behaviour_mut()
+                            .autonat
+                            .add_server(peer_id, Some(address_with_p2p.clone()));
                         recv
                             .send(ChatEvent::ShowInfoMsg(format!(
-                                "Discovered peer {peer_id} at {multiaddr}"
+                                "Discovered peer {peer_id} at {address_with_p2p}"
                             )))
                             .await?;
+                        if let Err(error) = swarm.dial(address_with_p2p) {
+                            recv
+                                .send(ChatEvent::ShowErrorMsg(format!(
+                                    "failed to dial discovered peer {peer_id_label}: {error}"
+                                )))
+                                .await?;
+                        }
                     }
                 },
                 SwarmEvent::Behaviour(MyBehaviourEvent::Mdns(mdns::Event::Expired(list))) => {
