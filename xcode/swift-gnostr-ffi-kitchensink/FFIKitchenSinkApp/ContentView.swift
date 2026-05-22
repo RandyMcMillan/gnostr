@@ -66,8 +66,8 @@ final class EmbeddedCrawlerService: @unchecked Sendable {
         [
             RelayDiscoveryEntry(
                 url: "http://127.0.0.1:3030",
-                name: "Embedded Crawler",
                 description: "In-app crawler backend",
+                name: "Embedded Crawler",
                 software: "gnostr-ffi-kitchensink",
                 version: "embedded",
                 supportedNips: [1, 7, 11, 13, 42, 30023, 30078, 31922, 31923, 31924]
@@ -146,8 +146,12 @@ final class EmbeddedCrawlerURLProtocol: URLProtocol {
     }
 
     private static func jsonError(statusCode: Int, message: String) -> (Int, [String: String], Data) {
-        let payload = ["ok": false, "error": message]
-        let data = (try? JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])) ?? Data()
+        struct EmbeddedErrorPayload: Encodable {
+            let ok = false
+            let error: String
+        }
+
+        let data = (try? JSONEncoder().encode(EmbeddedErrorPayload(error: message))) ?? Data()
         return (statusCode, ["Content-Type": "application/json"], data)
     }
 }
