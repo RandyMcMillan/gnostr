@@ -16,3 +16,7 @@ Umbrella Swift package for the FFI-backed gnostr stack.
 ### Runtime loading
 
 Each subpackage keeps its own `GNOSTR_*_FFI_LIBRARY` lookup and local `Rust/.../target/...` fallback paths.
+
+### Xcode app
+
+Open `FFIKitchenSinkApp.xcodeproj` for the SwiftUI app target that runs the umbrella stack on iOS, macOS, and Mac Catalyst.
