@@ -3,8 +3,11 @@ use std::{
     os::raw::c_char,
 };
 
-use gnostr_asyncgit::{default_notes_ref, repo_state, RepoPath, RepoState};
-use gnostr_types::nostr::{generate_git_note_event, generate_git_note_event_with_pow, GitNote, PrivateKey};
+use gnostr_asyncgit::{default_notes_ref, sync::{repo_state, RepoPath}};
+use gnostr_types::nostr::{
+    nip34::{generate_git_note_event, generate_git_note_event_with_pow, git_note_event_id, GitNote},
+    PrivateKey,
+};
 use serde::Serialize;
 
 #[derive(Serialize)]
@@ -46,14 +49,8 @@ unsafe fn read_c_string<'a>(ptr: *const c_char) -> Result<&'a str, String> {
     CStr::from_ptr(ptr).to_str().map_err(|error| error.to_string())
 }
 
-fn repo_state_name(state: RepoState) -> &'static str {
-    match state {
-        RepoState::Clean => "clean",
-        RepoState::Merge => "merge",
-        RepoState::Rebase => "rebase",
-        RepoState::Revert => "revert",
-        RepoState::Other => "other",
-    }
+fn repo_state_name(state: impl std::fmt::Debug) -> String {
+    format!("{state:?}").to_lowercase()
 }
 
 #[no_mangle]
@@ -67,7 +64,7 @@ pub unsafe extern "C" fn asyncgit_string_free(ptr: *mut c_char) {
 pub unsafe extern "C" fn asyncgit_repo_state_json(repo_path: *const c_char) -> *mut c_char {
     match read_c_string(repo_path) {
         Ok(path) => match repo_state(&RepoPath::from(path)) {
-            Ok(state) => encode(&Envelope::ok(repo_state_name(state).to_string())),
+            Ok(state) => encode(&Envelope::ok(repo_state_name(state))),
             Err(error) => encode(&Envelope::<String>::err(error.to_string())),
         },
         Err(error) => encode(&Envelope::<String>::err(error)),
@@ -88,7 +85,7 @@ pub unsafe extern "C" fn asyncgit_default_notes_ref_json(repo_path: *const c_cha
 #[no_mangle]
 pub unsafe extern "C" fn asyncgit_git_note_event_id_json(commit_id: *const c_char) -> *mut c_char {
     match read_c_string(commit_id) {
-        Ok(commit_id) => match gnostr_types::nostr::git_note_event_id(commit_id) {
+        Ok(commit_id) => match git_note_event_id(commit_id) {
             Ok(event_id) => encode(&Envelope::ok(event_id.as_hex_string())),
             Err(error) => encode(&Envelope::<String>::err(error.to_string())),
         },
