@@ -150,6 +150,8 @@ public final class RustCrawlerBridge: @unchecked Sendable {
         } else {
             candidates.append(contentsOf: [
                 bundle.privateFrameworksURL?.appendingPathComponent("libcrawler_ffi.dylib").path,
+                bundle.bundleURL.appendingPathComponent("Frameworks/libcrawler_ffi.dylib").path,
+                bundle.executableURL?.deletingLastPathComponent().appendingPathComponent("Frameworks/libcrawler_ffi.dylib").path,
                 bundle.bundleURL.appendingPathComponent("libcrawler_ffi.dylib").path,
                 "Rust/crawler-ffi/target/debug/libcrawler_ffi.dylib",
                 "Rust/crawler-ffi/target/release/libcrawler_ffi.dylib",
