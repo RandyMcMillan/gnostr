@@ -546,19 +546,59 @@ final class KitchenSinkViewModel: ObservableObject {
     }
 
     func submitCrawlerQuery() {
-        let parameters = crawlerQueryParameters
-        let previewURL = crawlerURLPreview
         let client = crawlerServiceClient
+        let parameters = crawlerQueryParameters
 
-        crawlerQueryStatusMessage = "Submitting query to \(previewURL)"
+        crawlerQueryStatusMessage = "Discovering relay targets..."
         crawlerQueryResult = "Waiting for response..."
 
         Task {
             do {
-                let response = try await client.queryPage(parameters)
+                let discoveredRelays = (try? await client.relaysTXT())
+                    .map(Self.relayTargets(from:)) ?? []
+                let configuredRelays = Self.relayTargets(from: crawlerRelay)
+                let targets = Self.uniqueRelayTargets(
+                    [Self.localCrawlerRelay] + configuredRelays + discoveredRelays
+                )
+
+                guard !targets.isEmpty else {
+                    await MainActor.run {
+                        crawlerQueryStatusMessage = "No relay targets available"
+                        crawlerQueryResult = "No relay targets available."
+                        log(crawlerQueryStatusMessage)
+                    }
+                    return
+                }
+
                 await MainActor.run {
-                    crawlerQueryStatusMessage = "Submitted query to \(previewURL)"
-                    crawlerQueryResult = response
+                    crawlerQueryStatusMessage = "Submitting query to \(targets.count) relays..."
+                    crawlerQueryResult = "Waiting for \(targets.count) relay responses..."
+                }
+
+                var sections: [String] = []
+                for target in targets {
+                    var targetParameters = parameters
+                    targetParameters.relay = target
+                    do {
+                        let response = try await client.queryPage(targetParameters)
+                        let trimmed = response.trimmingCharacters(in: .whitespacesAndNewlines)
+                        let rendered = trimmed.isEmpty ? "No results." : trimmed
+                        sections.append("""
+                        === \(target) ===
+                        \(rendered)
+                        """)
+                    } catch {
+                        sections.append("""
+                        === \(target) ===
+                        Query failed: \(error.localizedDescription)
+                        """)
+                    }
+                }
+
+                let combinedResult = sections.joined(separator: "\n\n")
+                await MainActor.run {
+                    crawlerQueryStatusMessage = "Submitted query to \(targets.count) relays"
+                    crawlerQueryResult = combinedResult.isEmpty ? "No results." : combinedResult
                     log("Crawler query submitted")
                 }
             } catch {
@@ -570,6 +610,26 @@ final class KitchenSinkViewModel: ObservableObject {
                 }
             }
         }
+    }
+
+    private static let localCrawlerRelay = "ws://127.0.0.1:8080"
+
+    nonisolated private static func relayTargets(from text: String) -> [String] {
+        text
+            .split { $0 == "," || $0.isNewline || $0.isWhitespace }
+            .map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+    }
+
+    nonisolated private static func uniqueRelayTargets(_ relays: [String]) -> [String] {
+        var seen = Set<String>()
+        var unique: [String] = []
+        for relay in relays {
+            if seen.insert(relay).inserted {
+                unique.append(relay)
+            }
+        }
+        return unique
     }
 
     func loadRelayDefaults() {
@@ -610,8 +670,8 @@ final class KitchenSinkViewModel: ObservableObject {
             return
         }
 
-        EmbeddedCrawlerService.shared.start()
-        EmbeddedRelayService.shared.start()
+        _ = EmbeddedCrawlerService.shared.start()
+        _ = EmbeddedRelayService.shared.start()
         crawlerServerState = EmbeddedCrawlerService.shared.status()
         crawlerStatus = crawlerServerState
         crawlerServerMessage = crawlerServerState?.message ?? "Idle"
