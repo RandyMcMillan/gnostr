@@ -80,7 +80,7 @@ public final class RustCrawlerBridge: @unchecked Sendable {
     }
 
     public func normalize(_ relay: RelayMetadata) throws -> RelayMetadata {
-        NSLog("Crawler FFI: normalize relay %@", relay.url)
+        NSLog("Crawler FFI: normalize relay %@", String(describing: relay))
         guard self.isAvailable, let normalized: RelayMetadata = self.callRoundTrip(self.roundtripRelayMetadataFn, request: relay) else {
             return relay
         }
