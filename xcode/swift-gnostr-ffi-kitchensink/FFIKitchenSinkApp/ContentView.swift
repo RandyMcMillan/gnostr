@@ -1,4 +1,5 @@
 import Foundation
+import Darwin
 import SwiftUI
 import FFIKitchenSink
 
@@ -46,6 +47,8 @@ final class KitchenSinkViewModel: ObservableObject {
     @Published var crawlerStatusMessage = "Idle"
     @Published var crawlerStatus: RelayProcessState?
     @Published var crawlerDiscovery: [RelayDiscoveryEntry] = []
+    @Published var crawlerServerMessage = "Idle"
+    @Published var crawlerServerState: RelayProcessState?
     @Published var relayHost = "127.0.0.1"
     @Published var relayPort = "3030"
     @Published var relayStatusMessage = "Idle"
@@ -59,6 +62,7 @@ final class KitchenSinkViewModel: ObservableObject {
     let relayBaseURL = URL(string: "http://127.0.0.1:3030")!
     let crawlerClient: CrawlerClient
     let relayClient: RelayClient
+    let crawlerServerController: CrawlerServerController
 
     init() {
         #if targetEnvironment(macCatalyst)
@@ -83,6 +87,7 @@ final class KitchenSinkViewModel: ObservableObject {
         )
         self.crawlerClient = FFIKitchenSink.crawlerClient()
         self.relayClient = FFIKitchenSink.relayClient()
+        self.crawlerServerController = CrawlerServerController()
         self.loadRelayDefaults()
         self.refreshCrawlerStatus()
         self.rebuildCrawlerPreview()
@@ -216,18 +221,13 @@ final class KitchenSinkViewModel: ObservableObject {
 
     func refreshCrawlerStatus() {
         Task {
-            do {
-                let state = try await crawlerClient.relayStatus()
-                await MainActor.run {
-                    crawlerStatus = state
-                    crawlerStatusMessage = state.message
-                    log("Crawler status refreshed")
-                }
-            } catch {
-                await MainActor.run {
-                    crawlerStatusMessage = "Crawler status failed: \(error.localizedDescription)"
-                    log(crawlerStatusMessage)
-                }
+            let state = await crawlerServerController.status()
+            await MainActor.run {
+                crawlerServerState = state
+                crawlerServerMessage = state.message
+                crawlerStatus = state
+                crawlerStatusMessage = state.message
+                log("Crawler server status refreshed")
             }
         }
     }
@@ -235,15 +235,18 @@ final class KitchenSinkViewModel: ObservableObject {
     func startCrawler() {
         Task {
             do {
-                let state = try await crawlerClient.startRelay()
+                let state = try crawlerServerController.start()
                 await MainActor.run {
+                    crawlerServerState = state
+                    crawlerServerMessage = state.message
                     crawlerStatus = state
                     crawlerStatusMessage = state.message
                     log("Crawler started")
                 }
             } catch {
                 await MainActor.run {
-                    crawlerStatusMessage = "Crawler start failed: \(error.localizedDescription)"
+                    crawlerServerMessage = "Crawler start failed: \(error.localizedDescription)"
+                    crawlerStatusMessage = crawlerServerMessage
                     log(crawlerStatusMessage)
                 }
             }
@@ -253,15 +256,18 @@ final class KitchenSinkViewModel: ObservableObject {
     func stopCrawler() {
         Task {
             do {
-                let state = try await crawlerClient.stopRelay()
+                let state = try crawlerServerController.stop()
                 await MainActor.run {
+                    crawlerServerState = state
+                    crawlerServerMessage = state.message
                     crawlerStatus = state
                     crawlerStatusMessage = state.message
                     log("Crawler stopped")
                 }
             } catch {
                 await MainActor.run {
-                    crawlerStatusMessage = "Crawler stop failed: \(error.localizedDescription)"
+                    crawlerServerMessage = "Crawler stop failed: \(error.localizedDescription)"
+                    crawlerStatusMessage = crawlerServerMessage
                     log(crawlerStatusMessage)
                 }
             }
@@ -531,11 +537,11 @@ struct ContentView: View {
             title("Crawler", subtitle: "Edit query inputs and watch the query wire format update.")
 
             groupBox("Crawler service") {
-                infoRow("status", model.crawlerStatus?.message ?? model.crawlerStatusMessage)
-                infoRow("running", (model.crawlerStatus?.running ?? false) ? "yes" : "no")
+                infoRow("status", model.crawlerServerState?.message ?? model.crawlerServerMessage)
+                infoRow("running", (model.crawlerServerState?.running ?? false) ? "yes" : "no")
                 HStack {
-                    Button("Start") { model.startCrawler() }
-                    Button("Stop") { model.stopCrawler() }
+                    Button("Start server") { model.startCrawler() }
+                    Button("Stop server") { model.stopCrawler() }
                     Button("Refresh") { model.refreshCrawlerStatus() }
                     Button("Discovery") { model.refreshCrawlerDiscovery() }
                 }
