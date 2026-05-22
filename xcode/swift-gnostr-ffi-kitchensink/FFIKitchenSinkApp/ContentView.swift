@@ -554,6 +554,11 @@ final class KitchenSinkViewModel: ObservableObject {
         self.relayServerController = RelayServerController()
         self.crawlerBucketsRootURL = Self.crawlerBucketsRootDirectoryURL()
         self.supportsLocalCrawlerControl = self.crawlerServerController.isAvailable
+        RustCrawlerBridge.shared.onLogLine = { [weak self] line in
+            Task { @MainActor in
+                self?.log("Crawler Rust: \(line)")
+            }
+        }
         self.log("Crawler control available: \(self.supportsLocalCrawlerControl)")
         self.loadRelayDefaults()
         self.crawlerRelay = Self.defaultCrawlerRelayTargets().joined(separator: ",")
@@ -568,6 +573,7 @@ final class KitchenSinkViewModel: ObservableObject {
 
     deinit {
         appTrace("KitchenSinkViewModel.deinit")
+        RustCrawlerBridge.shared.onLogLine = nil
         crawlerDiscoveryLoopTask?.cancel()
     }
 

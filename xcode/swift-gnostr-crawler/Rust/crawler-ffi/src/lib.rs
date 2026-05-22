@@ -9,6 +9,7 @@ use std::{
 
 use gnostr_crawler::{
     init_tracing,
+    crawler_set_log_callback,
     query::build_gnostr_query,
     relay_fetch::websocket_http_url,
     relay_metadata::Relay,

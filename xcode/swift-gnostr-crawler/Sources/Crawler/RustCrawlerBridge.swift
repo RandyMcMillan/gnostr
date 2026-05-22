@@ -11,6 +11,8 @@ private struct RustEnvelope<T: Decodable>: Decodable {
 
 private typealias RustStringFn = @convention(c) (UnsafePointer<CChar>) -> UnsafeMutablePointer<CChar>?
 private typealias RustFreeFn = @convention(c) (UnsafeMutablePointer<CChar>) -> Void
+private typealias RustLogFn = @convention(c) (UnsafePointer<CChar>?) -> Void
+private typealias RustSetLogCallbackFn = @convention(c) (RustLogFn?) -> Void
 
 private struct RuntimeRequest: Codable {
     let port: UInt16?
@@ -26,7 +28,9 @@ public final class RustCrawlerBridge: @unchecked Sendable {
     private let runtimeStartFn: RustStringFn?
     private let runtimeStopFn: RustStringFn?
     private let runtimeStatusFn: RustStringFn?
+    private let setLogCallbackFn: RustSetLogCallbackFn?
     private let freeFn: RustFreeFn?
+    public var onLogLine: ((String) -> Void)?
 
     private init() {
         self.handle = Self.openLibrary()
@@ -38,6 +42,7 @@ public final class RustCrawlerBridge: @unchecked Sendable {
             self.runtimeStartFn = Self.loadSymbol("crawler_runtime_start_json", from: handle)
             self.runtimeStopFn = Self.loadSymbol("crawler_runtime_stop_json", from: handle)
             self.runtimeStatusFn = Self.loadSymbol("crawler_runtime_status_json", from: handle)
+            self.setLogCallbackFn = Self.loadSymbol("crawler_set_log_callback", from: handle)
             self.freeFn = Self.loadSymbol("crawler_string_free", from: handle)
             let missing = [
                 self.buildQueryFn == nil ? "crawler_build_gnostr_query_json" : nil,
@@ -46,9 +51,11 @@ public final class RustCrawlerBridge: @unchecked Sendable {
                 self.runtimeStartFn == nil ? "crawler_runtime_start_json" : nil,
                 self.runtimeStopFn == nil ? "crawler_runtime_stop_json" : nil,
                 self.runtimeStatusFn == nil ? "crawler_runtime_status_json" : nil,
+                self.setLogCallbackFn == nil ? "crawler_set_log_callback" : nil,
                 self.freeFn == nil ? "crawler_string_free" : nil,
             ].compactMap { $0 }
             NSLog("Crawler FFI: missing symbols=%@", missing.isEmpty ? "none" : missing.joined(separator: ", "))
+            self.setLogCallbackFn?(Self.rustLogCallback)
         } else {
             NSLog("Crawler FFI: library not found")
             self.buildQueryFn = nil
@@ -57,6 +64,7 @@ public final class RustCrawlerBridge: @unchecked Sendable {
             self.runtimeStartFn = nil
             self.runtimeStopFn = nil
             self.runtimeStatusFn = nil
+            self.setLogCallbackFn = nil
             self.freeFn = nil
         }
     }
@@ -70,6 +78,7 @@ public final class RustCrawlerBridge: @unchecked Sendable {
             && self.runtimeStartFn != nil
             && self.runtimeStopFn != nil
             && self.runtimeStatusFn != nil
+            && self.setLogCallbackFn != nil
             && self.freeFn != nil
     }
 
@@ -212,5 +221,12 @@ public final class RustCrawlerBridge: @unchecked Sendable {
         NSLog("Crawler FFI: loading symbol %@", name)
         guard let symbol = dlsym(handle, name) else { return nil }
         return unsafeBitCast(symbol, to: T.self)
+    }
+
+    private static let rustLogCallback: RustLogFn = { cString in
+        guard let cString else { return }
+        let line = String(cString: cString)
+        NSLog("Crawler Rust: %@", line)
+        RustCrawlerBridge.shared.onLogLine?(line)
     }
 }
