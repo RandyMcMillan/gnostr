@@ -4,6 +4,8 @@ use libp2p::{
 };
 use tracing::{debug, info, trace, warn};
 
+use crate::utils::multiaddr_with_peer_id;
+
 use super::behaviour::BehaviourEvent;
 
 pub async fn handle_swarm_event(
@@ -17,14 +19,19 @@ pub async fn handle_swarm_event(
         SwarmEvent::Behaviour(BehaviourEvent::Mdns(mdns::Event::Discovered(list))) => {
             for (peer_id, multiaddr) in list {
                 info!("mDNS discovered a new peer: {peer_id}\n{multiaddr}");
+                let peer_id_label = peer_id.to_string();
+                let address_with_p2p = multiaddr_with_peer_id(&multiaddr, &peer_id);
                 swarm
                     .behaviour_mut()
                     .kademlia
-                    .add_address(&peer_id, multiaddr.clone());
+                    .add_address(&peer_id, address_with_p2p.clone());
                 swarm
                     .behaviour_mut()
                     .autonat
-                    .add_server(peer_id, Some(multiaddr));
+                    .add_server(peer_id, Some(address_with_p2p.clone()));
+                if let Err(error) = swarm.dial(address_with_p2p) {
+                    warn!("Failed to dial discovered peer {peer_id_label}: {error}");
+                }
             }
         }
         SwarmEvent::Behaviour(BehaviourEvent::Mdns(mdns::Event::Expired(list))) => {
