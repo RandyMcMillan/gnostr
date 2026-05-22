@@ -76,22 +76,60 @@ final class EmbeddedCrawlerService: @unchecked Sendable {
     }
 
     func primeBuckets() -> CrawlerBucketRefreshState {
-        let relays = discoveryEntries().map(\.url)
-        Self.writeBucketFiles(relays: relays)
+        let entries = discoveryEntries()
+        Self.writeBucketTree(entries: entries)
         return CrawlerBucketRefreshState(ok: true, message: "Embedded crawler buckets primed")
     }
 
-    static func writeBucketFiles(relays: [String]) {
+    static func writeBucketTree(entries: [RelayDiscoveryEntry]) {
         let fileManager = FileManager.default
         let root = crawlerConfigDirectoryURL()
         do {
             try fileManager.createDirectory(at: root, withIntermediateDirectories: true)
-            try writeBucketFiles(at: root, relays: relays)
+            let relayURLs = entries.map(\.url)
+            try writeBucketFiles(at: root, relays: relayURLs)
             let recent = root.appendingPathComponent("recent", isDirectory: true)
-            try writeBucketFiles(at: recent, relays: relays)
+            try writeBucketFiles(at: recent, relays: relayURLs)
+            try writeNipBuckets(entries: entries, root: root)
         } catch {
             print("Embedded crawler bucket sync failed: \(error)")
         }
+    }
+
+    static func writeNipBuckets(entries: [RelayDiscoveryEntry], root: URL) throws {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+
+        var relaysByNip: [Int: [String]] = [:]
+        for entry in entries {
+            guard let relayURL = URL(string: entry.url) else { continue }
+            let host = relayHostComponent(from: relayURL)
+            for nip in entry.supportedNips {
+                relaysByNip[nip, default: []].append(entry.url)
+                let nipDirectory = root.appendingPathComponent(String(nip), isDirectory: true)
+                try FileManager.default.createDirectory(at: nipDirectory, withIntermediateDirectories: true)
+                let relayFile = nipDirectory.appendingPathComponent("\(host).json")
+                let data = try encoder.encode(entry)
+                try data.write(to: relayFile, options: .atomic)
+            }
+        }
+
+        for (nip, relays) in relaysByNip {
+            let nipDirectory = root.appendingPathComponent(String(nip), isDirectory: true)
+            try writeBucketFiles(at: nipDirectory, relays: uniqueSorted(relays))
+        }
+    }
+
+    static func relayHostComponent(from url: URL) -> String {
+        let host = url.host ?? "unknown"
+        if let port = url.port {
+            return "\(host)-\(port)"
+        }
+        return host
+    }
+
+    static func uniqueSorted(_ relays: [String]) -> [String] {
+        Array(Set(relays)).sorted()
     }
 
     static func crawlerConfigDirectoryURL() -> URL {
@@ -282,7 +320,7 @@ final class EmbeddedCrawlerURLProtocol: URLProtocol {
         let directory = bucket.map { root.appendingPathComponent($0, isDirectory: true) } ?? root
         let fileURL = directory.appendingPathComponent(fileName)
         if !FileManager.default.fileExists(atPath: fileURL.path) {
-            EmbeddedCrawlerService.writeBucketFiles(relays: EmbeddedCrawlerService.shared.discoveryEntries().map(\.url))
+            _ = EmbeddedCrawlerService.shared.primeBuckets()
         }
 
         do {
