@@ -226,52 +226,74 @@ final class KitchenSinkViewModel: ObservableObject {
     }
 
     func refreshCrawlerStatus() {
-        guard supportsLocalCrawlerControl else {
-            crawlerServerState = RelayProcessState(
-                running: false,
-                message: "Local crawler process control is unavailable on this platform"
-            )
-            crawlerServerMessage = "Local crawler process control is unavailable on this platform"
-            crawlerStatus = crawlerServerState
-            crawlerStatusMessage = crawlerServerMessage
-            return
-        }
-
-        let controller = crawlerServerController
-        Task {
-            let state = controller.status()
-            await MainActor.run {
-                crawlerServerState = state
-                crawlerServerMessage = state.message
-                crawlerStatus = state
-                crawlerStatusMessage = state.message
-                log("Crawler server status refreshed")
-            }
-        }
-    }
-
-    func startCrawler() {
-        guard supportsLocalCrawlerControl else {
-            crawlerServerState = RelayProcessState(
-                running: false,
-                message: "Local crawler process control is unavailable on this platform"
-            )
-            crawlerServerMessage = "Local crawler process control is unavailable on this platform"
-            crawlerStatus = crawlerServerState
-            crawlerStatusMessage = crawlerServerMessage
-            return
-        }
-
-        let controller = crawlerServerController
-        Task {
-            do {
-                let state = try await controller.start()
+        if supportsLocalCrawlerControl {
+            let controller = crawlerServerController
+            Task {
+                let state = controller.status()
                 await MainActor.run {
                     crawlerServerState = state
                     crawlerServerMessage = state.message
                     crawlerStatus = state
                     crawlerStatusMessage = state.message
-                    log("Crawler started")
+                    log("Crawler server status refreshed")
+                }
+            }
+            return
+        }
+
+        Task {
+            do {
+                let state = try await crawlerClient.relayStatus()
+                await MainActor.run {
+                    crawlerServerState = state
+                    crawlerServerMessage = state.message
+                    crawlerStatus = state
+                    crawlerStatusMessage = state.message
+                    log("Crawler backend status refreshed")
+                }
+            } catch {
+                await MainActor.run {
+                    crawlerServerMessage = "Crawler status failed: \(error.localizedDescription)"
+                    crawlerStatusMessage = crawlerServerMessage
+                    log(crawlerStatusMessage)
+                }
+            }
+        }
+    }
+
+    func startCrawler() {
+        if supportsLocalCrawlerControl {
+            let controller = crawlerServerController
+            Task {
+                do {
+                    let state = try await controller.start()
+                    await MainActor.run {
+                        crawlerServerState = state
+                        crawlerServerMessage = state.message
+                        crawlerStatus = state
+                        crawlerStatusMessage = state.message
+                        log("Crawler started")
+                    }
+                } catch {
+                    await MainActor.run {
+                        crawlerServerMessage = "Crawler start failed: \(error.localizedDescription)"
+                        crawlerStatusMessage = crawlerServerMessage
+                        log(crawlerStatusMessage)
+                    }
+                }
+            }
+            return
+        }
+
+        Task {
+            do {
+                let state = try await crawlerClient.startRelay()
+                await MainActor.run {
+                    crawlerServerState = state
+                    crawlerServerMessage = state.message
+                    crawlerStatus = state
+                    crawlerStatusMessage = state.message
+                    log("Crawler backend started")
                 }
             } catch {
                 await MainActor.run {
@@ -284,27 +306,38 @@ final class KitchenSinkViewModel: ObservableObject {
     }
 
     func stopCrawler() {
-        guard supportsLocalCrawlerControl else {
-            crawlerServerState = RelayProcessState(
-                running: false,
-                message: "Local crawler process control is unavailable on this platform"
-            )
-            crawlerServerMessage = "Local crawler process control is unavailable on this platform"
-            crawlerStatus = crawlerServerState
-            crawlerStatusMessage = crawlerServerMessage
+        if supportsLocalCrawlerControl {
+            let controller = crawlerServerController
+            Task {
+                do {
+                    let state = try controller.stop()
+                    await MainActor.run {
+                        crawlerServerState = state
+                        crawlerServerMessage = state.message
+                        crawlerStatus = state
+                        crawlerStatusMessage = state.message
+                        log("Crawler stopped")
+                    }
+                } catch {
+                    await MainActor.run {
+                        crawlerServerMessage = "Crawler stop failed: \(error.localizedDescription)"
+                        crawlerStatusMessage = crawlerServerMessage
+                        log(crawlerStatusMessage)
+                    }
+                }
+            }
             return
         }
 
-        let controller = crawlerServerController
         Task {
             do {
-                let state = try controller.stop()
+                let state = try await crawlerClient.stopRelay()
                 await MainActor.run {
                     crawlerServerState = state
                     crawlerServerMessage = state.message
                     crawlerStatus = state
                     crawlerStatusMessage = state.message
-                    log("Crawler stopped")
+                    log("Crawler backend stopped")
                 }
             } catch {
                 await MainActor.run {
@@ -317,12 +350,6 @@ final class KitchenSinkViewModel: ObservableObject {
     }
 
     func refreshCrawlerDiscovery() {
-        guard supportsLocalCrawlerControl else {
-            crawlerServerMessage = "Local crawler process control is unavailable on this platform"
-            crawlerStatusMessage = crawlerServerMessage
-            return
-        }
-
         Task {
             do {
                 let discovery = try await crawlerClient.relayDiscovery()
@@ -816,14 +843,12 @@ struct ContentView: View {
                 infoRow("status", model.crawlerServerState?.message ?? model.crawlerServerMessage)
                 infoRow("running", (model.crawlerServerState?.running ?? false) ? "yes" : "no")
                 if !model.supportsLocalCrawlerControl {
-                    Text("Local crawler server control is available on macOS and Mac Catalyst only.")
+                    Text("Using HTTP crawler backend on this platform.")
                         .foregroundStyle(.secondary)
                 }
                 HStack {
                     Button("Start server") { model.startCrawler() }
-                        .disabled(!model.supportsLocalCrawlerControl)
                     Button("Stop server") { model.stopCrawler() }
-                        .disabled(!model.supportsLocalCrawlerControl)
                     Button("Refresh") { model.refreshCrawlerStatus() }
                     Button("Discovery") { model.refreshCrawlerDiscovery() }
                 }
