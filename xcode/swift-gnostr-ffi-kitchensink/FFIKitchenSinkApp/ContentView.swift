@@ -368,7 +368,7 @@ struct ContentView: View {
             groupBox("Controls") {
                 Toggle("Enabled", isOn: $model.isEnabled)
                 Picker("Mode", selection: $model.selectedMode) {
-                    ForEach(KitchenSinkMode.allCases) { mode in
+                    ForEach(KitchenSinkMode.allCases, id: \.self) { mode in
                         Text(mode.rawValue).tag(mode)
                     }
                 }
@@ -382,9 +382,6 @@ struct ContentView: View {
 
                 Slider(value: $model.sliderValue, in: 0...100, step: 1)
                 Stepper("Stepper value: \(model.stepperValue)", value: $model.stepperValue, in: 0...10)
-                    .onChange(of: model.stepperValue) { _, newValue in
-                        model.log("Stepper -> \(newValue)")
-                    }
             }
 
             groupBox("Editable notes") {
