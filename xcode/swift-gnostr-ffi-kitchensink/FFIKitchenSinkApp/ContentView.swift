@@ -510,7 +510,6 @@ final class KitchenSinkViewModel: ObservableObject {
     let embeddedRelayBaseURL = URL(string: "http://relay.localhost:3030")!
     let crawlerBucketsRootURL: URL
     let crawlerClient: CrawlerClient
-    let embeddedCrawlerClient: CrawlerClient
     let relayClient: RelayClient
     let embeddedRelayClient: RelayClient
     let crawlerServerController: CrawlerServerController
@@ -541,10 +540,6 @@ final class KitchenSinkViewModel: ObservableObject {
             committerTime: 1_234
         )
         self.crawlerClient = FFIKitchenSink.crawlerClient()
-        self.embeddedCrawlerClient = FFIKitchenSink.crawlerClient(
-            baseURL: embeddedCrawlerBaseURL,
-            session: Self.embeddedCrawlerSession()
-        )
         self.relayClient = FFIKitchenSink.relayClient()
         self.embeddedRelayClient = FFIKitchenSink.relayClient(
             baseURL: embeddedRelayBaseURL,
@@ -587,7 +582,7 @@ final class KitchenSinkViewModel: ObservableObject {
 
     private var crawlerServiceClient: CrawlerClient {
         appTrace("KitchenSinkViewModel.crawlerServiceClient")
-        return supportsLocalCrawlerControl ? crawlerClient : embeddedCrawlerClient
+        return crawlerClient
     }
 
     private var relayServiceClient: RelayClient {
@@ -961,18 +956,11 @@ final class KitchenSinkViewModel: ObservableObject {
             return
         }
 
-        _ = EmbeddedCrawlerService.shared.start()
         _ = EmbeddedRelayService.shared.start()
-        crawlerServerState = EmbeddedCrawlerService.shared.status()
-        crawlerStatus = crawlerServerState
-        crawlerServerMessage = crawlerServerState?.message ?? "Idle"
-        crawlerStatusMessage = crawlerServerMessage
         relayStatus = EmbeddedRelayService.shared.status()
         relayStatusMessage = relayStatus?.message ?? "Idle"
-        startCrawlerDiscoveryLoop()
-        refreshCrawlerDiscovery()
         refreshRelayDiscovery()
-        log("Embedded services bootstrapped")
+        log("Crawler FFI unavailable; embedded crawler fallback disabled")
     }
 
     func refreshCrawlerStatus() {
