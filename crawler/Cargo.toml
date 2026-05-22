@@ -59,6 +59,7 @@ tokio-tungstenite = { workspace = true }
 tower-http = { version = "0.5", features = ["full"] }
 tracing = "0.1.41"
 tracing-core = "0.1.33"
+tracing-log = "0.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 url = "2.5.0"
 
