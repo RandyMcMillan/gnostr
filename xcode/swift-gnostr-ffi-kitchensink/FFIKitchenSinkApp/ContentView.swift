@@ -232,6 +232,7 @@ final class KitchenSinkViewModel: ObservableObject {
                 message: "Local crawler process control is unavailable on this platform"
             )
             crawlerServerMessage = "Local crawler process control is unavailable on this platform"
+            crawlerStatus = crawlerServerState
             crawlerStatusMessage = crawlerServerMessage
             return
         }
@@ -255,6 +256,7 @@ final class KitchenSinkViewModel: ObservableObject {
                 message: "Local crawler process control is unavailable on this platform"
             )
             crawlerServerMessage = "Local crawler process control is unavailable on this platform"
+            crawlerStatus = crawlerServerState
             crawlerStatusMessage = crawlerServerMessage
             return
         }
@@ -286,6 +288,7 @@ final class KitchenSinkViewModel: ObservableObject {
                 message: "Local crawler process control is unavailable on this platform"
             )
             crawlerServerMessage = "Local crawler process control is unavailable on this platform"
+            crawlerStatus = crawlerServerState
             crawlerStatusMessage = crawlerServerMessage
             return
         }
@@ -423,6 +426,7 @@ final class KitchenSinkViewModel: ObservableObject {
     }()
 }
 
+#if os(macOS) || targetEnvironment(macCatalyst)
 private struct CrawlerServerCommand {
     let executableURL: URL
     let arguments: [String]
@@ -632,6 +636,23 @@ final class CrawlerServerController {
         return errno == EPERM
     }
 }
+#else
+final class CrawlerServerController {
+    private let unavailableMessage = "Local crawler process control is unavailable on this platform"
+
+    func status() -> RelayProcessState {
+        RelayProcessState(running: false, message: unavailableMessage)
+    }
+
+    func start() async throws -> RelayProcessState {
+        status()
+    }
+
+    func stop() throws -> RelayProcessState {
+        status()
+    }
+}
+#endif
 
 enum CrawlerPreset: String, CaseIterable, Identifiable {
     case nip34 = "NIP-34"
