@@ -63,7 +63,7 @@ final class EmbeddedCrawlerService: @unchecked Sendable {
     }
 
     func discoveryEntries() -> [RelayDiscoveryEntry] {
-        [
+        let entries = [
             RelayDiscoveryEntry(
                 url: "http://127.0.0.1:3030",
                 description: "In-app crawler backend",
@@ -73,6 +73,41 @@ final class EmbeddedCrawlerService: @unchecked Sendable {
                 supportedNips: [1, 7, 11, 13, 42, 30023, 30078, 31922, 31923, 31924]
             )
         ]
+        Self.syncDiskBuckets(relays: entries.map(\.url))
+        return entries
+    }
+
+    static func syncDiskBuckets(relays: [String]) {
+        let fileManager = FileManager.default
+        let root = crawlerConfigDirectoryURL()
+        do {
+            try fileManager.createDirectory(at: root, withIntermediateDirectories: true)
+            try writeBucketFiles(at: root, relays: relays)
+            let recent = root.appendingPathComponent("recent", isDirectory: true)
+            try writeBucketFiles(at: recent, relays: relays)
+        } catch {
+            print("Embedded crawler bucket sync failed: \(error)")
+        }
+    }
+
+    static func crawlerConfigDirectoryURL() -> URL {
+        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? URL(fileURLWithPath: FileManager.default.currentDirectoryPath, isDirectory: true)
+        return base.appendingPathComponent("org/gnostr/gnostr/crawler", isDirectory: true)
+    }
+
+    static func writeBucketFiles(at directory: URL, relays: [String]) throws {
+        let fileManager = FileManager.default
+        try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
+        let yamlURL = directory.appendingPathComponent("relays.yaml")
+        let jsonURL = directory.appendingPathComponent("relays.json")
+        let txtURL = directory.appendingPathComponent("relays.txt")
+        let yaml = relays.map { "- \($0)" }.joined(separator: "\n") + (relays.isEmpty ? "" : "\n")
+        let jsonData = try JSONEncoder().encode(relays)
+        let txt = relays.joined(separator: " ")
+        try yaml.write(to: yamlURL, atomically: true, encoding: .utf8)
+        try jsonData.write(to: jsonURL, options: .atomic)
+        try txt.write(to: txtURL, atomically: true, encoding: .utf8)
     }
 }
 
@@ -208,10 +243,13 @@ final class EmbeddedCrawlerURLProtocol: URLProtocol {
             return json(EmbeddedCrawlerService.shared.stop())
         case ("GET", "api/relay/discovery"):
             return json(EmbeddedCrawlerService.shared.discoveryEntries())
-        case ("GET", _):
-            return textResponse(queryResponse(for: url))
+        case ("GET", "relays.yaml"), ("GET", "relays.json"), ("GET", "relays.txt"):
+            return crawlerBucketResponse(bucket: nil, fileName: path)
         default:
-            return jsonError(statusCode: 405, message: "unsupported embedded crawler request")
+            if let bucketRequest = bucketRequest(for: path) {
+                return crawlerBucketResponse(bucket: bucketRequest.bucket, fileName: bucketRequest.fileName)
+            }
+            return textResponse(queryResponse(for: url))
         }
     }
 
@@ -231,6 +269,45 @@ final class EmbeddedCrawlerURLProtocol: URLProtocol {
         default:
             return jsonError(statusCode: 405, message: "unsupported embedded relay request")
         }
+    }
+
+    private static func crawlerBucketResponse(bucket: String?, fileName: String) -> (Int, [String: String], Data) {
+        let root = EmbeddedCrawlerService.crawlerConfigDirectoryURL()
+        let directory = bucket.map { root.appendingPathComponent($0, isDirectory: true) } ?? root
+        let fileURL = directory.appendingPathComponent(fileName)
+        if !FileManager.default.fileExists(atPath: fileURL.path) {
+            let relays = EmbeddedCrawlerService.shared.discoveryEntries().map(\.url.absoluteString)
+            do {
+                try EmbeddedCrawlerService.writeBucketFiles(at: directory, relays: relays)
+            } catch {
+                return jsonError(statusCode: 500, message: "failed to write crawler bucket: \(error.localizedDescription)")
+            }
+        }
+
+        do {
+            let data = try Data(contentsOf: fileURL)
+            let contentType: String
+            switch fileName {
+            case "relays.json":
+                contentType = "application/json"
+            case "relays.yaml":
+                contentType = "application/x-yaml"
+            default:
+                contentType = "text/plain; charset=utf-8"
+            }
+            return (200, ["Content-Type": contentType], data)
+        } catch {
+            return jsonError(statusCode: 500, message: "failed to read crawler bucket: \(error.localizedDescription)")
+        }
+    }
+
+    private static func bucketRequest(for path: String) -> (bucket: String, fileName: String)? {
+        let components = path.split(separator: "/", omittingEmptySubsequences: true).map(String.init)
+        guard components.count == 2 else { return nil }
+        guard components[1] == "relays.yaml" || components[1] == "relays.json" || components[1] == "relays.txt" else {
+            return nil
+        }
+        return (components[0], components[1])
     }
 
     private static func queryResponse(for url: URL) -> String {
@@ -292,7 +369,30 @@ enum KitchenSinkTab: String, CaseIterable, Hashable {
     case asyncGit = "AsyncGit"
     case types = "Types"
     case crawler = "Crawler"
+    case buckets = "Buckets"
     case relay = "Relay"
+}
+
+struct CrawlerBucketEntry: Identifiable, Hashable {
+    let url: URL
+    let isDirectory: Bool
+    let size: UInt64?
+    let modifiedAt: Date?
+
+    var id: String { url.path }
+
+    var name: String {
+        url.lastPathComponent.isEmpty ? url.path : url.lastPathComponent
+    }
+
+    var displayKind: String {
+        isDirectory ? "bucket" : "file"
+    }
+
+    var sizeLabel: String {
+        guard let size else { return "—" }
+        return ByteCountFormatter.string(fromByteCount: Int64(size), countStyle: .file)
+    }
 }
 
 enum KitchenSinkMode: String, CaseIterable, Hashable {
@@ -330,6 +430,11 @@ final class KitchenSinkViewModel: ObservableObject {
     @Published var crawlerStatusMessage = "Idle"
     @Published var crawlerStatus: RelayProcessState?
     @Published var crawlerDiscovery: [RelayDiscoveryEntry] = []
+    @Published var crawlerBucketStatusMessage = "No bucket directory loaded."
+    @Published var crawlerBucketCurrentPath = "/"
+    @Published var crawlerBucketEntries: [CrawlerBucketEntry] = []
+    @Published var crawlerBucketPreviewPath = "No file selected."
+    @Published var crawlerBucketPreview = "Select a bucket file to inspect it."
     @Published var crawlerServerMessage = "Idle"
     @Published var crawlerServerState: RelayProcessState?
     @Published var crawlerQueryStatusMessage = "Ready to submit."
@@ -347,6 +452,7 @@ final class KitchenSinkViewModel: ObservableObject {
     let relayBaseURL = URL(string: "http://127.0.0.1:3030")!
     let embeddedCrawlerBaseURL = URL(string: "http://crawler.localhost:3030")!
     let embeddedRelayBaseURL = URL(string: "http://relay.localhost:3030")!
+    let crawlerBucketsRootURL: URL
     let crawlerClient: CrawlerClient
     let embeddedCrawlerClient: CrawlerClient
     let relayClient: RelayClient
@@ -388,6 +494,7 @@ final class KitchenSinkViewModel: ObservableObject {
         )
         self.crawlerServerController = CrawlerServerController()
         self.relayServerController = RelayServerController()
+        self.crawlerBucketsRootURL = Self.crawlerBucketsRootDirectoryURL()
         #if os(macOS) || targetEnvironment(macCatalyst)
         self.supportsLocalCrawlerControl = true
         #else
@@ -398,6 +505,7 @@ final class KitchenSinkViewModel: ObservableObject {
         self.refreshCrawlerStatus()
         self.refreshRelayStatus()
         self.rebuildCrawlerPreview()
+        self.refreshCrawlerBuckets()
         self.bootstrapServices()
         self.log("GUI ready")
     }
@@ -443,6 +551,14 @@ final class KitchenSinkViewModel: ObservableObject {
 
     var crawlerWirePreview: String {
         (try? crawlerQueryParameters.buildWireQuery(subscriptionID: crawlerSubscriptionID)) ?? "unavailable"
+    }
+
+    var crawlerBucketCurrentDirectoryURL: URL {
+        let trimmed = crawlerBucketCurrentPath.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        if trimmed.isEmpty {
+            return crawlerBucketsRootURL
+        }
+        return crawlerBucketsRootURL.appendingPathComponent(trimmed, isDirectory: true)
     }
 
     var crawlerURLPreview: String {
@@ -511,6 +627,12 @@ final class KitchenSinkViewModel: ObservableObject {
         crawlerQueryResult = "No query submitted yet."
         rebuildCrawlerPreview()
         log("Crawler fields reset")
+    }
+
+    func openCrawlerBuckets() {
+        selectedTab = .buckets
+        refreshCrawlerBuckets()
+        log("Opened bucket browser")
     }
 
     func applyCrawlerPreset(_ preset: CrawlerPreset) {
@@ -814,6 +936,7 @@ final class KitchenSinkViewModel: ObservableObject {
                 await MainActor.run {
                     crawlerDiscovery = discovery
                     crawlerStatusMessage = "Loaded \(discovery.count) crawler discovery entries"
+                    refreshCrawlerBuckets()
                     log(crawlerStatusMessage)
                 }
             } catch {
@@ -823,6 +946,93 @@ final class KitchenSinkViewModel: ObservableObject {
                 }
             }
         }
+    }
+
+    func refreshCrawlerBuckets() {
+        let fileManager = FileManager.default
+        do {
+            try fileManager.createDirectory(at: crawlerBucketsRootURL, withIntermediateDirectories: true)
+            let directory = crawlerBucketCurrentDirectoryURL
+            let values: Set<URLResourceKey> = [.isDirectoryKey, .fileSizeKey, .contentModificationDateKey]
+            let entries = try fileManager.contentsOfDirectory(
+                at: directory,
+                includingPropertiesForKeys: Array(values),
+                options: [.skipsHiddenFiles]
+            )
+            let mapped: [CrawlerBucketEntry] = entries.compactMap { url in
+                let resourceValues = try? url.resourceValues(forKeys: values)
+                return CrawlerBucketEntry(
+                    url: url,
+                    isDirectory: resourceValues?.isDirectory ?? false,
+                    size: resourceValues?.fileSize.map(UInt64.init),
+                    modifiedAt: resourceValues?.contentModificationDate
+                )
+            }
+            .sorted {
+                if $0.isDirectory != $1.isDirectory { return $0.isDirectory && !$1.isDirectory }
+                return $0.name.localizedStandardCompare($1.name) == .orderedAscending
+            }
+            crawlerBucketEntries = mapped
+            crawlerBucketStatusMessage = mapped.isEmpty
+                ? "Bucket directory is empty."
+                : "Loaded \(mapped.count) bucket items."
+            crawlerBucketPreviewPath = crawlerBucketCurrentDirectoryURL.path
+            if crawlerBucketPreview.isEmpty {
+                crawlerBucketPreview = "Select a bucket file to inspect it."
+            }
+        } catch {
+            crawlerBucketEntries = []
+            crawlerBucketStatusMessage = "Bucket browser failed: \(error.localizedDescription)"
+            crawlerBucketPreview = error.localizedDescription
+        }
+    }
+
+    func goToCrawlerBucketParent() {
+        let directory = crawlerBucketCurrentDirectoryURL
+        let parent = directory.deletingLastPathComponent()
+        guard parent.path.hasPrefix(crawlerBucketsRootURL.path) else { return }
+        crawlerBucketCurrentPath = relativeCrawlerBucketPath(for: parent)
+        refreshCrawlerBuckets()
+    }
+
+    func openCrawlerBucket(_ entry: CrawlerBucketEntry) {
+        if entry.isDirectory {
+            crawlerBucketCurrentPath = relativeCrawlerBucketPath(for: entry.url)
+            crawlerBucketPreviewPath = entry.url.path
+            crawlerBucketPreview = "Directory selected."
+            refreshCrawlerBuckets()
+            return
+        }
+
+        crawlerBucketPreviewPath = entry.url.path
+        crawlerBucketPreview = readCrawlerBucketFile(at: entry.url)
+        crawlerBucketStatusMessage = "Previewing \(entry.name)"
+    }
+
+    private func readCrawlerBucketFile(at url: URL) -> String {
+        do {
+            let data = try Data(contentsOf: url)
+            if let string = String(data: data, encoding: .utf8) {
+                return string.isEmpty ? "Empty file." : string
+            }
+            return "Binary file (\(data.count) bytes)"
+        } catch {
+            return "Failed to read file: \(error.localizedDescription)"
+        }
+    }
+
+    private func relativeCrawlerBucketPath(for directory: URL) -> String {
+        let root = crawlerBucketsRootURL.standardizedFileURL.path
+        let path = directory.standardizedFileURL.path
+        guard path.hasPrefix(root) else { return "/" }
+        let remainder = path.dropFirst(root.count).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        return remainder.isEmpty ? "/" : "/" + remainder
+    }
+
+    private static func crawlerBucketsRootDirectoryURL() -> URL {
+        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? URL(fileURLWithPath: FileManager.default.currentDirectoryPath, isDirectory: true)
+        return base.appendingPathComponent("org/gnostr/gnostr/crawler", isDirectory: true)
     }
 
     func refreshRelayStatus() {
@@ -1445,6 +1655,10 @@ struct ContentView: View {
                 .tabItem { Label("Crawler", systemImage: "network") }
                 .tag(KitchenSinkTab.crawler)
 
+            bucketsTab
+                .tabItem { Label("Buckets", systemImage: "folder") }
+                .tag(KitchenSinkTab.buckets)
+
             relayTab
                 .tabItem { Label("Relay", systemImage: "antenna.radiowaves.left.and.right") }
                 .tag(KitchenSinkTab.relay)
@@ -1614,6 +1828,7 @@ struct ContentView: View {
                 HStack {
                     Button("Refresh preview") { model.rebuildCrawlerPreview() }
                     Button("Submit query") { model.submitCrawlerQuery() }
+                    Button("Open buckets") { model.openCrawlerBuckets() }
                 }
             }
 
@@ -1651,6 +1866,63 @@ struct ContentView: View {
                     }
                     .padding(.vertical, 4)
                 }
+            }
+        }
+    }
+
+    private var bucketsTab: some View {
+        scroll {
+            title("Buckets", subtitle: "Inspect the crawler's on-disk relay buckets and cached files.")
+
+            groupBox("Bucket browser") {
+                infoRow("root", model.crawlerBucketsRootURL.path)
+                infoRow("current", model.crawlerBucketCurrentPath)
+                infoRow("status", model.crawlerBucketStatusMessage)
+                HStack {
+                    Button("Refresh") { model.refreshCrawlerBuckets() }
+                    Button("Up") { model.goToCrawlerBucketParent() }
+                    Button("Root") {
+                        model.crawlerBucketCurrentPath = "/"
+                        model.refreshCrawlerBuckets()
+                    }
+                }
+
+                if model.crawlerBucketEntries.isEmpty {
+                    Text("No bucket files found in this directory.")
+                        .foregroundStyle(.secondary)
+                } else {
+                    VStack(alignment: .leading, spacing: 6) {
+                        ForEach(model.crawlerBucketEntries) { entry in
+                            Button {
+                                model.openCrawlerBucket(entry)
+                            } label: {
+                                HStack(spacing: 10) {
+                                    Image(systemName: entry.isDirectory ? "folder.fill" : "doc.text")
+                                    Text(entry.name)
+                                        .font(.body.monospaced())
+                                    Spacer()
+                                    Text(entry.displayKind)
+                                        .foregroundStyle(.secondary)
+                                    Text(entry.sizeLabel)
+                                        .foregroundStyle(.secondary)
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+            }
+
+            groupBox("Selected file") {
+                infoRow("path", model.crawlerBucketPreviewPath)
+                Text(model.crawlerBucketPreview)
+                    .font(.footnote.monospaced())
+                    .frame(maxWidth: .infinity, minHeight: 220, alignment: .topLeading)
+                    .padding(8)
+                    .background(.quaternary.opacity(0.12))
+                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(.quaternary))
+                    .textSelection(.enabled)
             }
         }
     }
