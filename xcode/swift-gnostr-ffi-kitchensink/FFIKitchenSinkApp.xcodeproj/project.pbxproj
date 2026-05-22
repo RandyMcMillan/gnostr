@@ -148,12 +148,14 @@
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
+				"EXCLUDED_ARCHS[sdk=iphone*]" = x86_64;
+				INFOPLIST_FILE = FFIKitchenSinkApp/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				INFOPLIST_FILE = FFIKitchenSinkApp/Info.plist;
+				"MACOSX_DEPLOYMENT_TARGET[sdk=macosx*]" = 14.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = org.gnostr.FFIKitchenSinkApp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -175,12 +177,14 @@
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
+				"EXCLUDED_ARCHS[sdk=iphone*]" = x86_64;
+				INFOPLIST_FILE = FFIKitchenSinkApp/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				INFOPLIST_FILE = FFIKitchenSinkApp/Info.plist;
+				"MACOSX_DEPLOYMENT_TARGET[sdk=macosx*]" = 14.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = org.gnostr.FFIKitchenSinkApp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -204,12 +208,13 @@
 				DEVELOPMENT_TEAM = M684FYCYG6;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = FFIKitchenSinkApp/Info.plist;
-				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
-				SUPPORTS_MACCATALYST = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
 				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
 		};
@@ -224,12 +229,13 @@
 				DEVELOPMENT_TEAM = M684FYCYG6;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = FFIKitchenSinkApp/Info.plist;
-				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
-				SUPPORTS_MACCATALYST = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
 				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
 		};
