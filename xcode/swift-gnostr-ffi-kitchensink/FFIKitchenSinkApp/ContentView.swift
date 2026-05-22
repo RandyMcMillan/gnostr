@@ -807,49 +807,82 @@ final class KitchenSinkViewModel: ObservableObject {
     }
 
     nonisolated private static func sampleRelayTargets(from root: URL, limit: Int) -> [String] {
+        appTrace("KitchenSinkViewModel.sampleRelayTargets root=\(root.path) limit=\(limit)")
         let fileManager = FileManager.default
-        guard let enumerator = fileManager.enumerator(
-            at: root,
-            includingPropertiesForKeys: [.isRegularFileKey],
-            options: [.skipsHiddenFiles]
-        ) else {
-            return []
-        }
+        let candidateDirectories: [URL] = [
+            root.appendingPathComponent("1", isDirectory: true),
+            root.appendingPathComponent("recent", isDirectory: true),
+            root,
+        ]
 
         var relays: [String] = []
-        for case let fileURL as URL in enumerator {
-            let name = fileURL.lastPathComponent
-            guard name == "relays.json" || name == "relays.yaml" || name == "relays.txt" else {
+        for directory in candidateDirectories {
+            let path = directory.path
+            guard fileManager.fileExists(atPath: path) else {
+                appTrace("KitchenSinkViewModel.sampleRelayTargets missing dir=\(path)")
                 continue
             }
 
-            guard let data = try? Data(contentsOf: fileURL) else { continue }
-            let parsed = Self.relayTargets(fromBucketFile: fileURL, data: data)
-            relays.append(contentsOf: parsed)
+            appTrace("KitchenSinkViewModel.sampleRelayTargets scanning dir=\(path)")
+            guard let enumerator = fileManager.enumerator(
+                at: directory,
+                includingPropertiesForKeys: [.isRegularFileKey],
+                options: [.skipsHiddenFiles]
+            ) else {
+                appTrace("KitchenSinkViewModel.sampleRelayTargets no enumerator dir=\(path)")
+                continue
+            }
+
+            for case let fileURL as URL in enumerator {
+                let name = fileURL.lastPathComponent
+                guard name == "relays.json" || name == "relays.yaml" || name == "relays.txt" else {
+                    continue
+                }
+
+                appTrace("KitchenSinkViewModel.sampleRelayTargets reading file=\(fileURL.path)")
+                guard let data = try? Data(contentsOf: fileURL) else {
+                    appTrace("KitchenSinkViewModel.sampleRelayTargets unreadable file=\(fileURL.path)")
+                    continue
+                }
+
+                let parsed = Self.relayTargets(fromBucketFile: fileURL, data: data)
+                appTrace("KitchenSinkViewModel.sampleRelayTargets parsed=\(parsed.count) file=\(fileURL.path)")
+                relays.append(contentsOf: parsed)
+                if relays.count >= limit {
+                    break
+                }
+            }
+
             if relays.count >= limit {
                 break
             }
         }
-
-        return Array(Set(relays)).sorted().prefix(limit).map { $0 }
+        let unique = Array(Set(relays)).sorted()
+        appTrace("KitchenSinkViewModel.sampleRelayTargets result=\(unique.count)")
+        return Array(unique.prefix(limit))
     }
 
     nonisolated private static func relayTargets(fromBucketFile fileURL: URL, data: Data) -> [String] {
+        appTrace("KitchenSinkViewModel.relayTargets(fromBucketFile) file=\(fileURL.path)")
         let text = String(data: data, encoding: .utf8) ?? ""
         switch fileURL.pathExtension.lowercased() {
         case "json":
             if let decoded = try? JSONDecoder().decode([String].self, from: data) {
+                appTrace("KitchenSinkViewModel.relayTargets json decoded=\(decoded.count) file=\(fileURL.path)")
                 return decoded
                     .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
                     .filter { !$0.isEmpty }
             }
+            appTrace("KitchenSinkViewModel.relayTargets json fallback text file=\(fileURL.path)")
             return relayTargets(from: text)
         case "yaml":
             let normalized = text
                 .replacingOccurrences(of: "- ", with: " ")
                 .replacingOccurrences(of: "-\t", with: " ")
+            appTrace("KitchenSinkViewModel.relayTargets yaml file=\(fileURL.path)")
             return relayTargets(from: normalized)
         default:
+            appTrace("KitchenSinkViewModel.relayTargets txt file=\(fileURL.path)")
             return relayTargets(from: text)
         }
     }
