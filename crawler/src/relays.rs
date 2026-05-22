@@ -135,6 +135,107 @@ fn sanitize_relay_entry(line: &str) -> Option<String> {
     }
 }
 
+fn collect_relays_from_content(path: &Path, content: &str, relays: &mut Vec<String>) {
+    let mut record_relay = |relay: String| {
+        info!(
+            "write_relays_serve_files: including relay={} from {}",
+            relay,
+            path.display()
+        );
+        relays.push(relay);
+    };
+
+    match path.extension().and_then(|ext| ext.to_str()) {
+        Some("json") => {
+            if let Ok(values) = serde_json::from_str::<Vec<String>>(content) {
+                for value in values {
+                    if let Some(relay) = sanitize_relay_entry(&value) {
+                        record_relay(relay);
+                    }
+                }
+                return;
+            }
+        }
+        Some("yaml") | Some("yml") => {
+            if let Ok(values) = serde_yaml::from_str::<Vec<String>>(content) {
+                for value in values {
+                    if let Some(relay) = sanitize_relay_entry(&value) {
+                        record_relay(relay);
+                    }
+                }
+                return;
+            }
+        }
+        Some("txt") => {
+            for value in content.split_whitespace() {
+                if let Some(relay) = sanitize_relay_entry(value) {
+                    record_relay(relay);
+                }
+            }
+            return;
+        }
+        _ => {}
+    }
+
+    for line in content.lines() {
+        if let Some(relay) = sanitize_relay_entry(line) {
+            record_relay(relay);
+        }
+    }
+}
+
+fn collect_relays_from_bucket_tree(root: &Path, relays: &mut Vec<String>) -> std::io::Result<()> {
+    if !root.is_dir() {
+        return Ok(());
+    }
+
+    for entry in fs::read_dir(root)? {
+        let entry = entry?;
+        let path = entry.path();
+        let name = entry.file_name().to_string_lossy().to_string();
+
+        if path.is_dir() {
+            info!(
+                "write_relays_serve_files: scanning bucket directory {}",
+                path.display()
+            );
+            collect_relays_from_bucket_tree(&path, relays)?;
+            continue;
+        }
+
+        if path.parent() == Some(root)
+            && matches!(name.as_str(), "relays.yaml" | "relays.json" | "relays.txt")
+        {
+            debug!(
+                "write_relays_serve_files: skipping root aggregate file {}",
+                path.display()
+            );
+            continue;
+        }
+
+        if matches!(name.as_str(), "relays.yaml" | "relays.json" | "relays.txt") {
+            match fs::read_to_string(&path) {
+                Ok(content) => {
+                    info!(
+                        "write_relays_serve_files: reading relay bucket file {}",
+                        path.display()
+                    );
+                    collect_relays_from_content(&path, &content, relays);
+                }
+                Err(e) => {
+                    warn!(
+                        "write_relays_serve_files: failed to read {}: {}",
+                        path.display(),
+                        e
+                    );
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
+
 fn write_bucket_serve_files(bucket_name: &str, relays: &[String]) -> std::io::Result<PathBuf> {
     let config_dir = get_config_dir_path().join(bucket_name);
     fs::create_dir_all(&config_dir)?;
@@ -190,6 +291,7 @@ pub fn append_recent_relay(relay: &str) -> std::io::Result<PathBuf> {
         relays.sort();
         relays.dedup();
         write_bucket_serve_files("recent", &relays)?;
+        let _ = write_relays_serve_files();
     } else {
         debug!("append_recent_relay: relay already present bucket=recent relay={relay}");
     }
@@ -198,45 +300,31 @@ pub fn append_recent_relay(relay: &str) -> std::io::Result<PathBuf> {
 }
 
 pub fn write_relays_json_from_yaml() -> std::io::Result<PathBuf> {
-    let config_dir = get_config_dir_path();
-    let yaml_path = config_dir.join("relays.yaml");
-    let json_path = config_dir.join("relays.json");
-
-    if let Some(parent) = json_path.parent() {
-        fs::create_dir_all(parent)?;
-    }
-
-    debug!(
-        "write_relays_json_from_yaml: reading {}",
-        yaml_path.display()
-    );
-    let relays: Vec<String> = match fs::read_to_string(&yaml_path) {
-        Ok(content) => content.lines().filter_map(sanitize_relay_entry).collect(),
-        Err(_) => BOOTSTRAP_RELAYS.clone(),
-    };
-
-    let json_content = serde_json::to_string_pretty(&relays).map_err(std::io::Error::other)?;
-    debug!(
-        "write_relays_json_from_yaml: writing {}",
-        json_path.display()
-    );
-    fs::write(&json_path, json_content)?;
-    Ok(json_path)
+    write_relays_serve_files()?;
+    Ok(get_config_dir_path().join("relays.json"))
 }
 
 pub fn write_relays_serve_files() -> std::io::Result<()> {
     let config_dir = get_config_dir_path();
     fs::create_dir_all(&config_dir)?;
 
-    let yaml_source = config_dir.join("relays.yaml");
-    debug!(
-        "write_relays_serve_files: reading {}",
-        yaml_source.display()
+    let mut relays: Vec<String> = Vec::new();
+    collect_relays_from_bucket_tree(&config_dir, &mut relays)?;
+    if relays.is_empty() {
+        info!(
+            "write_relays_serve_files: no bucket relays found, falling back to bootstrap relays"
+        );
+        relays.extend(BOOTSTRAP_RELAYS.clone());
+    }
+    relays.sort();
+    relays.dedup();
+    info!(
+        "write_relays_serve_files: built {} aggregated relay entries",
+        relays.len()
     );
-    let relays: Vec<String> = match fs::read_to_string(&yaml_source) {
-        Ok(content) => content.lines().filter_map(sanitize_relay_entry).collect(),
-        Err(_) => BOOTSTRAP_RELAYS.clone(),
-    };
+    for relay in &relays {
+        info!("write_relays_serve_files: root relay={relay}");
+    }
 
     let yaml_path = config_dir.join("relays.yaml");
     let json_path = config_dir.join("relays.json");
@@ -282,6 +370,7 @@ pub fn write_nip_relays_serve_files(nip: i32, relays: &[String]) -> std::io::Res
         txt_path.display()
     );
     fs::write(&txt_path, relays.join(" "))?;
+    let _ = write_relays_serve_files();
 
     Ok(config_dir)
 }
@@ -348,6 +437,7 @@ pub fn write_nip_relays_serve_files_from_dir(nip: i32) -> std::io::Result<PathBu
         txt_path.display()
     );
     fs::write(&txt_path, relays.join(" "))?;
+    let _ = write_relays_serve_files();
 
     Ok(config_dir)
 }
