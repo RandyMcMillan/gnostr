@@ -63,6 +63,7 @@ final class KitchenSinkViewModel: ObservableObject {
     let crawlerClient: CrawlerClient
     let relayClient: RelayClient
     let crawlerServerController: CrawlerServerController
+    let supportsLocalCrawlerControl: Bool
 
     init() {
         #if targetEnvironment(macCatalyst)
@@ -88,6 +89,11 @@ final class KitchenSinkViewModel: ObservableObject {
         self.crawlerClient = FFIKitchenSink.crawlerClient()
         self.relayClient = FFIKitchenSink.relayClient()
         self.crawlerServerController = CrawlerServerController()
+        #if os(macOS) || targetEnvironment(macCatalyst)
+        self.supportsLocalCrawlerControl = true
+        #else
+        self.supportsLocalCrawlerControl = false
+        #endif
         self.loadRelayDefaults()
         self.refreshCrawlerStatus()
         self.rebuildCrawlerPreview()
@@ -220,6 +226,16 @@ final class KitchenSinkViewModel: ObservableObject {
     }
 
     func refreshCrawlerStatus() {
+        guard supportsLocalCrawlerControl else {
+            crawlerServerState = RelayProcessState(
+                running: false,
+                message: "Local crawler process control is unavailable on this platform"
+            )
+            crawlerServerMessage = "Local crawler process control is unavailable on this platform"
+            crawlerStatusMessage = crawlerServerMessage
+            return
+        }
+
         Task {
             let state = await crawlerServerController.status()
             await MainActor.run {
@@ -233,6 +249,16 @@ final class KitchenSinkViewModel: ObservableObject {
     }
 
     func startCrawler() {
+        guard supportsLocalCrawlerControl else {
+            crawlerServerState = RelayProcessState(
+                running: false,
+                message: "Local crawler process control is unavailable on this platform"
+            )
+            crawlerServerMessage = "Local crawler process control is unavailable on this platform"
+            crawlerStatusMessage = crawlerServerMessage
+            return
+        }
+
         Task {
             do {
                 let state = try await crawlerServerController.start()
@@ -254,6 +280,16 @@ final class KitchenSinkViewModel: ObservableObject {
     }
 
     func stopCrawler() {
+        guard supportsLocalCrawlerControl else {
+            crawlerServerState = RelayProcessState(
+                running: false,
+                message: "Local crawler process control is unavailable on this platform"
+            )
+            crawlerServerMessage = "Local crawler process control is unavailable on this platform"
+            crawlerStatusMessage = crawlerServerMessage
+            return
+        }
+
         Task {
             do {
                 let state = try crawlerServerController.stop()
@@ -275,6 +311,12 @@ final class KitchenSinkViewModel: ObservableObject {
     }
 
     func refreshCrawlerDiscovery() {
+        guard supportsLocalCrawlerControl else {
+            crawlerServerMessage = "Local crawler process control is unavailable on this platform"
+            crawlerStatusMessage = crawlerServerMessage
+            return
+        }
+
         Task {
             do {
                 let discovery = try await crawlerClient.relayDiscovery()
@@ -413,7 +455,7 @@ final class CrawlerServerController {
             )
         }
 
-        try removeStalePIDFile()
+        removeStalePIDFile()
         let command = try resolveCommand()
         let launchOutput = try launch(command)
 
@@ -440,10 +482,11 @@ final class CrawlerServerController {
         }
 
         if kill(pid_t(pid), SIGTERM) != 0, errno != ESRCH {
-            throw CocoaError(.fileWriteNoPermission)
+            let message = String(cString: strerror(errno))
+            throw NSError(domain: "CrawlerServerController", code: Int(errno), userInfo: [NSLocalizedDescriptionKey: message])
         }
 
-        try removeStalePIDFile()
+        removeStalePIDFile()
         return RelayProcessState(running: false, pid: pid, message: "Crawler server stopped")
     }
 
@@ -484,7 +527,7 @@ final class CrawlerServerController {
         process.waitUntilExit()
 
         let output = [stdout, stderr]
-            .flatMap { [$0.fileHandleForReading.readDataToEndOfFile()] }
+            .map { $0.fileHandleForReading.readDataToEndOfFile() }
             .compactMap { String(data: $0, encoding: .utf8) }
             .joined(separator: "\n")
             .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -518,10 +561,10 @@ final class CrawlerServerController {
         return UInt32(raw.trimmingCharacters(in: .whitespacesAndNewlines))
     }
 
-    private func removeStalePIDFile() throws {
+    private func removeStalePIDFile() {
         let url = detachedPIDFileURL()
         if fileManager.fileExists(atPath: url.path) {
-            try fileManager.removeItem(at: url)
+            try? fileManager.removeItem(at: url)
         }
     }
 
@@ -748,9 +791,15 @@ struct ContentView: View {
             groupBox("Crawler service") {
                 infoRow("status", model.crawlerServerState?.message ?? model.crawlerServerMessage)
                 infoRow("running", (model.crawlerServerState?.running ?? false) ? "yes" : "no")
+                if !model.supportsLocalCrawlerControl {
+                    Text("Local crawler server control is available on macOS and Mac Catalyst only.")
+                        .foregroundStyle(.secondary)
+                }
                 HStack {
                     Button("Start server") { model.startCrawler() }
+                        .disabled(!model.supportsLocalCrawlerControl)
                     Button("Stop server") { model.stopCrawler() }
+                        .disabled(!model.supportsLocalCrawlerControl)
                     Button("Refresh") { model.refreshCrawlerStatus() }
                     Button("Discovery") { model.refreshCrawlerDiscovery() }
                 }
