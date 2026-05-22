@@ -330,6 +330,30 @@ public enum NIP34 {
     public static let gitStatusAppliedKind: UInt32 = 1631
     public static let gitStatusClosedKind: UInt32 = 1632
     public static let gitStatusDraftKind: UInt32 = 1633
+
+    public static var rustBridgeAvailable: Bool {
+        RustGnostrTypesBridge.shared.isAvailable
+    }
+
+    public static func rustGitNoteEventID(commitID: String) -> String? {
+        RustGnostrTypesBridge.shared.gitNoteEventID(commitID: commitID)
+    }
+
+    public static func rustGitNoteTags(note: GitNote) throws -> [Tag] {
+        try RustGnostrTypesBridge.shared.gitNoteTags(note: note)
+    }
+
+    public static func rustGenerateGitNoteEvent(
+        note: GitNote,
+        privateKeyHex: String,
+        powTargetBits: UInt8 = 0
+    ) throws -> Event {
+        try RustGnostrTypesBridge.shared.generateGitNoteEvent(
+            note: note,
+            privateKeyHex: privateKeyHex,
+            powTargetBits: powTargetBits
+        )
+    }
 }
 
 public func getLeadingZeroBits(_ bytes: [UInt8]) -> UInt8 {
