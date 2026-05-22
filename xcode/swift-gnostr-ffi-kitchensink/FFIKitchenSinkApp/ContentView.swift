@@ -210,6 +210,7 @@ final class KitchenSinkViewModel: ObservableObject {
     let crawlerBaseURL = URL(string: "http://127.0.0.1:3030")!
     let relayBaseURL = URL(string: "http://127.0.0.1:3030")!
     let crawlerClient: CrawlerClient
+    let embeddedCrawlerClient: CrawlerClient
     let relayClient: RelayClient
     let crawlerServerController: CrawlerServerController
     let supportsLocalCrawlerControl: Bool
@@ -236,6 +237,9 @@ final class KitchenSinkViewModel: ObservableObject {
             committerTime: 1_234
         )
         self.crawlerClient = FFIKitchenSink.crawlerClient()
+        self.embeddedCrawlerClient = FFIKitchenSink.crawlerClient(
+            session: Self.embeddedCrawlerSession()
+        )
         self.relayClient = FFIKitchenSink.relayClient()
         self.crawlerServerController = CrawlerServerController()
         #if os(macOS) || targetEnvironment(macCatalyst)
@@ -247,6 +251,17 @@ final class KitchenSinkViewModel: ObservableObject {
         self.refreshCrawlerStatus()
         self.rebuildCrawlerPreview()
         self.log("GUI ready")
+    }
+
+    private static func embeddedCrawlerSession() -> URLSession {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [EmbeddedCrawlerURLProtocol.self]
+        configuration.waitsForConnectivity = false
+        return URLSession(configuration: configuration)
+    }
+
+    private var crawlerServiceClient: CrawlerClient {
+        supportsLocalCrawlerControl ? crawlerClient : embeddedCrawlerClient
     }
 
     var crawlerQueryParameters: CrawlerQueryParameters {
@@ -392,7 +407,7 @@ final class KitchenSinkViewModel: ObservableObject {
 
         Task {
             do {
-                let state = try await crawlerClient.relayStatus()
+                let state = try await crawlerServiceClient.relayStatus()
                 await MainActor.run {
                     crawlerServerState = state
                     crawlerServerMessage = state.message
@@ -436,7 +451,7 @@ final class KitchenSinkViewModel: ObservableObject {
 
         Task {
             do {
-                let state = try await crawlerClient.startRelay()
+                let state = try await crawlerServiceClient.startRelay()
                 await MainActor.run {
                     crawlerServerState = state
                     crawlerServerMessage = state.message
@@ -480,7 +495,7 @@ final class KitchenSinkViewModel: ObservableObject {
 
         Task {
             do {
-                let state = try await crawlerClient.stopRelay()
+                let state = try await crawlerServiceClient.stopRelay()
                 await MainActor.run {
                     crawlerServerState = state
                     crawlerServerMessage = state.message
@@ -501,7 +516,7 @@ final class KitchenSinkViewModel: ObservableObject {
     func refreshCrawlerDiscovery() {
         Task {
             do {
-                let discovery = try await crawlerClient.relayDiscovery()
+                let discovery = try await crawlerServiceClient.relayDiscovery()
                 await MainActor.run {
                     crawlerDiscovery = discovery
                     crawlerStatusMessage = "Loaded \(discovery.count) crawler discovery entries"
