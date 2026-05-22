@@ -226,6 +226,16 @@ public struct CrawlerQueryParameters: Codable, Hashable, Sendable {
     }
 }
 
+public struct CrawlerBucketRefreshState: Codable, Hashable, Sendable {
+    public var ok: Bool
+    public var message: String
+
+    public init(ok: Bool, message: String) {
+        self.ok = ok
+        self.message = message
+    }
+}
+
 public enum CrawlerQueryBuilder {
     public static func buildGnostrQuery(
         authors: String? = nil,
@@ -291,6 +301,10 @@ public final class CrawlerClient: @unchecked Sendable {
 
     public func relaysTXT(nip: Int? = nil) async throws -> String {
         try await self.getText(path(for: nip, suffix: "relays.txt"))
+    }
+
+    public func primeBuckets() async throws -> CrawlerBucketRefreshState {
+        try await self.postJSON("api/relays/prime")
     }
 
     public func queryPage(_ parameters: CrawlerQueryParameters = .init(), nip: Int? = nil) async throws -> String {
