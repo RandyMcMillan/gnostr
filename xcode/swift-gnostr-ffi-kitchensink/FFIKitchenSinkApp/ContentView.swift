@@ -544,6 +544,9 @@ final class KitchenSinkViewModel: ObservableObject {
         let previewURL = crawlerURLPreview
         let client = crawlerServiceClient
 
+        crawlerQueryStatusMessage = "Submitting query to \(previewURL)"
+        crawlerQueryResult = "Waiting for response..."
+
         Task {
             do {
                 let response = try await client.queryPage(parameters)
@@ -1557,13 +1560,13 @@ struct ContentView: View {
 
             groupBox("Query result") {
                 infoRow("status", model.crawlerQueryStatusMessage)
-                ScrollView {
-                    Text(model.crawlerQueryResult)
-                        .font(.footnote.monospaced())
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .textSelection(.enabled)
-                }
-                .frame(minHeight: 140)
+                Text(model.crawlerQueryResult)
+                    .font(.footnote.monospaced())
+                    .frame(maxWidth: .infinity, minHeight: 140, alignment: .topLeading)
+                    .padding(8)
+                    .background(.quaternary.opacity(0.12))
+                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(.quaternary))
+                    .textSelection(.enabled)
             }
 
             groupBox("Crawler discovery") {
