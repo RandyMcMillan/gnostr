@@ -276,7 +276,7 @@ final class EmbeddedCrawlerURLProtocol: URLProtocol {
         let directory = bucket.map { root.appendingPathComponent($0, isDirectory: true) } ?? root
         let fileURL = directory.appendingPathComponent(fileName)
         if !FileManager.default.fileExists(atPath: fileURL.path) {
-            let relays = EmbeddedCrawlerService.shared.discoveryEntries().map(\.url.absoluteString)
+            let relays = EmbeddedCrawlerService.shared.discoveryEntries().map(\.url)
             do {
                 try EmbeddedCrawlerService.writeBucketFiles(at: directory, relays: relays)
             } catch {
