@@ -1762,6 +1762,7 @@ struct ContentView: View {
     @StateObject private var model = KitchenSinkViewModel()
 
     var body: some View {
+        appTrace("ContentView.body")
         TabView(selection: $model.selectedTab) {
             overviewTab
                 .tabItem { Label("Overview", systemImage: "square.grid.2x2") }
@@ -2107,6 +2108,7 @@ struct ContentView: View {
     }
 
     private func scroll<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        appTrace("ContentView.scroll")
         ScrollView {
             VStack(alignment: .leading, spacing: 16, content: content)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -2114,6 +2116,7 @@ struct ContentView: View {
     }
 
     private func title(_ title: String, subtitle: String) -> some View {
+        appTrace("ContentView.title \(title)")
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
                 .font(.largeTitle.weight(.bold))
@@ -2123,6 +2126,7 @@ struct ContentView: View {
     }
 
     private func groupBox<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        appTrace("ContentView.groupBox \(title)")
         GroupBox(title) {
             VStack(alignment: .leading, spacing: 8, content: content)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -2130,6 +2134,7 @@ struct ContentView: View {
     }
 
     private func infoRow(_ label: String, _ value: String) -> some View {
+        appTrace("ContentView.infoRow \(label)")
         HStack(alignment: .top, spacing: 12) {
             Text(label)
                 .font(.headline)
@@ -2142,6 +2147,7 @@ struct ContentView: View {
     }
 
     private func labeledField(_ label: String, text: Binding<String>) -> some View {
+        appTrace("ContentView.labeledField \(label)")
         HStack(alignment: .firstTextBaseline, spacing: 12) {
             Text(label)
                 .font(.headline)
@@ -2152,6 +2158,7 @@ struct ContentView: View {
     }
 
     private func kindLabel(_ kind: AsyncGitEventKind) -> String {
+        appTrace("ContentView.kindLabel \(kind.rawValue)")
         switch kind {
         case .repoAnnouncement: return "Repo announcement"
         case .repoState: return "Repo state"
