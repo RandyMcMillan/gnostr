@@ -537,7 +537,9 @@ fn list_from_remote_url(
     let git_config = git_repo.git_repo.config()?;
 
     let mut git_server_remote = git_repo.git_repo.remote_anonymous(git_server_remote_url)?;
-    let ssh_key_file = ssh_key_file.map(PathBuf::from_str).transpose()?;
+    let ssh_key_file = ssh_key_file
+        .map(|ssh_key_file| PathBuf::from_str(ssh_key_file))
+        .transpose()?;
     let mut remote_callbacks = git2::RemoteCallbacks::new();
     if !dont_authenticate {
         remote_callbacks.credentials({
