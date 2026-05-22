@@ -7,7 +7,7 @@ use axum::{
     extract::{Path as AxumPath, Query},
     http::{header::CONTENT_TYPE, StatusCode},
     response::{IntoResponse, Response},
-    routing::{get, post},
+    routing::get,
     Router,
 };
 use log::{debug, error, info, warn};
@@ -16,7 +16,7 @@ use nostr_sdk::prelude::*;
 use std::collections::{HashMap, HashSet};
 use std::fs as sync_fs;
 use std::net::SocketAddr;
-use std::path::PathBuf;
+use std::path::{Component, Path, PathBuf};
 use std::process::{Command, Stdio};
 use tokio::fs;
 use tokio::task::spawn;
@@ -333,55 +333,90 @@ pub(crate) async fn get_relays_txt() -> Response {
     }
 }
 
-#[derive(Serialize)]
-struct PrimeRelaysResponse {
-    ok: bool,
-    message: String,
+#[derive(Serialize, Clone)]
+struct CrawlerBucketEntry {
+    path: String,
+    name: String,
+    is_directory: bool,
+    size_bytes: Option<u64>,
+    modified_at_unix: Option<u64>,
 }
 
-pub(crate) async fn prime_relays_cache() -> Response {
-    let client = reqwest::Client::new();
+pub(crate) async fn get_bucket_entries(Query(params): Query<HashMap<String, String>>) -> Response {
+    let relative_path = params
+        .get("path")
+        .map(String::as_str)
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or("");
 
-    if let Err(e) = crate::relays::write_relays_serve_files() {
-        error!("Failed to prepare relay serve files: {}", e);
+    let root = crate::relays::get_config_dir_path();
+    let Some(relative) = sanitize_bucket_path(relative_path) else {
         return (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Body::from(
-                serde_json::to_string(&PrimeRelaysResponse {
-                    ok: false,
-                    message: format!("failed to prepare relay serve files: {}", e),
-                })
-                .unwrap_or_else(|_| "{\"ok\":false}".to_string()),
-            ),
+            StatusCode::BAD_REQUEST,
+            Body::from("invalid bucket path"),
         )
             .into_response();
+    };
+
+    let directory = root.join(&relative);
+    let mut entries = match fs::read_dir(&directory).await {
+        Ok(entries) => entries,
+        Err(e) => {
+            error!(
+                "Failed to read bucket directory: {}. Path: {}",
+                e,
+                directory.display()
+            );
+            return (
+                StatusCode::NOT_FOUND,
+                Body::from(format!("Failed to read bucket directory: {}", e)),
+            )
+                .into_response();
+        }
+    };
+
+    let mut items = Vec::new();
+    while let Ok(Some(entry)) = entries.next_entry().await {
+        let name = entry.file_name().to_string_lossy().to_string();
+        if name.starts_with('.') {
+            continue;
+        }
+        let file_type = match entry.file_type().await {
+            Ok(file_type) => file_type,
+            Err(_) => continue,
+        };
+        let metadata = entry.metadata().await.ok();
+        let path = if relative.as_os_str().is_empty() {
+            name.clone()
+        } else {
+            format!("{}/{}", relative.to_string_lossy(), name)
+        };
+        items.push(CrawlerBucketEntry {
+            path,
+            name,
+            is_directory: file_type.is_dir(),
+            size_bytes: metadata.as_ref().map(|meta| meta.len()).filter(|_| file_type.is_file()),
+            modified_at_unix: metadata
+                .and_then(|meta| meta.modified().ok())
+                .and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok())
+                .map(|duration| duration.as_secs()),
+        });
     }
 
-    if let Err(e) = prime_all_nip_relays_files(&client).await {
-        error!("Failed to prime relay cache: {}", e);
-        return (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Body::from(
-                serde_json::to_string(&PrimeRelaysResponse {
-                    ok: false,
-                    message: format!("failed to prime relay cache: {}", e),
-                })
-                .unwrap_or_else(|_| "{\"ok\":false}".to_string()),
-            ),
-        )
-            .into_response();
-    }
+    items.sort_by(|a, b| {
+        if a.is_directory != b.is_directory {
+            return b.is_directory.cmp(&a.is_directory);
+        }
+        a.name.to_lowercase().cmp(&b.name.to_lowercase())
+    });
 
-    match serde_json::to_string(&PrimeRelaysResponse {
-        ok: true,
-        message: "relay cache primed".to_string(),
-    }) {
+    match serde_json::to_string(&items) {
         Ok(body) => Response::builder()
             .status(StatusCode::OK)
             .header(CONTENT_TYPE, "application/json")
             .body(Body::from(body))
             .unwrap_or_else(|e| {
-                error!("Failed to build prime relays response: {}", e);
+                error!("Failed to build bucket response: {}", e);
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Body::from("Internal Server Error"),
@@ -389,14 +424,67 @@ pub(crate) async fn prime_relays_cache() -> Response {
                     .into_response()
             }),
         Err(e) => {
-            error!("Failed to serialize prime relays response: {}", e);
+            error!("Failed to serialize bucket entries: {}", e);
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Body::from("Failed to serialize response"),
+                Body::from("Failed to serialize bucket entries"),
             )
                 .into_response()
         }
     }
+}
+
+pub(crate) async fn get_bucket_file(Query(params): Query<HashMap<String, String>>) -> Response {
+    let relative_path = params
+        .get("path")
+        .map(String::as_str)
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or("");
+
+    let root = crate::relays::get_config_dir_path();
+    let Some(relative) = sanitize_bucket_path(relative_path) else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Body::from("invalid bucket path"),
+        )
+            .into_response();
+    };
+
+    let file_path = root.join(relative);
+    match fs::read_to_string(&file_path).await {
+        Ok(content) => Response::builder()
+            .status(StatusCode::OK)
+            .header(CONTENT_TYPE, "text/plain; charset=utf-8")
+            .body(Body::from(content))
+            .unwrap_or_else(|e| {
+                error!("Failed to build bucket file response: {}", e);
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Body::from("Internal Server Error"),
+                )
+                    .into_response()
+            }),
+        Err(e) => {
+            error!("Failed to read bucket file: {}. Path: {}", e, file_path.display());
+            (
+                StatusCode::NOT_FOUND,
+                Body::from(format!("Failed to read bucket file: {}", e)),
+            )
+                .into_response()
+        }
+    }
+}
+
+fn sanitize_bucket_path(path: &str) -> Option<PathBuf> {
+    let mut relative = PathBuf::new();
+    for component in Path::new(path).components() {
+        match component {
+            Component::Normal(part) => relative.push(part),
+            Component::CurDir => {}
+            _ => return None,
+        }
+    }
+    Some(relative)
 }
 
 pub(crate) async fn get_nip_relays_yaml(AxumPath(nip_lower): AxumPath<i32>) -> Response {
@@ -1462,6 +1550,40 @@ mod tests {
     }
 
     #[tokio::test(flavor = "current_thread")]
+    async fn bucket_entries_and_files_are_served_from_disk() {
+        let _guard = isolate_config_dir();
+        let config_dir = crate::relays::get_config_dir_path();
+        let nip_dir = config_dir.join("34");
+        fs::create_dir_all(&nip_dir).unwrap();
+        fs::write(config_dir.join("relays.yaml"), "wss://relay.example.com/\n").unwrap();
+        fs::write(nip_dir.join("relay-one.json"), r#"{"name":"Relay One"}"#).unwrap();
+
+        let root = get_bucket_entries(Query(HashMap::from([(
+            "path".to_string(),
+            "".to_string(),
+        )]))).await;
+        assert_eq!(root.status(), StatusCode::OK);
+        let root_json = response_text(root).await;
+        assert!(root_json.contains("relays.yaml"));
+        assert!(root_json.contains("\"is_directory\":true"));
+
+        let nip = get_bucket_entries(Query(HashMap::from([(
+            "path".to_string(),
+            "34".to_string(),
+        )]))).await;
+        assert_eq!(nip.status(), StatusCode::OK);
+        let nip_json = response_text(nip).await;
+        assert!(nip_json.contains("relay-one.json"));
+
+        let file = get_bucket_file(Query(HashMap::from([(
+            "path".to_string(),
+            "34/relay-one.json".to_string(),
+        )]))).await;
+        assert_eq!(file.status(), StatusCode::OK);
+        assert!(response_text(file).await.contains("Relay One"));
+    }
+
+    #[tokio::test(flavor = "current_thread")]
     async fn prime_all_nip_relays_files_writes_ping_and_aggregate_files() {
         let _guard = isolate_config_dir();
         let relay_url = start_http_server(
@@ -1524,7 +1646,8 @@ pub async fn run_api_server(port: u16) -> Result<(), Box<dyn std::error::Error>>
     let app = Router::new()
         .route("/", get(get_index_html))
         .route("/query", get(get_query))
-        .route("/api/relays/prime", post(prime_relays_cache))
+        .route("/api/buckets", get(get_bucket_entries))
+        .route("/api/buckets/file", get(get_bucket_file))
         .route("/relays.yaml", get(get_relays_yaml))
         .route("/relays.json", get(get_relays_json))
         .route("/relays.txt", get(get_relays_txt))
