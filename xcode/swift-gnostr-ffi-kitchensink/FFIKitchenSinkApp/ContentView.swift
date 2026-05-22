@@ -237,6 +237,7 @@ final class KitchenSinkViewModel: ObservableObject {
             return
         }
 
+        let controller = crawlerServerController
         Task {
             let state = crawlerServerController.status()
             await MainActor.run {
@@ -261,9 +262,10 @@ final class KitchenSinkViewModel: ObservableObject {
             return
         }
 
+        let controller = crawlerServerController
         Task {
             do {
-                let state = try await crawlerServerController.start()
+                let state = try await controller.start()
                 await MainActor.run {
                     crawlerServerState = state
                     crawlerServerMessage = state.message
@@ -293,9 +295,10 @@ final class KitchenSinkViewModel: ObservableObject {
             return
         }
 
+        let controller = crawlerServerController
         Task {
             do {
-                let state = try crawlerServerController.stop()
+                let state = try controller.stop()
                 await MainActor.run {
                     crawlerServerState = state
                     crawlerServerMessage = state.message
@@ -433,7 +436,7 @@ private struct CrawlerServerCommand {
     let currentDirectoryURL: URL
 }
 
-final class CrawlerServerController {
+final class CrawlerServerController: @unchecked Sendable {
     private let serviceName = "gnostr-crawler"
     private let port: UInt16 = 3030
     private let fileManager = FileManager.default
