@@ -3,7 +3,7 @@ import Darwin
 import SwiftUI
 import FFIKitchenSink
 
-final class EmbeddedCrawlerService {
+final class EmbeddedCrawlerService: @unchecked Sendable {
     static let shared = EmbeddedCrawlerService()
 
     private let lock = NSLock()
