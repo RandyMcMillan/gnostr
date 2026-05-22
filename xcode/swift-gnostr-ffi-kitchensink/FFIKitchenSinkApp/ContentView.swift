@@ -844,13 +844,16 @@ final class KitchenSinkViewModel: ObservableObject {
         if supportsLocalCrawlerControl {
             let controller = crawlerServerController
             Task {
+                await MainActor.run {
+                    self.log("Crawler status request -> FFI runtime")
+                }
                 let state = controller.status()
                 await MainActor.run {
                     crawlerServerState = state
                     crawlerServerMessage = state.message
                     crawlerStatus = state
                     crawlerStatusMessage = state.message
-                    log("Crawler server status refreshed")
+                    log("Crawler status refreshed: \(state.message)")
                 }
             }
             return
@@ -881,13 +884,16 @@ final class KitchenSinkViewModel: ObservableObject {
             let controller = crawlerServerController
             Task {
                 do {
+                    await MainActor.run {
+                        self.log("Crawler start requested -> FFI runtime")
+                    }
                     let state = try await controller.start()
                     await MainActor.run {
                         crawlerServerState = state
                         crawlerServerMessage = state.message
                         crawlerStatus = state
                         crawlerStatusMessage = state.message
-                        log("Crawler started")
+                        log("Crawler started: \(state.message)")
                     }
                 } catch {
                     await MainActor.run {
@@ -925,13 +931,16 @@ final class KitchenSinkViewModel: ObservableObject {
             let controller = crawlerServerController
             Task {
                 do {
+                    await MainActor.run {
+                        self.log("Crawler stop requested -> FFI runtime")
+                    }
                     let state = try controller.stop()
                     await MainActor.run {
                         crawlerServerState = state
                         crawlerServerMessage = state.message
                         crawlerStatus = state
                         crawlerStatusMessage = state.message
-                        log("Crawler stopped")
+                        log("Crawler stopped: \(state.message)")
                     }
                 } catch {
                     await MainActor.run {
@@ -1190,7 +1199,9 @@ final class KitchenSinkViewModel: ObservableObject {
 
     func log(_ message: String) {
         let formatter = Self.timestampFormatter
-        activityLog.insert("[\(formatter.string(from: Date()))] \(message)", at: 0)
+        let line = "[\(formatter.string(from: Date()))] \(message)"
+        activityLog.insert(line, at: 0)
+        NSLog("%@", line)
     }
 
     private func trimmedOrNil(_ value: String) -> String? {

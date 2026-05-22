@@ -31,6 +31,7 @@ public final class RustCrawlerBridge: @unchecked Sendable {
     private init() {
         self.handle = Self.openLibrary()
         if let handle {
+            NSLog("Crawler FFI: loaded library")
             self.buildQueryFn = Self.loadSymbol("crawler_build_gnostr_query_json", from: handle)
             self.websocketHttpURLFn = Self.loadSymbol("crawler_websocket_http_url_json", from: handle)
             self.roundtripRelayMetadataFn = Self.loadSymbol("crawler_roundtrip_relay_metadata_json", from: handle)
@@ -39,6 +40,7 @@ public final class RustCrawlerBridge: @unchecked Sendable {
             self.runtimeStatusFn = Self.loadSymbol("crawler_runtime_status_json", from: handle)
             self.freeFn = Self.loadSymbol("crawler_string_free", from: handle)
         } else {
+            NSLog("Crawler FFI: library not found")
             self.buildQueryFn = nil
             self.websocketHttpURLFn = nil
             self.roundtripRelayMetadataFn = nil
@@ -82,15 +84,21 @@ public final class RustCrawlerBridge: @unchecked Sendable {
     }
 
     public func startCrawlerRuntime(port: UInt16 = 3030) throws -> RelayProcessState? {
-        try self.callRoundTrip(self.runtimeStartFn, request: RuntimeRequest(port: port))
+        NSLog("Crawler FFI: start requested on port %d", port)
+        let state: RelayProcessState? = try self.callRoundTrip(self.runtimeStartFn, request: RuntimeRequest(port: port))
+        return state
     }
 
     public func stopCrawlerRuntime() throws -> RelayProcessState? {
-        try self.callRoundTrip(self.runtimeStopFn, request: RuntimeRequest(port: nil))
+        NSLog("Crawler FFI: stop requested")
+        let state: RelayProcessState? = try self.callRoundTrip(self.runtimeStopFn, request: RuntimeRequest(port: nil))
+        return state
     }
 
     public func crawlerRuntimeStatus() throws -> RelayProcessState? {
-        try self.callRoundTrip(self.runtimeStatusFn, request: RuntimeRequest(port: nil))
+        NSLog("Crawler FFI: status requested")
+        let state: RelayProcessState? = try self.callRoundTrip(self.runtimeStatusFn, request: RuntimeRequest(port: nil))
+        return state
     }
 
     private func callString(_ fn: RustStringFn?, input: String) -> String? {
@@ -149,8 +157,16 @@ public final class RustCrawlerBridge: @unchecked Sendable {
         }
 
         for candidate in candidates {
+            NSLog("Crawler FFI: probing %@", candidate)
+            dlerror()
             if let handle = dlopen(candidate, RTLD_NOW | RTLD_LOCAL) {
+                NSLog("Crawler FFI: opened %@", candidate)
                 return handle
+            }
+            if let error = dlerror() {
+                NSLog("Crawler FFI: failed to open %@: %@", candidate, String(cString: error))
+            } else {
+                NSLog("Crawler FFI: failed to open %@: unknown dlerror", candidate)
             }
         }
 
