@@ -1221,6 +1221,7 @@ final class CrawlerServerController {
     private let serviceName = "gnostr-crawler"
     private let port: UInt16 = 3030
     private let fileManager = FileManager.default
+    private var logTailTask: Task<Void, Never>?
 
     func status() -> RelayProcessState {
         guard let pid = existingDetachedPID() else {
@@ -1236,6 +1237,7 @@ final class CrawlerServerController {
 
     func start() async throws -> RelayProcessState {
         if let pid = existingDetachedPID() {
+            startLogTail()
             return RelayProcessState(
                 running: true,
                 pid: pid,
@@ -1245,7 +1247,10 @@ final class CrawlerServerController {
 
         removeStalePIDFile()
         let command = try resolveCommand()
+        print("[\(serviceName)] launching \(command.executableURL.path) \(command.arguments.joined(separator: " "))")
+        print("[\(serviceName)] log file: \(crawlerLogFileURL().path)")
         let launchOutput = try launch(command)
+        startLogTail()
 
         for _ in 0..<20 {
             if let pid = existingDetachedPID() {
@@ -1275,6 +1280,7 @@ final class CrawlerServerController {
         }
 
         removeStalePIDFile()
+        stopLogTail()
         return RelayProcessState(running: false, pid: pid, message: "Crawler server stopped")
     }
 
@@ -1310,6 +1316,11 @@ final class CrawlerServerController {
         process.currentDirectoryURL = command.currentDirectoryURL
         process.standardOutput = stdout
         process.standardError = stderr
+        var environment = ProcessInfo.processInfo.environment
+        if environment["RUST_LOG"] == nil || environment["RUST_LOG"]?.isEmpty == true {
+            environment["RUST_LOG"] = "debug"
+        }
+        process.environment = environment
 
         try process.run()
         process.waitUntilExit()
@@ -1326,6 +1337,49 @@ final class CrawlerServerController {
         }
 
         return output
+    }
+
+    private func startLogTail() {
+        guard logTailTask == nil else { return }
+        let logURL = crawlerLogFileURL()
+        logTailTask = Task.detached(priority: .background) {
+            var lastLength: Int = 0
+            while !Task.isCancelled {
+                autoreleasepool {
+                    if let data = try? Data(contentsOf: logURL) {
+                        if data.count < lastLength {
+                            lastLength = 0
+                            print("[gnostr-crawler] log rotated: \(logURL.path)")
+                        }
+
+                        if data.count > lastLength {
+                            let chunk = data[lastLength...]
+                            if let text = String(data: chunk, encoding: .utf8) {
+                                for line in text.split(whereSeparator: \.isNewline, omittingEmptySubsequences: false) {
+                                    let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+                                    if !trimmed.isEmpty {
+                                        print("[gnostr-crawler] \(trimmed)")
+                                    }
+                                }
+                            }
+                            lastLength = data.count
+                        }
+                    }
+                }
+
+                try? await Task.sleep(nanoseconds: 500_000_000)
+            }
+        }
+    }
+
+    private func stopLogTail() {
+        logTailTask?.cancel()
+        logTailTask = nil
+    }
+
+    private func crawlerLogFileURL() -> URL {
+        FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".config/gnostr/gnostr.log", isDirectory: false)
     }
 
     private func existingDetachedPID() -> UInt32? {
