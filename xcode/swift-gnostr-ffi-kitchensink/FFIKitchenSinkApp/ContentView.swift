@@ -548,6 +548,7 @@ final class KitchenSinkViewModel: ObservableObject {
         self.relayServerController = RelayServerController()
         self.crawlerBucketsRootURL = Self.crawlerBucketsRootDirectoryURL()
         self.supportsLocalCrawlerControl = self.crawlerServerController.isAvailable
+        self.log("Crawler control available: \(self.supportsLocalCrawlerControl)")
         self.loadRelayDefaults()
         self.crawlerRelay = Self.defaultCrawlerRelayTargets().joined(separator: ",")
         self.refreshCrawlerStatus()
@@ -1133,7 +1134,7 @@ final class KitchenSinkViewModel: ObservableObject {
             return
         }
 
-        crawlerDiscoveryLoopTask = Task { [weak self] in
+        crawlerDiscoveryLoopTask = Task.detached(priority: .background) { [weak self] in
             appTrace("KitchenSinkViewModel.crawlerDiscoveryLoopTask started")
             while !Task.isCancelled {
                 guard let self else { return }
