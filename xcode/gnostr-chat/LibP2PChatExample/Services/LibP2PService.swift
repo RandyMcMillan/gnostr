@@ -337,12 +337,16 @@ class LibP2PService: ObservableObject {
                     self.app.logger.notice("Chat peer for \(self.chatTopic): \(peer.b58String)")
                     self.delegate?.on(nickname: peer.shortDescription, from: peer)
                 case .data(let message):
-                    let sender = message.from.asString(base: .base58btc)
+                    guard let fromPeer = try? PeerID(fromBytesID: Array(message.from)) else {
+                        self.app.logger.warning("Received chat message with invalid sender peer ID")
+                        return eventLoop.makeSucceededVoidFuture()
+                    }
+                    let sender = fromPeer.b58String
                     let decoded = Self.decodeRustChatMessage(from: message.data)
                     let text = decoded?.content.first ?? String(data: message.data, encoding: .utf8) ?? "Not UTF-8 data"
                     let nickname = decoded?.from ?? sender
-                    self.delegate?.on(nickname: nickname, from: message.from)
-                    self.delegate?.on(message: text, from: message.from)
+                    self.delegate?.on(nickname: nickname, from: fromPeer)
+                    self.delegate?.on(message: text, from: fromPeer)
                 case .error(let error):
                     self.app.logger.error("Chat topic error: \(error)")
                 }

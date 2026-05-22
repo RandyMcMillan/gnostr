@@ -109,7 +109,7 @@ public final class RelayCoordinator: @unchecked Sendable {
         guard let withPeer = try? base.encapsulate(proto: .p2p, address: self.application.peerID.b58String) else {
             return nil
         }
-        return try? withPeer.encapsulate(proto: .p2p_circuit)
+        return try? withPeer.encapsulate(proto: .p2p_circuit, address: nil)
     }
 
     private func recordReservation(for peer: PeerID) {
