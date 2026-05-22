@@ -53,7 +53,7 @@ public final class RustCrawlerBridge: @unchecked Sendable {
 
     public var isAvailable: Bool {
         NSLog("Crawler FFI: isAvailable=%@", self.handle != nil ? "yes" : "no")
-        self.handle != nil
+        return self.handle != nil
             && self.buildQueryFn != nil
             && self.websocketHttpURLFn != nil
             && self.roundtripRelayMetadataFn != nil
@@ -76,7 +76,7 @@ public final class RustCrawlerBridge: @unchecked Sendable {
 
     public func websocketHTTPURL(_ url: String) -> String? {
         NSLog("Crawler FFI: websocketHTTPURL %@", url)
-        self.callString(self.websocketHttpURLFn, input: url)
+        return self.callString(self.websocketHttpURLFn, input: url)
     }
 
     public func normalize(_ relay: RelayMetadata) throws -> RelayMetadata {
