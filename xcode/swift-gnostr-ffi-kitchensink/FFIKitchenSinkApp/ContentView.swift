@@ -510,6 +510,7 @@ final class KitchenSinkViewModel: ObservableObject {
     let crawlerServerController: CrawlerServerController
     let relayServerController: RelayServerController
     let supportsLocalCrawlerControl: Bool
+    private var crawlerDiscoveryLoopTask: Task<Void, Never>?
 
     init() {
         appTrace("KitchenSinkViewModel.init")
@@ -555,7 +556,13 @@ final class KitchenSinkViewModel: ObservableObject {
         self.refreshCrawlerBuckets()
         self.bootstrapServices()
         self.refreshCrawlerRelayOptions()
+        self.startCrawlerDiscoveryLoop()
         self.log("GUI ready")
+    }
+
+    deinit {
+        appTrace("KitchenSinkViewModel.deinit")
+        crawlerDiscoveryLoopTask?.cancel()
     }
 
     private static func embeddedCrawlerSession() -> URLSession {
@@ -1090,22 +1097,45 @@ final class KitchenSinkViewModel: ObservableObject {
     func refreshCrawlerDiscovery() {
         appTrace("KitchenSinkViewModel.refreshCrawlerDiscovery")
         Task {
-            do {
-                let discovery = try await crawlerServiceClient.relayDiscovery()
-                await MainActor.run {
-                    crawlerDiscovery = discovery
-                    crawlerStatusMessage = "Loaded \(discovery.count) crawler discovery entries"
-                    persistCrawlerDiscoveryBuckets(discovery)
-                    refreshCrawlerBuckets()
-                    refreshCrawlerRelayOptions()
-                    log(crawlerStatusMessage)
-                }
-            } catch {
-                await MainActor.run {
-                    crawlerStatusMessage = "Crawler discovery failed: \(error.localizedDescription)"
-                    log(crawlerStatusMessage)
-                }
+            await self.pollCrawlerDiscoveryOnce(reason: "manual-refresh")
+        }
+    }
+
+    private func pollCrawlerDiscoveryOnce(reason: String) async {
+        appTrace("KitchenSinkViewModel.pollCrawlerDiscoveryOnce reason=\(reason)")
+        do {
+            let discovery = try await crawlerServiceClient.relayDiscovery()
+            await MainActor.run {
+                crawlerDiscovery = discovery
+                crawlerStatusMessage = "Loaded \(discovery.count) crawler discovery entries"
+                persistCrawlerDiscoveryBuckets(discovery)
+                refreshCrawlerBuckets()
+                refreshCrawlerRelayOptions()
+                log("Crawler discovery updated (\(reason)): \(discovery.count) entries")
             }
+        } catch {
+            await MainActor.run {
+                crawlerStatusMessage = "Crawler discovery failed: \(error.localizedDescription)"
+                log(crawlerStatusMessage)
+            }
+        }
+    }
+
+    private func startCrawlerDiscoveryLoop() {
+        appTrace("KitchenSinkViewModel.startCrawlerDiscoveryLoop")
+        guard crawlerDiscoveryLoopTask == nil else {
+            log("Crawler discovery loop already running")
+            return
+        }
+
+        crawlerDiscoveryLoopTask = Task { [weak self] in
+            appTrace("KitchenSinkViewModel.crawlerDiscoveryLoopTask started")
+            while !Task.isCancelled {
+                guard let self else { return }
+                await self.pollCrawlerDiscoveryOnce(reason: "background-loop")
+                try? await Task.sleep(nanoseconds: 5_000_000_000)
+            }
+            appTrace("KitchenSinkViewModel.crawlerDiscoveryLoopTask cancelled")
         }
     }
 
