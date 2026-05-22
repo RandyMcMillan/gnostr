@@ -78,3 +78,33 @@ import Testing
     #expect(items.contains(URLQueryItem(name: "relay", value: "wss://relay.example")))
     #expect(items.contains(URLQueryItem(name: "search", value: "hello")))
 }
+
+@Test func rustCrawlerBridgeRoundTripsWhenAvailable() throws {
+    guard RustCrawlerBridge.shared.isAvailable else { return }
+
+    let parameters = CrawlerQueryParameters(
+        authors: "aa11",
+        ids: "deadbeef",
+        limit: 25,
+        genericTag: "k",
+        genericValue: "1",
+        hashtag: "gnostr",
+        mentions: "ee11",
+        references: "ff22",
+        kinds: "kind:1,nip=1617"
+    )
+    #expect(try RustCrawlerBridge.shared.buildGnostrQuery(parameters) != nil)
+    #expect(RustCrawlerBridge.shared.websocketHTTPURL("wss://relay.example") == "https://relay.example")
+
+    let relay = RelayMetadata(
+        contact: "ops@example.com",
+        description: "Relay description",
+        name: "Relay name",
+        pingMs: 42,
+        software: "strfry",
+        supportedNips: [1, 11, 50],
+        supportedNipExtensions: ["nip50-search"],
+        version: "1.0.0"
+    )
+    #expect(try RustCrawlerBridge.shared.normalize(relay) == relay)
+}

@@ -119,7 +119,7 @@ public struct RelayDiscoveryEntry: Codable, Hashable, Sendable {
     }
 }
 
-public struct CrawlerQueryParameters: Hashable, Sendable {
+public struct CrawlerQueryParameters: Codable, Hashable, Sendable {
     public var relay: String?
     public var authors: String?
     public var ids: String?
@@ -215,6 +215,9 @@ public struct CrawlerQueryParameters: Hashable, Sendable {
     }
 
     public func buildWireQuery(subscriptionID: String = "gnostr-query") throws -> String {
+        if let rustWire = try RustCrawlerBridge.shared.buildGnostrQuery(self) {
+            return rustWire
+        }
         let filter = try self.makeFilter()
         let message = ClientMessage.req(SubscriptionId(subscriptionID), [filter])
         let encoder = JSONEncoder()
