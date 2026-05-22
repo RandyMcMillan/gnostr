@@ -16,6 +16,7 @@ import LibP2PAutoNAT
 import LibP2PDCUtR
 import LibP2PMDNS
 import LibP2PKadDHT
+import LibP2PPubSub
 #if os(iOS)
 import UIKit
 #endif
@@ -62,9 +63,46 @@ class LibP2PService: ObservableObject {
         case connected
     }
 
+    private struct RustChatMessage: Codable {
+        let from: String
+        let content: [String]
+        let kind: String
+        let commitId: String
+        let nostrEvent: [String: String]?
+        let messageId: String?
+        let sequenceNum: Int?
+        let totalChunks: Int?
+
+        init(from fromLabel: String, content: String, kind: String = "Chat") {
+            self.from = fromLabel
+            self.content = [content]
+            self.kind = kind
+            self.commitId = String(repeating: "0", count: 40)
+            self.nostrEvent = nil
+            self.messageId = nil
+            self.sequenceNum = nil
+            self.totalChunks = nil
+        }
+
+        enum CodingKeys: String, CodingKey {
+            case from
+            case content
+            case kind
+            case commitId = "commit_id"
+            case nostrEvent = "nostr_event"
+            case messageId = "message_id"
+            case sequenceNum = "sequence_num"
+            case totalChunks = "total_chunks"
+        }
+    }
+
     private var app:Application
     private let peerID: PeerID
     private var lna: LocalNetworkAuthorization?
+    private var chatDisplayName: String
+    private let chatTopic = "gnostr-dev"
+    private var chatSubscription: PubSub.SubscriptionHandler?
+    private var chatSubscribedTopic: String?
     
     internal var delegate:ChatDelegate? = nil {
         didSet { installRuntimeHandlersIfNeeded() }
@@ -84,6 +122,7 @@ class LibP2PService: ObservableObject {
     
     private init() {
         self.peerID = Self.loadOrCreatePeerID(for: Self.runtimeProfile)
+        self.chatDisplayName = "ios-\(self.peerID.b58String.prefix(8))"
         self.app = Self.makeApplication(peerID: self.peerID)
         self.lna = LocalNetworkAuthorization()
         self.app.logger.notice("Resolved runtime profile: \(Self.runtimeProfile.rawValue) on port \(Self.listenPort)")
@@ -165,11 +204,18 @@ class LibP2PService: ObservableObject {
         app.relay.use(.relay)
         app.autonat.use(.autonat)
         app.dcutr.use(.dcutr)
+        app.pubsub.use(.gossipsub)
         app.discovery.use(.mdns)
         app.discovery.use(.kadDHT)
         app.servers.use(.tcp(host: "0.0.0.0", port: Self.listenPort))
         try! routes(app)
         return app
+    }
+
+    public func updateChatDisplayName(_ displayName: String) {
+        let trimmed = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        self.chatDisplayName = trimmed
     }
 
     public func connectionState(for peerID: PeerID) -> PeerConnectionState {
@@ -246,6 +292,7 @@ class LibP2PService: ObservableObject {
                     self.recordDiscoveredAddress(address, for: peer.peer)
                     self.markPeerDialing(peer.peer)
                     self.dial(peerID: peer.peer, address: address)
+                    delegate.on(nickname: peer.peer.shortDescription, from: peer.peer)
                 } else {
                     self.markPeerConnected(peer.peer)
                 }
@@ -268,6 +315,46 @@ class LibP2PService: ObservableObject {
 
         self.runtimeHandlersInstalled = true
         self.app.logger.notice("Installed runtime handlers for delegate \(String(describing: delegate))")
+    }
+
+    private func joinChatTopic() {
+        guard self.chatSubscribedTopic != self.chatTopic else { return }
+
+        do {
+            let subscription = try self.app.pubsub.gossipsub.subscribe(
+                .init(
+                    topic: self.chatTopic,
+                    signaturePolicy: .strictSign,
+                    validator: .acceptAll,
+                    messageIDFunc: .concatFromAndSequenceFields
+                )
+            )
+            let eventLoop = self.app.eventLoopGroup.next()
+            subscription.on = { [weak self] event in
+                guard let self else { return eventLoop.makeSucceededVoidFuture() }
+                switch event {
+                case .newPeer(let peer):
+                    self.app.logger.notice("Chat peer for \(self.chatTopic): \(peer.b58String)")
+                    self.delegate?.on(nickname: peer.shortDescription, from: peer)
+                case .data(let message):
+                    let sender = message.from.asString(base: .base58btc)
+                    let decoded = Self.decodeRustChatMessage(from: message.data)
+                    let text = decoded?.content.first ?? String(data: message.data, encoding: .utf8) ?? "Not UTF-8 data"
+                    let nickname = decoded?.from ?? sender
+                    self.delegate?.on(nickname: nickname, from: message.from)
+                    self.delegate?.on(message: text, from: message.from)
+                case .error(let error):
+                    self.app.logger.error("Chat topic error: \(error)")
+                }
+                return eventLoop.makeSucceededVoidFuture()
+            }
+
+            self.chatSubscription = subscription
+            self.chatSubscribedTopic = self.chatTopic
+            self.app.logger.notice("Joined chat topic \(self.chatTopic)")
+        } catch {
+            self.app.logger.error("Failed to join chat topic \(self.chatTopic): \(error)")
+        }
     }
     
     public func deletePeerID() {
@@ -304,6 +391,7 @@ class LibP2PService: ObservableObject {
             self.reinstallTopologyRegistrations()
         }
         self.installRuntimeHandlersIfNeeded()
+        self.joinChatTopic()
         do {
             try app.start()
             self.app.logger.notice("LibP2P Started!")
@@ -318,6 +406,9 @@ class LibP2PService: ObservableObject {
         guard self.lifecycleState == .running else { return }
         self.lifecycleState = .stopping
         self.pingTask?.cancel()
+        self.chatSubscription?.unsubscribe()
+        self.chatSubscription = nil
+        self.chatSubscribedTopic = nil
         app.shutdown()
         self.runtimeHandlersInstalled = false
         self.lifecycleState = .stopped
@@ -325,30 +416,13 @@ class LibP2PService: ObservableObject {
     
     public func send(message:String, to peer:PeerID) {
         guard self.app.isRunning else { print("LibP2P needs to be running in order to send messages!"); return }
-        // There's a lot happening in this `newRequest` call, let's break it down
-        // We have some data (our `message`) that we would like to send to our `peer`
-        // Libp2p offers a `Request` type that makes sending a single chunk of data easier than opening up and managing a streaming channel (similar to an HTTP Request)
-        // So we create a `newRequest` to our `peer`, destined for the `/chat/1.0.0` protocol, with the `message` we'd like to send them
-        //
-        // The next couple params are a little more in depth...
-        //  `style` provides the Request with a hint at what kind of behavior to expect.
-        //      `.noResponseExpected` means the stream will imediately request to be closed after sending the data, not waiting for a response / reply. (like a PUT request)
-        //      `.responseExpected` means that we expect data back from the peer (like a GET request)
-        //     Because our `/chat/1.0.0` doesn't support read reciepts we set this to `.noResponseExpected`
-        //     If, let's say, `/chat/2.0.0` supported delivery confirmations (read receipts), we could change this to `.responseExpected` and parse the returned message for confirmation of delivery.
-        //  `withHandlers` let's us configure the `/chat/1.0.0` stream with custom Channel Handlers (similar to middleware if you're familiar with other server side frameworks).
-        //     When we registered our `/chat/1.0.0` route earlier (in our initiailizer) we told Libp2p that the `/chat/1.0.0` should be `.newLineDelimited` (Routes.swift).
-        //     Therefor, when set to `.inherit`, libp2p can automagically use this info to configure the `/chat/1.0.0` stream with the same channel handlers.
-        //     If, for some reason, you wanted to have a unique channel handler configuration for this particular requets, you can add any ChannelHandlers you'd like to here.
-        //       ex: perhaps adding additional Logging handlers if you were trying to debug a request
-        self.app.newRequest(to: peer, forProtocol: "/chat/1.0.0", withRequest: Data(message.utf8), style: .noResponseExpected, withHandlers: .inherit).whenComplete { result in
-            switch result {
-            case .failure(let error):
-                self.app.logger.error("Error: \(error)")
-            case .success:
-                self.app.logger.trace("Sent message to peer: \(peer)")
-            }
+        guard let data = Self.encodeRustChatMessage(from: self.chatDisplayName, text: message) else {
+            self.app.logger.error("Failed to encode chat message")
+            return
         }
+        self.joinChatTopic()
+        self.chatSubscription?.publish(data)
+        self.app.logger.trace("Published chat message on \(self.chatTopic) for peer \(peer)")
     }
     
     public func isConnectedTo(peer:PeerID) async -> Bool {
@@ -381,5 +455,14 @@ class LibP2PService: ObservableObject {
                 }
             }.flatten(on: self.app.eventLoopGroup.any())
         }
+    }
+
+    private static func encodeRustChatMessage(from sender: String, text: String) -> Data? {
+        let message = RustChatMessage(from: sender, content: text)
+        return try? JSONEncoder().encode(message)
+    }
+
+    private static func decodeRustChatMessage(from data: Data) -> RustChatMessage? {
+        try? JSONDecoder().decode(RustChatMessage.self, from: data)
     }
 }

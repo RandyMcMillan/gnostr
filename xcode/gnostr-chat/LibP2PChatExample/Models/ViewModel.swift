@@ -24,11 +24,32 @@ class ViewModel: ObservableObject, ChatDelegate {
         didSet {
             /// Save the nickname in user defaults
             UserDefaults.standard.set(self.nickname, forKey: "Nickname")
+            if let nickname = self.nickname {
+                self.p2pService.updateChatDisplayName(nickname)
+            }
         }
     }
 
     public private(set) var p2pService: LibP2PService!
     private var lifecycleObserverTokens: [NSObjectProtocol] = []
+
+    private func ensureChat(for peer: PeerID, nickname: String? = nil, active: Bool = true) -> Int {
+        if let index = self.chats.firstIndex(where: { $0.peer.peer == peer }) {
+            return index
+        }
+
+        let chat = Chat(
+            peer: Person(
+                id: peer.b58String,
+                peer: peer,
+                nickname: nickname ?? peer.shortDescription,
+                isActive: active
+            ),
+            messages: []
+        )
+        self.chats.append(chat)
+        return self.chats.count - 1
+    }
 
     init() {
         // Dummy data
@@ -39,13 +60,13 @@ class ViewModel: ObservableObject, ChatDelegate {
         print("Attempting to restore chats")
         self.restoreChats()
 
+        // Create the shared libp2p service before any nickname restoration can trigger it.
+        self.p2pService = LibP2PService.shared
+
         // Restore our Nickname if we have one saved
         if let nickname = UserDefaults.standard.string(forKey: "Nickname") {
             self.nickname = nickname
         }
-
-        // Create the shared libp2p service before any UI-triggered start calls can fire.
-        self.p2pService = LibP2PService.shared
 
         // Instantiate our LibP2PService on a background thread to prevent QOS inversion warnings
         Task(priority: .medium) {
@@ -77,39 +98,11 @@ class ViewModel: ObservableObject, ChatDelegate {
     /// This method gets called by our `Topology` Registration when a libp2p peer that supports the `/chat/1.0.0` protocol becomes active / comes online.
     private func onChatBuddyJoined(peer: PeerID, conn: Connection) {
         DispatchQueue.main.async {
-            guard !self.chats.contains(where: { $0.peer.peer == peer }) else {
-                // Mark the existing peer as active
-                if let index = self.chats.firstIndex(where: { $0.peer.peer == peer }) {
-                    self.chats[index].peer.isActive = true
-                    self.p2pService.markPeerConnected(peer)
-                }
-                // Let the existing peer know of our nickname if we have one set...
-                DispatchQueue.global().async {
-                    if let nickname = self.nickname {
-                        self.send(nickname: nickname, to: peer)
-                    }
-                }
-                return
-            }
-
-            print("New Chat Buddy")
-            self.chats.append(
-                Chat(
-                    peer: Person(
-                        id: peer.b58String,
-                        peer: peer,
-                        nickname: peer.shortDescription,
-                        isActive: true
-                    ),
-                    messages: []
-                )
-            )
+            let index = self.ensureChat(for: peer, active: true)
+            self.chats[index].peer.isActive = true
             self.p2pService.markPeerConnected(peer)
-            // Let the new peer know of our nickname if we have one set...
-            DispatchQueue.global().async {
-                if let nickname = self.nickname {
-                    self.send(nickname: nickname, to: peer)
-                }
+            if let nickname = self.nickname {
+                self.p2pService.updateChatDisplayName(nickname)
             }
         }
     }
@@ -131,13 +124,11 @@ class ViewModel: ObservableObject, ChatDelegate {
     internal func on(message: String, from: PeerID) {
         DispatchQueue.main.async {
             print("We got a message from libP2P!")
-            if let index = self.chats.firstIndex(where: { $0.peer.peer == from }) {
-                self.chats[index].messages.append(
-                    Message(message, type: .received)
-                )
-            } else {
-                print("Got message from unknown peer... \(from) -> \(message)")
-            }
+            let index = self.ensureChat(for: from, active: true)
+            self.chats[index].peer.isActive = true
+            self.chats[index].messages.append(
+                Message(message, type: .received)
+            )
         }
     }
 
@@ -146,9 +137,8 @@ class ViewModel: ObservableObject, ChatDelegate {
     internal func on(nickname: String, from: PeerID) {
         DispatchQueue.main.async {
             print("We got a nickname from libP2P!")
-            if let index = self.chats.firstIndex(where: { $0.peer.peer == from }) {
-                self.chats[index].peer.nickname = nickname
-            }
+            let index = self.ensureChat(for: from, nickname: nickname, active: true)
+            self.chats[index].peer.nickname = nickname
         }
     }
 
@@ -239,7 +229,8 @@ class ViewModel: ObservableObject, ChatDelegate {
 
     /// Sends  a Nickname update message to a Chat buddy
     private func send(nickname: String, to peer: PeerID) {
-        self.p2pService.send(message: "nickname:\(nickname)", to: peer)
+        _ = peer
+        self.p2pService.updateChatDisplayName(nickname)
     }
 
     /// Checks whether a Chat buddy is currently active (whether or not we have an open connection established with them)
