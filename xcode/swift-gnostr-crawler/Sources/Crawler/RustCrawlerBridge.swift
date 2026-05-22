@@ -39,6 +39,16 @@ public final class RustCrawlerBridge: @unchecked Sendable {
             self.runtimeStopFn = Self.loadSymbol("crawler_runtime_stop_json", from: handle)
             self.runtimeStatusFn = Self.loadSymbol("crawler_runtime_status_json", from: handle)
             self.freeFn = Self.loadSymbol("crawler_string_free", from: handle)
+            let missing = [
+                self.buildQueryFn == nil ? "crawler_build_gnostr_query_json" : nil,
+                self.websocketHttpURLFn == nil ? "crawler_websocket_http_url_json" : nil,
+                self.roundtripRelayMetadataFn == nil ? "crawler_roundtrip_relay_metadata_json" : nil,
+                self.runtimeStartFn == nil ? "crawler_runtime_start_json" : nil,
+                self.runtimeStopFn == nil ? "crawler_runtime_stop_json" : nil,
+                self.runtimeStatusFn == nil ? "crawler_runtime_status_json" : nil,
+                self.freeFn == nil ? "crawler_string_free" : nil,
+            ].compactMap { $0 }
+            NSLog("Crawler FFI: missing symbols=%@", missing.isEmpty ? "none" : missing.joined(separator: ", "))
         } else {
             NSLog("Crawler FFI: library not found")
             self.buildQueryFn = nil
@@ -90,24 +100,30 @@ public final class RustCrawlerBridge: @unchecked Sendable {
     public func startCrawlerRuntime(port: UInt16 = 3030) throws -> RelayProcessState? {
         NSLog("Crawler FFI: start requested on port %d", port)
         let state: RelayProcessState? = try self.callRoundTrip(self.runtimeStartFn, request: RuntimeRequest(port: port))
+        NSLog("Crawler FFI: start result=%@", String(describing: state))
         return state
     }
 
     public func stopCrawlerRuntime() throws -> RelayProcessState? {
         NSLog("Crawler FFI: stop requested")
         let state: RelayProcessState? = try self.callRoundTrip(self.runtimeStopFn, request: RuntimeRequest(port: nil))
+        NSLog("Crawler FFI: stop result=%@", String(describing: state))
         return state
     }
 
     public func crawlerRuntimeStatus() throws -> RelayProcessState? {
         NSLog("Crawler FFI: status requested")
         let state: RelayProcessState? = try self.callRoundTrip(self.runtimeStatusFn, request: RuntimeRequest(port: nil))
+        NSLog("Crawler FFI: status result=%@", String(describing: state))
         return state
     }
 
     private func callString(_ fn: RustStringFn?, input: String) -> String? {
         NSLog("Crawler FFI: callString input=%@", input)
-        guard let fn else { return nil }
+        guard let fn else {
+            NSLog("Crawler FFI: callString skipped (missing fn)")
+            return nil
+        }
         let inputCString = input.cString(using: .utf8)!
         return inputCString.withUnsafeBufferPointer { buffer in
             guard let base = buffer.baseAddress else { return nil }
@@ -121,7 +137,10 @@ public final class RustCrawlerBridge: @unchecked Sendable {
 
     private func callRoundTrip<Request: Codable, Response: Codable>(_ fn: RustStringFn?, request: Request) -> Response? {
         NSLog("Crawler FFI: callRoundTrip request=%@", String(describing: request))
-        guard let fn else { return nil }
+        guard let fn else {
+            NSLog("Crawler FFI: callRoundTrip skipped (missing fn)")
+            return nil
+        }
         let encoder = JSONEncoder()
         encoder.keyEncodingStrategy = .convertToSnakeCase
         guard let data = try? encoder.encode(request), let json = String(data: data, encoding: .utf8) else {
@@ -155,8 +174,11 @@ public final class RustCrawlerBridge: @unchecked Sendable {
     private static func openLibrary() -> UnsafeMutableRawPointer? {
         let env = ProcessInfo.processInfo.environment
         let bundle = Bundle.main
+        NSLog("Crawler FFI: bundleURL=%@", bundle.bundleURL.path)
+        NSLog("Crawler FFI: executableURL=%@", bundle.executableURL?.path ?? "nil")
         var candidates: [String] = []
         if let explicit = env["GNOSTR_CRAWLER_FFI_LIBRARY"], !explicit.isEmpty {
+            NSLog("Crawler FFI: explicit library=%@", explicit)
             candidates.append(explicit)
         } else {
             candidates.append(contentsOf: [
