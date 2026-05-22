@@ -1129,7 +1129,12 @@ final class KitchenSinkViewModel: ObservableObject {
 
     private func persistCrawlerDiscoveryBuckets(_ discovery: [RelayDiscoveryEntry]) {
         appTrace("KitchenSinkViewModel.persistCrawlerDiscoveryBuckets count=\(discovery.count)")
+        log("Persisting crawler discovery buckets (\(discovery.count) entries)")
+        discovery.forEach { entry in
+            appTrace("persistCrawlerDiscoveryBuckets relay=\(entry.url) nips=\(entry.supportedNips.count)")
+        }
         EmbeddedCrawlerService.writeBucketTree(entries: discovery)
+        log("Crawler discovery buckets written")
     }
 
     func goToCrawlerBucketParent() {
