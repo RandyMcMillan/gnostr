@@ -506,12 +506,9 @@ final class KitchenSinkViewModel: ObservableObject {
     let sampleNote: GitNote
     let crawlerBaseURL = URL(string: "http://127.0.0.1:3030")!
     let relayBaseURL = URL(string: "http://127.0.0.1:3030")!
-    let embeddedCrawlerBaseURL = URL(string: "http://crawler.localhost:3030")!
-    let embeddedRelayBaseURL = URL(string: "http://relay.localhost:3030")!
     let crawlerBucketsRootURL: URL
     let crawlerClient: CrawlerClient
     let relayClient: RelayClient
-    let embeddedRelayClient: RelayClient
     let crawlerServerController: CrawlerServerController
     let relayServerController: RelayServerController
     let supportsLocalCrawlerControl: Bool
@@ -541,10 +538,6 @@ final class KitchenSinkViewModel: ObservableObject {
         )
         self.crawlerClient = FFIKitchenSink.crawlerClient()
         self.relayClient = FFIKitchenSink.relayClient()
-        self.embeddedRelayClient = FFIKitchenSink.relayClient(
-            baseURL: embeddedRelayBaseURL,
-            session: Self.embeddedCrawlerSession()
-        )
         self.crawlerServerController = CrawlerServerController()
         self.relayServerController = RelayServerController()
         self.crawlerBucketsRootURL = Self.crawlerBucketsRootDirectoryURL()
@@ -587,11 +580,7 @@ final class KitchenSinkViewModel: ObservableObject {
 
     private var relayServiceClient: RelayClient {
         appTrace("KitchenSinkViewModel.relayServiceClient")
-        #if os(macOS) || targetEnvironment(macCatalyst)
         return relayClient
-        #else
-        return embeddedRelayClient
-        #endif
     }
 
     private static func defaultCrawlerRelayTargets() -> [String] {
@@ -956,11 +945,9 @@ final class KitchenSinkViewModel: ObservableObject {
             return
         }
 
-        _ = EmbeddedRelayService.shared.start()
-        relayStatus = EmbeddedRelayService.shared.status()
-        relayStatusMessage = relayStatus?.message ?? "Idle"
-        refreshRelayDiscovery()
-        log("Crawler FFI unavailable; embedded crawler fallback disabled")
+        relayStatusMessage = "Crawler FFI unavailable; real crawler control disabled"
+        crawlerStatusMessage = relayStatusMessage
+        log(relayStatusMessage)
     }
 
     func refreshCrawlerStatus() {
@@ -1275,29 +1262,21 @@ final class KitchenSinkViewModel: ObservableObject {
 
     func refreshRelayStatus() {
         appTrace("KitchenSinkViewModel.refreshRelayStatus")
-        if supportsLocalCrawlerControl {
-            Task {
-                do {
-                    let state = try await relayServiceClient.status()
-                    await MainActor.run {
-                        relayStatus = state
-                        relayStatusMessage = state.message
-                        log("Relay status refreshed")
-                    }
-                } catch {
-                    await MainActor.run {
-                        relayStatusMessage = "Relay status failed: \(error.localizedDescription)"
-                        log(relayStatusMessage)
-                    }
+        Task {
+            do {
+                let state = try await relayServiceClient.status()
+                await MainActor.run {
+                    relayStatus = state
+                    relayStatusMessage = state.message
+                    log("Relay status refreshed")
+                }
+            } catch {
+                await MainActor.run {
+                    relayStatusMessage = "Relay status failed: \(error.localizedDescription)"
+                    log(relayStatusMessage)
                 }
             }
-            return
         }
-
-        let state = EmbeddedRelayService.shared.status()
-        relayStatus = state
-        relayStatusMessage = state.message
-        log("Relay status refreshed")
     }
 
     func startRelay() {
