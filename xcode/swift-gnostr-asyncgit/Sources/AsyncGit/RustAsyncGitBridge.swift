@@ -1,4 +1,5 @@
 import Foundation
+import GnostrTypes
 #if canImport(Darwin)
 import Darwin
 #endif
@@ -62,32 +63,8 @@ final class RustAsyncGitBridge: @unchecked Sendable {
         self.call(self.gitNoteEventIdFn, input: commitID)
     }
 
-    func generateGitNoteEvent(note: GitNote, privateKeyHex: String, powTargetBits: UInt8) throws -> String {
-        let encoder = JSONEncoder()
-        encoder.keyEncodingStrategy = .convertToSnakeCase
-        let noteData = try encoder.encode(note)
-        guard let noteJSON = String(data: noteData, encoding: .utf8) else {
-            throw CocoaError(.coderInvalidValue)
-        }
-
-        guard let value: RustEnvelope<String> = self.call(
-            self.generateGitNoteEventFn,
-            input: noteJSON,
-            extraInput: privateKeyHex,
-            powTargetBits: powTargetBits
-        ) else {
-            throw CocoaError(.coderReadCorrupt)
-        }
-
-        if value.ok, let data = value.data {
-            return data
-        }
-
-        throw NSError(
-            domain: "RustAsyncGitBridge",
-            code: 1,
-            userInfo: [NSLocalizedDescriptionKey: value.error ?? "unknown Rust asyncgit error"]
-        )
+    func generateGitNoteEvent(note: GitNote, privateKeyHex: String, powTargetBits: UInt8) throws -> Event {
+        try NIP34.rustGenerateGitNoteEvent(note: note, privateKeyHex: privateKeyHex, powTargetBits: powTargetBits)
     }
 
     private func call<T: Decodable>(_ fn: RustStringFn?, input: String) -> T? {

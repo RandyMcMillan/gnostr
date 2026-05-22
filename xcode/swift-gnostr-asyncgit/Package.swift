@@ -13,10 +13,15 @@ let package = Package(
             targets: ["AsyncGit"]
         ),
     ],
-    dependencies: [],
+    dependencies: [
+        .package(path: "../swift-gnostr-types"),
+    ],
     targets: [
         .target(
-            name: "AsyncGit"
+            name: "AsyncGit",
+            dependencies: [
+                .product(name: "GnostrTypes", package: "swift-gnostr-types"),
+            ]
         ),
         .testTarget(
             name: "AsyncGitTests",

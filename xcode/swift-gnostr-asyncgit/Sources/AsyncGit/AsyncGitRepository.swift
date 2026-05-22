@@ -1,4 +1,5 @@
 import Foundation
+import GnostrTypes
 
 public struct AsyncGitRepository: Sendable {
     public let url: URL
@@ -46,12 +47,8 @@ public struct AsyncGitRepository: Sendable {
         note: GitNote,
         privateKeyHex: String,
         powTargetBits: UInt8 = 0
-    ) throws -> String {
-        try RustAsyncGitBridge.shared.generateGitNoteEvent(
-            note: note,
-            privateKeyHex: privateKeyHex,
-            powTargetBits: powTargetBits
-        )
+    ) throws -> Event {
+        try NIP34.rustGenerateGitNoteEvent(note: note, privateKeyHex: privateKeyHex, powTargetBits: powTargetBits)
     }
 
     public func gitNote(

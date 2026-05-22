@@ -1,3 +1,5 @@
+@_exported import GnostrTypes
+@_exported import GnostrTypes
 import Foundation
 
 public enum AsyncGitEventKind: UInt32, Sendable {
