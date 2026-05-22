@@ -8,6 +8,10 @@ public struct AsyncGitRepository: Sendable {
     }
 
     public func repoState() -> RepoState {
+        if let rustState = RustAsyncGitBridge.shared.repoState(at: self.url.path) {
+            return rustState
+        }
+
         let gitDir = self.url.appendingPathComponent(".git", isDirectory: true)
 
         if FileManager.default.fileExists(atPath: gitDir.appendingPathComponent("MERGE_HEAD").path) {
@@ -28,7 +32,26 @@ public struct AsyncGitRepository: Sendable {
     }
 
     public func defaultNotesRef() -> String {
-        "refs/notes/commits"
+        RustAsyncGitBridge.shared.defaultNotesRef(at: self.url.path) ?? "refs/notes/commits"
+    }
+
+    public func gitNoteEventID(commitID: String) throws -> String {
+        if let eventID = RustAsyncGitBridge.shared.gitNoteEventID(commitID: commitID) {
+            return eventID
+        }
+        throw CocoaError(.fileReadUnknown)
+    }
+
+    public func generateGitNoteEvent(
+        note: GitNote,
+        privateKeyHex: String,
+        powTargetBits: UInt8 = 0
+    ) throws -> Data {
+        try RustAsyncGitBridge.shared.generateGitNoteEvent(
+            note: note,
+            privateKeyHex: privateKeyHex,
+            powTargetBits: powTargetBits
+        )
     }
 
     public func gitNote(

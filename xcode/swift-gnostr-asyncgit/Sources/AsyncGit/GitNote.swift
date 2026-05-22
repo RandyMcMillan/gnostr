@@ -26,4 +26,14 @@ public struct GitNote: Codable, Hashable, Sendable {
         self.committer = committer
         self.committerTime = committerTime
     }
+
+    private enum CodingKeys: String, CodingKey {
+        case noteID = "note_id"
+        case annotatedID = "annotated_id"
+        case notesRef = "notes_ref"
+        case message
+        case author
+        case committer
+        case committerTime = "committer_time"
+    }
 }
