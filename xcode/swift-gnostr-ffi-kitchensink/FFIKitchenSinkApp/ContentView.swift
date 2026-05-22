@@ -1062,7 +1062,9 @@ final class KitchenSinkViewModel: ObservableObject {
                 await MainActor.run {
                     crawlerDiscovery = discovery
                     crawlerStatusMessage = "Loaded \(discovery.count) crawler discovery entries"
+                    persistCrawlerDiscoveryBuckets(discovery)
                     refreshCrawlerBuckets()
+                    refreshCrawlerRelayOptions()
                     log(crawlerStatusMessage)
                 }
             } catch {
@@ -1123,6 +1125,11 @@ final class KitchenSinkViewModel: ObservableObject {
             crawlerRelay = first
         }
         log("Loaded \(crawlerRelayOptions.count) crawler relay options from buckets")
+    }
+
+    private func persistCrawlerDiscoveryBuckets(_ discovery: [RelayDiscoveryEntry]) {
+        appTrace("KitchenSinkViewModel.persistCrawlerDiscoveryBuckets count=\(discovery.count)")
+        EmbeddedCrawlerService.writeBucketTree(entries: discovery)
     }
 
     func goToCrawlerBucketParent() {
