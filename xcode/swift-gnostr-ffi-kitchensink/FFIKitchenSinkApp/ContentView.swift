@@ -344,6 +344,7 @@ final class KitchenSinkViewModel: ObservableObject {
     let relayClient: RelayClient
     let embeddedRelayClient: RelayClient
     let crawlerServerController: CrawlerServerController
+    let relayServerController: RelayServerController
     let supportsLocalCrawlerControl: Bool
 
     init() {
@@ -378,14 +379,18 @@ final class KitchenSinkViewModel: ObservableObject {
             session: Self.embeddedCrawlerSession()
         )
         self.crawlerServerController = CrawlerServerController()
+        self.relayServerController = RelayServerController()
         #if os(macOS) || targetEnvironment(macCatalyst)
         self.supportsLocalCrawlerControl = true
         #else
         self.supportsLocalCrawlerControl = false
         #endif
         self.loadRelayDefaults()
+        self.crawlerRelay = Self.defaultCrawlerRelayTargets().joined(separator: ",")
         self.refreshCrawlerStatus()
+        self.refreshRelayStatus()
         self.rebuildCrawlerPreview()
+        self.bootstrapServices()
         self.log("GUI ready")
     }
 
@@ -406,6 +411,10 @@ final class KitchenSinkViewModel: ObservableObject {
         #else
         embeddedRelayClient
         #endif
+    }
+
+    private static func defaultCrawlerRelayTargets() -> [String] {
+        ["ws://127.0.0.1:8080", "wss://relay.damus.io", "wss://nos.lol"]
     }
 
     var crawlerQueryParameters: CrawlerQueryParameters {
@@ -478,7 +487,7 @@ final class KitchenSinkViewModel: ObservableObject {
     }
 
     func resetCrawlerFields() {
-        crawlerRelay = ""
+        crawlerRelay = Self.defaultCrawlerRelayTargets().joined(separator: ",")
         crawlerAuthors = ""
         crawlerIds = ""
         crawlerLimit = "25"
@@ -531,6 +540,50 @@ final class KitchenSinkViewModel: ObservableObject {
         relayLogging = defaults.logging
         relayConfigFilePath = defaults.configFilePath
         log("Loaded relay defaults")
+    }
+
+    func bootstrapServices() {
+        if supportsLocalCrawlerControl {
+            Task {
+                do {
+                    let crawlerState = try await crawlerServerController.start()
+                    let relayState = try await relayServerController.start()
+                    await MainActor.run {
+                        crawlerServerState = crawlerState
+                        crawlerStatus = crawlerState
+                        crawlerServerMessage = crawlerState.message
+                        crawlerStatusMessage = crawlerState.message
+                        relayStatus = relayState
+                        relayStatusMessage = relayState.message
+                        log("Embedded services bootstrapped")
+                    }
+                    await MainActor.run {
+                        refreshCrawlerDiscovery()
+                        refreshRelayDiscovery()
+                    }
+                } catch {
+                    await MainActor.run {
+                        crawlerServerMessage = "Service bootstrap failed: \(error.localizedDescription)"
+                        crawlerStatusMessage = crawlerServerMessage
+                        relayStatusMessage = crawlerServerMessage
+                        log(crawlerServerMessage)
+                    }
+                }
+            }
+            return
+        }
+
+        EmbeddedCrawlerService.shared.start()
+        EmbeddedRelayService.shared.start()
+        crawlerServerState = EmbeddedCrawlerService.shared.status()
+        crawlerStatus = crawlerServerState
+        crawlerServerMessage = crawlerServerState?.message ?? "Idle"
+        crawlerStatusMessage = crawlerServerMessage
+        relayStatus = EmbeddedRelayService.shared.status()
+        relayStatusMessage = relayStatus?.message ?? "Idle"
+        refreshCrawlerDiscovery()
+        refreshRelayDiscovery()
+        log("Embedded services bootstrapped")
     }
 
     func refreshCrawlerStatus() {
@@ -676,24 +729,51 @@ final class KitchenSinkViewModel: ObservableObject {
     }
 
     func refreshRelayStatus() {
-        Task {
-            do {
-                let state = try await relayServiceClient.status()
-                await MainActor.run {
-                    relayStatus = state
-                    relayStatusMessage = state.message
-                    log("Relay status refreshed")
-                }
-            } catch {
-                await MainActor.run {
-                    relayStatusMessage = "Relay status failed: \(error.localizedDescription)"
-                    log(relayStatusMessage)
+        if supportsLocalCrawlerControl {
+            Task {
+                do {
+                    let state = try await relayServiceClient.status()
+                    await MainActor.run {
+                        relayStatus = state
+                        relayStatusMessage = state.message
+                        log("Relay status refreshed")
+                    }
+                } catch {
+                    await MainActor.run {
+                        relayStatusMessage = "Relay status failed: \(error.localizedDescription)"
+                        log(relayStatusMessage)
+                    }
                 }
             }
+            return
         }
+
+        let state = EmbeddedRelayService.shared.status()
+        relayStatus = state
+        relayStatusMessage = state.message
+        log("Relay status refreshed")
     }
 
     func startRelay() {
+        if supportsLocalCrawlerControl {
+            Task {
+                do {
+                    let state = try await relayServerController.start()
+                    await MainActor.run {
+                        relayStatus = state
+                        relayStatusMessage = state.message
+                        log("Relay started")
+                    }
+                } catch {
+                    await MainActor.run {
+                        relayStatusMessage = "Relay start failed: \(error.localizedDescription)"
+                        log(relayStatusMessage)
+                    }
+                }
+            }
+            return
+        }
+
         Task {
             do {
                 let state = try await relayServiceClient.start()
@@ -712,6 +792,25 @@ final class KitchenSinkViewModel: ObservableObject {
     }
 
     func stopRelay() {
+        if supportsLocalCrawlerControl {
+            Task {
+                do {
+                    let state = try await relayServerController.stop()
+                    await MainActor.run {
+                        relayStatus = state
+                        relayStatusMessage = state.message
+                        log("Relay stopped")
+                    }
+                } catch {
+                    await MainActor.run {
+                        relayStatusMessage = "Relay stop failed: \(error.localizedDescription)"
+                        log(relayStatusMessage)
+                    }
+                }
+            }
+            return
+        }
+
         Task {
             do {
                 let state = try await relayServiceClient.stop()
@@ -771,7 +870,8 @@ private struct CrawlerServerCommand {
     let currentDirectoryURL: URL
 }
 
-final class CrawlerServerController: @unchecked Sendable {
+@MainActor
+final class CrawlerServerController {
     private let serviceName = "gnostr-crawler"
     private let port: UInt16 = 3030
     private let fileManager = FileManager.default
@@ -974,9 +1074,232 @@ final class CrawlerServerController: @unchecked Sendable {
         return errno == EPERM
     }
 }
+
+@MainActor
+final class RelayServerController {
+    private let serviceName = "gnostr-relay"
+    private let port: UInt16 = 3030
+    private let fileManager = FileManager.default
+
+    func status() -> RelayProcessState {
+        guard let pid = existingDetachedPID() else {
+            return RelayProcessState(running: false, message: "Relay server not running")
+        }
+
+        return RelayProcessState(
+            running: true,
+            pid: pid,
+            message: "Relay server running (pid \(pid))"
+        )
+    }
+
+    func start() async throws -> RelayProcessState {
+        if let pid = existingDetachedPID() {
+            return RelayProcessState(
+                running: true,
+                pid: pid,
+                message: "Relay server already running (pid \(pid))"
+            )
+        }
+
+        removeStalePIDFile()
+        let command = try resolveCommand()
+        let launchOutput = try launch(command)
+
+        for _ in 0..<20 {
+            if let pid = existingDetachedPID() {
+                return RelayProcessState(
+                    running: true,
+                    pid: pid,
+                    message: "Relay server started (pid \(pid))"
+                )
+            }
+            try await Task.sleep(nanoseconds: 100_000_000)
+        }
+
+        return RelayProcessState(
+            running: true,
+            message: launchOutput.isEmpty ? "Relay server start requested" : launchOutput
+        )
+    }
+
+    func stop() throws -> RelayProcessState {
+        guard let pid = existingDetachedPID() else {
+            return RelayProcessState(running: false, message: "Relay server not running")
+        }
+
+        if kill(pid_t(pid), SIGTERM) != 0, errno != ESRCH {
+            let message = String(cString: strerror(errno))
+            throw NSError(domain: "RelayServerController", code: Int(errno), userInfo: [NSLocalizedDescriptionKey: message])
+        }
+
+        removeStalePIDFile()
+        return RelayProcessState(running: false, pid: pid, message: "Relay server stopped")
+    }
+
+    private func resolveCommand() throws -> CrawlerServerCommand {
+        let workdir = repositoryRootURL()
+        let arguments = ["relay", "--detach"]
+
+        if let binary = resolvedBinaryURL() {
+            return CrawlerServerCommand(
+                executableURL: binary,
+                arguments: arguments,
+                currentDirectoryURL: workdir
+            )
+        }
+
+        if fileManager.isExecutableFile(atPath: "/usr/bin/env") {
+            return CrawlerServerCommand(
+                executableURL: URL(fileURLWithPath: "/usr/bin/env"),
+                arguments: ["gnostr"] + arguments,
+                currentDirectoryURL: workdir
+            )
+        }
+
+        throw CocoaError(.fileNoSuchFile)
+    }
+
+    private func launch(_ command: CrawlerServerCommand) throws -> String {
+        let process = Process()
+        let stdout = Pipe()
+        let stderr = Pipe()
+        process.executableURL = command.executableURL
+        process.arguments = command.arguments
+        process.currentDirectoryURL = command.currentDirectoryURL
+        process.standardOutput = stdout
+        process.standardError = stderr
+
+        try process.run()
+        process.waitUntilExit()
+
+        let output = [stdout, stderr]
+            .map { $0.fileHandleForReading.readDataToEndOfFile() }
+            .compactMap { String(data: $0, encoding: .utf8) }
+            .joined(separator: "\n")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard process.terminationStatus == 0 else {
+            let message = output.isEmpty ? "gnostr relay exited with status \(process.terminationStatus)" : output
+            throw NSError(domain: "RelayServerController", code: Int(process.terminationStatus), userInfo: [NSLocalizedDescriptionKey: message])
+        }
+
+        return output
+    }
+
+    private func existingDetachedPID() -> UInt32? {
+        guard let pid = readDetachedPID() else {
+            return nil
+        }
+
+        if pidIsRunning(pid) {
+            return pid
+        }
+
+        removeStalePIDFile()
+        return nil
+    }
+
+    private func readDetachedPID() -> UInt32? {
+        let url = detachedPIDFileURL()
+        guard let raw = try? String(contentsOf: url, encoding: .utf8) else {
+            return nil
+        }
+        return UInt32(raw.trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+
+    private func removeStalePIDFile() {
+        let url = detachedPIDFileURL()
+        if fileManager.fileExists(atPath: url.path) {
+            try? fileManager.removeItem(at: url)
+        }
+    }
+
+    private func detachedPIDFileURL() -> URL {
+        repositoryRootURL().appendingPathComponent(".gnostr/\(serviceName).pid")
+    }
+
+    private func repositoryRootURL() -> URL {
+        var directory = URL(fileURLWithPath: fileManager.currentDirectoryPath, isDirectory: true)
+        while true {
+            let cargoToml = directory.appendingPathComponent("Cargo.toml")
+            if fileManager.fileExists(atPath: cargoToml.path) {
+                return directory
+            }
+
+            let parent = directory.deletingLastPathComponent()
+            if parent.path == directory.path {
+                return URL(fileURLWithPath: fileManager.currentDirectoryPath, isDirectory: true)
+            }
+            directory = parent
+        }
+    }
+
+    private func resolvedBinaryURL() -> URL? {
+        if let envBinary = ProcessInfo.processInfo.environment["GNOSTR_BIN"]?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !envBinary.isEmpty,
+           fileManager.isExecutableFile(atPath: envBinary) {
+            return URL(fileURLWithPath: envBinary)
+        }
+
+        for root in ancestorDirectories(from: repositoryRootURL()) {
+            let debug = root.appendingPathComponent("target/debug/gnostr")
+            if fileManager.isExecutableFile(atPath: debug.path) {
+                return debug
+            }
+
+            let release = root.appendingPathComponent("target/release/gnostr")
+            if fileManager.isExecutableFile(atPath: release.path) {
+                return release
+            }
+        }
+
+        return nil
+    }
+
+    private func ancestorDirectories(from url: URL) -> [URL] {
+        var directories: [URL] = []
+        var current = url
+        while true {
+            directories.append(current)
+            let parent = current.deletingLastPathComponent()
+            if parent.path == current.path {
+                break
+            }
+            current = parent
+        }
+        return directories
+    }
+
+    private func pidIsRunning(_ pid: UInt32) -> Bool {
+        if kill(pid_t(pid), 0) == 0 {
+            return true
+        }
+
+        return errno == EPERM
+    }
+}
 #else
+@MainActor
 final class CrawlerServerController {
     private let unavailableMessage = "Local crawler process control is unavailable on this platform"
+
+    func status() -> RelayProcessState {
+        RelayProcessState(running: false, message: unavailableMessage)
+    }
+
+    func start() async throws -> RelayProcessState {
+        status()
+    }
+
+    func stop() throws -> RelayProcessState {
+        status()
+    }
+}
+
+@MainActor
+final class RelayServerController {
+    private let unavailableMessage = "Local relay process control is unavailable on this platform"
 
     func status() -> RelayProcessState {
         RelayProcessState(running: false, message: unavailableMessage)
