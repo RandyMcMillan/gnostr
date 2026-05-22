@@ -52,6 +52,34 @@ import Testing
     #expect(json.contains(#""sig":"facefeed""#))
 }
 
+@Test func rustBridgeRoundTripsWhenAvailable() throws {
+    guard NIP34.rustBridgeAvailable else { return }
+
+    let note = GitNote(
+        noteID: "deadbeef",
+        annotatedID: "cafebabe",
+        notesRef: "refs/notes/commits",
+        message: "hello from rust",
+        author: "alice",
+        committer: "bob",
+        committerTime: 1234
+    )
+
+    #expect(NIP34.rustGitNoteEventID(commitID: note.annotatedID) != nil)
+
+    let tags = try NIP34.rustGitNoteTags(note: note)
+    #expect(tags.contains(where: { $0.tagName() == "commit" }))
+    #expect(tags.contains(where: { $0.tagName() == "notes-ref" }))
+
+    let event = try NIP34.rustGenerateGitNoteEvent(
+        note: note,
+        privateKeyHex: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    )
+    #expect(event.kind == .patches)
+    #expect(event.content == note.message)
+    #expect(event.tags.contains(where: { $0.tagName() == "commit" }))
+}
+
 @Test func leadingZeroBitsCountMatchesExamples() {
     #expect(getLeadingZeroBits([0x00, 0x00, 0x10]) == 19)
     #expect(getLeadingZeroBits([0xff]) == 0)
