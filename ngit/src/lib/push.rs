@@ -155,7 +155,9 @@ pub fn push_to_remote_url(
 ) -> Result<HashMap<String, Option<String>>> {
     let git_config = git_repo.git_repo.config()?;
     let mut git_server_remote = git_repo.git_repo.remote_anonymous(git_server_url)?;
-    let ssh_key_file = ssh_key_file.map(PathBuf::from_str).transpose()?;
+    let ssh_key_file = ssh_key_file
+        .map(|ssh_key_file| PathBuf::from_str(ssh_key_file))
+        .transpose()?;
     let mut push_options = git2::PushOptions::new();
     let mut remote_callbacks = git2::RemoteCallbacks::new();
     let push_reporter = Arc::new(Mutex::new(PushReporter::new(term)));
