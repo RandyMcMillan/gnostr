@@ -79,7 +79,7 @@
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
-		FFIKS000000000000000001 = {
+		FFIKS000000000000000100 = {
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
@@ -251,9 +251,9 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		FFIKS000000000000000061 /* XCLocalSwiftPackageReference ".." */ = {
+		FFIKS000000000000000061 /* XCLocalSwiftPackageReference "." */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = "..";
+			relativePath = ".";
 		};
 /* End XCLocalSwiftPackageReference section */
 
@@ -266,5 +266,5 @@
 /* End XCSwiftPackageProductDependency section */
 
 	};
-	rootObject = FFIKS000000000000000001 /* Project object */;
-}
+		rootObject = FFIKS000000000000000100 /* Project object */;
+	}
