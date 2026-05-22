@@ -2130,16 +2130,16 @@ struct ContentView: View {
     }
 
     private func scroll<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
-        let _ = appTrace("ContentView.scroll")
-        ScrollView {
+        appTrace("ContentView.scroll")
+        return ScrollView {
             VStack(alignment: .leading, spacing: 16, content: content)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
     private func title(_ title: String, subtitle: String) -> some View {
-        let _ = appTrace("ContentView.title \(title)")
-        VStack(alignment: .leading, spacing: 8) {
+        appTrace("ContentView.title \(title)")
+        return VStack(alignment: .leading, spacing: 8) {
             Text(title)
                 .font(.largeTitle.weight(.bold))
             Text(subtitle)
@@ -2148,16 +2148,16 @@ struct ContentView: View {
     }
 
     private func groupBox<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
-        let _ = appTrace("ContentView.groupBox \(title)")
-        GroupBox(title) {
+        appTrace("ContentView.groupBox \(title)")
+        return GroupBox(title) {
             VStack(alignment: .leading, spacing: 8, content: content)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
     private func infoRow(_ label: String, _ value: String) -> some View {
-        let _ = appTrace("ContentView.infoRow \(label)")
-        HStack(alignment: .top, spacing: 12) {
+        appTrace("ContentView.infoRow \(label)")
+        return HStack(alignment: .top, spacing: 12) {
             Text(label)
                 .font(.headline)
                 .frame(width: 160, alignment: .leading)
@@ -2169,8 +2169,8 @@ struct ContentView: View {
     }
 
     private func labeledField(_ label: String, text: Binding<String>) -> some View {
-        let _ = appTrace("ContentView.labeledField \(label)")
-        HStack(alignment: .firstTextBaseline, spacing: 12) {
+        appTrace("ContentView.labeledField \(label)")
+        return HStack(alignment: .firstTextBaseline, spacing: 12) {
             Text(label)
                 .font(.headline)
                 .frame(width: 160, alignment: .leading)
