@@ -13,7 +13,7 @@ private typealias RustStringFn = @convention(c) (UnsafePointer<CChar>) -> Unsafe
 private typealias RustNoteFn = @convention(c) (UnsafePointer<CChar>, UnsafePointer<CChar>, UInt8) -> UnsafeMutablePointer<CChar>?
 private typealias RustFreeFn = @convention(c) (UnsafeMutablePointer<CChar>) -> Void
 
-final class RustAsyncGitBridge {
+final class RustAsyncGitBridge: @unchecked Sendable {
     static let shared = RustAsyncGitBridge()
 
     private let handle: UnsafeMutableRawPointer?
