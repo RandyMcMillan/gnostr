@@ -51,7 +51,7 @@ final class KitchenSinkViewModel: ObservableObject {
         )
         self.queryWire = (try? CrawlerQueryParameters().buildWireQuery(subscriptionID: "ffi-kitchen-sink")) ?? "unavailable"
         self.crawlerBaseURL = FFIKitchenSink.crawlerClient().baseURL.absoluteString
-        self.relayBaseURL = FFIKitchenSink.relayClient().baseURL.absoluteString
+        self.relayBaseURL = URL(string: "http://127.0.0.1:3030")!.absoluteString
         self.relayConfiguration = RelayConfiguration()
     }
 }
@@ -122,7 +122,7 @@ struct ContentView: View {
             groupBox("Sample Git note") {
                 infoRow("noteID", model.sampleNote.noteID)
                 infoRow("annotatedID", model.sampleNote.annotatedID)
-                infoRow("notesRef", model.sampleNote.notesRef)
+                infoRow("notesRef", model.sampleNote.notesRef ?? "nil")
                 infoRow("message", model.sampleNote.message)
                 infoRow("author", model.sampleNote.author)
                 infoRow("committer", model.sampleNote.committer)
