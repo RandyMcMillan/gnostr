@@ -5,7 +5,8 @@ use std::{
 
 use gnostr_types::nostr::{
     nip34::{generate_git_note_event, generate_git_note_event_with_pow, git_note_event_id, git_note_tags, GitNote},
-    PrivateKey,
+    EventKindOrRange, EventV3, Filter, ImageDimensions, MetadataV1, NAddr, NEvent, PayRequestData, PreEventV3,
+    PrivateKey, Profile, RelayInformationDocumentV2, SubscriptionId, TagV3, ClientMessageV3, RelayMessageV5,
 };
 use serde::Serialize;
 
@@ -123,6 +124,108 @@ pub unsafe extern "C" fn gnostr_types_generate_git_note_event_json(
             Ok(event_json) => encode(&Envelope::ok(event_json)),
             Err(error) => encode(&Envelope::<String>::err(error.to_string())),
         },
+        Err(error) => encode(&Envelope::<String>::err(error.to_string())),
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn gnostr_types_roundtrip_event_json(event_json: *const c_char) -> *mut c_char {
+    roundtrip_json::<EventV3>(event_json)
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn gnostr_types_roundtrip_pre_event_json(pre_event_json: *const c_char) -> *mut c_char {
+    roundtrip_json::<PreEventV3>(pre_event_json)
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn gnostr_types_roundtrip_tag_json(tag_json: *const c_char) -> *mut c_char {
+    roundtrip_json::<TagV3>(tag_json)
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn gnostr_types_roundtrip_naddr_json(naddr_json: *const c_char) -> *mut c_char {
+    roundtrip_json::<NAddr>(naddr_json)
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn gnostr_types_roundtrip_nevent_json(nevent_json: *const c_char) -> *mut c_char {
+    roundtrip_json::<NEvent>(nevent_json)
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn gnostr_types_roundtrip_nprofile_json(nprofile_json: *const c_char) -> *mut c_char {
+    roundtrip_json::<Profile>(nprofile_json)
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn gnostr_types_roundtrip_filter_json(filter_json: *const c_char) -> *mut c_char {
+    roundtrip_json::<Filter>(filter_json)
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn gnostr_types_roundtrip_metadata_json(metadata_json: *const c_char) -> *mut c_char {
+    roundtrip_json::<MetadataV1>(metadata_json)
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn gnostr_types_roundtrip_profile_json(profile_json: *const c_char) -> *mut c_char {
+    roundtrip_json::<Profile>(profile_json)
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn gnostr_types_roundtrip_relay_information_document_json(
+    relay_information_document_json: *const c_char,
+) -> *mut c_char {
+    roundtrip_json::<RelayInformationDocumentV2>(relay_information_document_json)
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn gnostr_types_roundtrip_pay_request_data_json(pay_request_data_json: *const c_char) -> *mut c_char {
+    roundtrip_json::<PayRequestData>(pay_request_data_json)
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn gnostr_types_roundtrip_client_message_json(client_message_json: *const c_char) -> *mut c_char {
+    roundtrip_json::<ClientMessageV3>(client_message_json)
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn gnostr_types_roundtrip_relay_message_json(relay_message_json: *const c_char) -> *mut c_char {
+    roundtrip_json::<RelayMessageV5>(relay_message_json)
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn gnostr_types_roundtrip_subscription_id_json(subscription_id_json: *const c_char) -> *mut c_char {
+    roundtrip_json::<SubscriptionId>(subscription_id_json)
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn gnostr_types_roundtrip_image_dimensions_json(image_dimensions_json: *const c_char) -> *mut c_char {
+    roundtrip_json::<ImageDimensions>(image_dimensions_json)
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn gnostr_types_roundtrip_event_kind_or_range_json(event_kind_or_range_json: *const c_char) -> *mut c_char {
+    roundtrip_json::<EventKindOrRange>(event_kind_or_range_json)
+}
+
+fn roundtrip_json<T>(json_ptr: *const c_char) -> *mut c_char
+where
+    T: serde::de::DeserializeOwned + serde::Serialize,
+{
+    let json = match unsafe { read_c_string(json_ptr) } {
+        Ok(value) => value,
+        Err(error) => return encode(&Envelope::<String>::err(error)),
+    };
+
+    let value: T = match serde_json::from_str(json) {
+        Ok(value) => value,
+        Err(error) => return encode(&Envelope::<String>::err(error.to_string())),
+    };
+
+    match serde_json::to_string(&value) {
+        Ok(serialized) => encode(&Envelope::ok(serialized)),
         Err(error) => encode(&Envelope::<String>::err(error.to_string())),
     }
 }

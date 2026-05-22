@@ -42,8 +42,30 @@ public enum EventKind: UInt32, Codable, Sendable {
     case curationSets = 30004
     case profileBadges = 30008
     case badgeDefinition = 30009
+    case interestSets = 30015
+    case createOrUpdateStall = 30017
+    case createOrUpdateProduct = 30018
+    case marketplaceUi = 30019
+    case productSoldAuction = 30020
     case longFormContent = 30023
     case draftLongFormContent = 30024
+    case emojiSets = 30030
+    case releaseArtifactSets = 30063
+    case appSpecificData = 30078
+    case liveEvent = 30311
+    case userStatus = 30315
+    case classifiedListing = 30402
+    case draftClassifiedListing = 30403
+    case repoAnnouncement = 30617
+    case gitRepoAnnouncement = 30618
+    case wikiArticle = 30818
+    case dateBasedCalendarEvent = 31922
+    case timeBasedCalendarEvent = 31923
+    case calendar = 31924
+    case calendarEventRsvp = 31925
+    case handlerRecommendation = 31989
+    case handlerInformation = 31990
+    case communityDefinition = 34550
     case other = 0xffff_fffe
 }
 

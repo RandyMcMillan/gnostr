@@ -13,6 +13,11 @@ Shared Swift Nostr types with an optional Rust FFI bridge.
   - `gitNoteEventID`
   - `gitNoteTags`
   - `generateGitNoteEvent`
+- Rust-backed round-trips for shared core Nostr values:
+  - `Event`
+  - `PreEvent`
+  - `Tag`
+  - `NAddr`
 
 ### Runtime loading
 

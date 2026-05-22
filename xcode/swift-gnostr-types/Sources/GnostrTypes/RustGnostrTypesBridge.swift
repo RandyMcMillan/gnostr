@@ -24,6 +24,18 @@ public final class RustGnostrTypesBridge: @unchecked Sendable {
     private let normalizePreEventFn: RustStringFn?
     private let normalizeTagFn: RustStringFn?
     private let normalizeNAddrFn: RustStringFn?
+    private let normalizeNEventFn: RustStringFn?
+    private let normalizeNProfileFn: RustStringFn?
+    private let normalizeFilterFn: RustStringFn?
+    private let normalizeMetadataFn: RustStringFn?
+    private let normalizeProfileFn: RustStringFn?
+    private let normalizeRelayInfoFn: RustStringFn?
+    private let normalizePayRequestDataFn: RustStringFn?
+    private let normalizeClientMessageFn: RustStringFn?
+    private let normalizeRelayMessageFn: RustStringFn?
+    private let normalizeSubscriptionIdFn: RustStringFn?
+    private let normalizeImageDimensionsFn: RustStringFn?
+    private let normalizeEventKindOrRangeFn: RustStringFn?
     private let freeFn: RustFreeFn?
 
     private init() {
@@ -36,6 +48,18 @@ public final class RustGnostrTypesBridge: @unchecked Sendable {
             self.normalizePreEventFn = Self.loadSymbol("gnostr_types_roundtrip_pre_event_json", from: handle)
             self.normalizeTagFn = Self.loadSymbol("gnostr_types_roundtrip_tag_json", from: handle)
             self.normalizeNAddrFn = Self.loadSymbol("gnostr_types_roundtrip_naddr_json", from: handle)
+            self.normalizeNEventFn = Self.loadSymbol("gnostr_types_roundtrip_nevent_json", from: handle)
+            self.normalizeNProfileFn = Self.loadSymbol("gnostr_types_roundtrip_nprofile_json", from: handle)
+            self.normalizeFilterFn = Self.loadSymbol("gnostr_types_roundtrip_filter_json", from: handle)
+            self.normalizeMetadataFn = Self.loadSymbol("gnostr_types_roundtrip_metadata_json", from: handle)
+            self.normalizeProfileFn = Self.loadSymbol("gnostr_types_roundtrip_profile_json", from: handle)
+            self.normalizeRelayInfoFn = Self.loadSymbol("gnostr_types_roundtrip_relay_information_document_json", from: handle)
+            self.normalizePayRequestDataFn = Self.loadSymbol("gnostr_types_roundtrip_pay_request_data_json", from: handle)
+            self.normalizeClientMessageFn = Self.loadSymbol("gnostr_types_roundtrip_client_message_json", from: handle)
+            self.normalizeRelayMessageFn = Self.loadSymbol("gnostr_types_roundtrip_relay_message_json", from: handle)
+            self.normalizeSubscriptionIdFn = Self.loadSymbol("gnostr_types_roundtrip_subscription_id_json", from: handle)
+            self.normalizeImageDimensionsFn = Self.loadSymbol("gnostr_types_roundtrip_image_dimensions_json", from: handle)
+            self.normalizeEventKindOrRangeFn = Self.loadSymbol("gnostr_types_roundtrip_event_kind_or_range_json", from: handle)
             self.freeFn = Self.loadSymbol("gnostr_types_string_free", from: handle)
         } else {
             self.gitNoteEventIDFn = nil
@@ -45,6 +69,18 @@ public final class RustGnostrTypesBridge: @unchecked Sendable {
             self.normalizePreEventFn = nil
             self.normalizeTagFn = nil
             self.normalizeNAddrFn = nil
+            self.normalizeNEventFn = nil
+            self.normalizeNProfileFn = nil
+            self.normalizeFilterFn = nil
+            self.normalizeMetadataFn = nil
+            self.normalizeProfileFn = nil
+            self.normalizeRelayInfoFn = nil
+            self.normalizePayRequestDataFn = nil
+            self.normalizeClientMessageFn = nil
+            self.normalizeRelayMessageFn = nil
+            self.normalizeSubscriptionIdFn = nil
+            self.normalizeImageDimensionsFn = nil
+            self.normalizeEventKindOrRangeFn = nil
             self.freeFn = nil
         }
     }
@@ -58,6 +94,18 @@ public final class RustGnostrTypesBridge: @unchecked Sendable {
             && self.normalizePreEventFn != nil
             && self.normalizeTagFn != nil
             && self.normalizeNAddrFn != nil
+            && self.normalizeNEventFn != nil
+            && self.normalizeNProfileFn != nil
+            && self.normalizeFilterFn != nil
+            && self.normalizeMetadataFn != nil
+            && self.normalizeProfileFn != nil
+            && self.normalizeRelayInfoFn != nil
+            && self.normalizePayRequestDataFn != nil
+            && self.normalizeClientMessageFn != nil
+            && self.normalizeRelayMessageFn != nil
+            && self.normalizeSubscriptionIdFn != nil
+            && self.normalizeImageDimensionsFn != nil
+            && self.normalizeEventKindOrRangeFn != nil
             && self.freeFn != nil
     }
 
@@ -126,6 +174,90 @@ public final class RustGnostrTypesBridge: @unchecked Sendable {
     public func normalize(_ naddr: NAddr) throws -> NAddr {
         guard self.isAvailable, let normalized: NAddr = self.callRoundTrip(self.normalizeNAddrFn, value: naddr) else {
             return naddr
+        }
+        return normalized
+    }
+
+    public func normalize(_ nevent: NEvent) throws -> NEvent {
+        guard self.isAvailable, let normalized: NEvent = self.callRoundTrip(self.normalizeNEventFn, value: nevent) else {
+            return nevent
+        }
+        return normalized
+    }
+
+    public func normalize(_ nprofile: NProfile) throws -> NProfile {
+        guard self.isAvailable, let normalized: NProfile = self.callRoundTrip(self.normalizeNProfileFn, value: nprofile) else {
+            return nprofile
+        }
+        return normalized
+    }
+
+    public func normalize(_ filter: Filter) throws -> Filter {
+        guard self.isAvailable, let normalized: Filter = self.callRoundTrip(self.normalizeFilterFn, value: filter) else {
+            return filter
+        }
+        return normalized
+    }
+
+    public func normalize(_ metadata: Metadata) throws -> Metadata {
+        guard self.isAvailable, let normalized: Metadata = self.callRoundTrip(self.normalizeMetadataFn, value: metadata) else {
+            return metadata
+        }
+        return normalized
+    }
+
+    public func normalize(_ profile: Profile) throws -> Profile {
+        guard self.isAvailable, let normalized: Profile = self.callRoundTrip(self.normalizeProfileFn, value: profile) else {
+            return profile
+        }
+        return normalized
+    }
+
+    public func normalize(_ document: RelayInformationDocument) throws -> RelayInformationDocument {
+        guard self.isAvailable, let normalized: RelayInformationDocument = self.callRoundTrip(self.normalizeRelayInfoFn, value: document) else {
+            return document
+        }
+        return normalized
+    }
+
+    public func normalize(_ data: PayRequestData) throws -> PayRequestData {
+        guard self.isAvailable, let normalized: PayRequestData = self.callRoundTrip(self.normalizePayRequestDataFn, value: data) else {
+            return data
+        }
+        return normalized
+    }
+
+    public func normalize(_ message: ClientMessage) throws -> ClientMessage {
+        guard self.isAvailable, let normalized: ClientMessage = self.callRoundTrip(self.normalizeClientMessageFn, value: message) else {
+            return message
+        }
+        return normalized
+    }
+
+    public func normalize(_ message: RelayMessage) throws -> RelayMessage {
+        guard self.isAvailable, let normalized: RelayMessage = self.callRoundTrip(self.normalizeRelayMessageFn, value: message) else {
+            return message
+        }
+        return normalized
+    }
+
+    public func normalize(_ subscriptionId: SubscriptionId) throws -> SubscriptionId {
+        guard self.isAvailable, let normalized: SubscriptionId = self.callRoundTrip(self.normalizeSubscriptionIdFn, value: subscriptionId) else {
+            return subscriptionId
+        }
+        return normalized
+    }
+
+    public func normalize(_ dimensions: ImageDimensions) throws -> ImageDimensions {
+        guard self.isAvailable, let normalized: ImageDimensions = self.callRoundTrip(self.normalizeImageDimensionsFn, value: dimensions) else {
+            return dimensions
+        }
+        return normalized
+    }
+
+    public func normalize(_ value: EventKindOrRange) throws -> EventKindOrRange {
+        guard self.isAvailable, let normalized: EventKindOrRange = self.callRoundTrip(self.normalizeEventKindOrRangeFn, value: value) else {
+            return value
         }
         return normalized
     }
