@@ -556,7 +556,6 @@ final class KitchenSinkViewModel: ObservableObject {
         self.refreshCrawlerBuckets()
         self.bootstrapServices()
         self.refreshCrawlerRelayOptions()
-        self.startCrawlerDiscoveryLoop()
         self.log("GUI ready")
     }
 
@@ -927,6 +926,7 @@ final class KitchenSinkViewModel: ObservableObject {
                         crawlerStatusMessage = crawlerState.message
                         relayStatus = relayState
                         relayStatusMessage = relayState.message
+                        self.startCrawlerDiscoveryLoop()
                         log("Embedded services bootstrapped")
                     }
                     await MainActor.run {
@@ -953,6 +953,7 @@ final class KitchenSinkViewModel: ObservableObject {
         crawlerStatusMessage = crawlerServerMessage
         relayStatus = EmbeddedRelayService.shared.status()
         relayStatusMessage = relayStatus?.message ?? "Idle"
+        startCrawlerDiscoveryLoop()
         refreshCrawlerDiscovery()
         refreshRelayDiscovery()
         log("Embedded services bootstrapped")
@@ -1013,6 +1014,7 @@ final class KitchenSinkViewModel: ObservableObject {
                         crawlerServerMessage = state.message
                         crawlerStatus = state
                         crawlerStatusMessage = state.message
+                        self.startCrawlerDiscoveryLoop()
                         log("Crawler started: \(state.message)")
                     }
                 } catch {
@@ -1029,13 +1031,14 @@ final class KitchenSinkViewModel: ObservableObject {
         Task {
             do {
                 let state = try await crawlerServiceClient.startRelay()
-                await MainActor.run {
-                    crawlerServerState = state
-                    crawlerServerMessage = state.message
-                    crawlerStatus = state
-                    crawlerStatusMessage = state.message
-                    log("Crawler backend started")
-                }
+                    await MainActor.run {
+                        crawlerServerState = state
+                        crawlerServerMessage = state.message
+                        crawlerStatus = state
+                        crawlerStatusMessage = state.message
+                        self.startCrawlerDiscoveryLoop()
+                        log("Crawler backend started")
+                    }
             } catch {
                 await MainActor.run {
                     crawlerServerMessage = "Crawler start failed: \(error.localizedDescription)"
@@ -1061,6 +1064,7 @@ final class KitchenSinkViewModel: ObservableObject {
                         crawlerServerMessage = state.message
                         crawlerStatus = state
                         crawlerStatusMessage = state.message
+                        self.stopCrawlerDiscoveryLoop()
                         log("Crawler stopped: \(state.message)")
                     }
                 } catch {
@@ -1077,13 +1081,14 @@ final class KitchenSinkViewModel: ObservableObject {
         Task {
             do {
                 let state = try await crawlerServiceClient.stopRelay()
-                await MainActor.run {
-                    crawlerServerState = state
-                    crawlerServerMessage = state.message
-                    crawlerStatus = state
-                    crawlerStatusMessage = state.message
-                    log("Crawler backend stopped")
-                }
+                    await MainActor.run {
+                        crawlerServerState = state
+                        crawlerServerMessage = state.message
+                        crawlerStatus = state
+                        crawlerStatusMessage = state.message
+                        self.stopCrawlerDiscoveryLoop()
+                        log("Crawler backend stopped")
+                    }
             } catch {
                 await MainActor.run {
                     crawlerServerMessage = "Crawler stop failed: \(error.localizedDescription)"
@@ -1137,6 +1142,12 @@ final class KitchenSinkViewModel: ObservableObject {
             }
             appTrace("KitchenSinkViewModel.crawlerDiscoveryLoopTask cancelled")
         }
+    }
+
+    private func stopCrawlerDiscoveryLoop() {
+        appTrace("KitchenSinkViewModel.stopCrawlerDiscoveryLoop")
+        crawlerDiscoveryLoopTask?.cancel()
+        crawlerDiscoveryLoopTask = nil
     }
 
     func refreshCrawlerBuckets() {
