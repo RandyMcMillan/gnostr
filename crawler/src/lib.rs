@@ -28,7 +28,7 @@ mod git_helpers;
 pub use cli::{dispatch_cli_command, run, Cli, CliArgs, Commands};
 pub use message::*;
 pub use query::{build_gnostr_query, send, Config, ConfigBuilder};
-pub use api::{run_api_server, run_api_server_detached};
+pub use api::{run_api_server, run_api_server_detached, run_api_server_with_shutdown};
 pub use commands::{run_nip34, run_sniper, run_watch};
 pub use relay_metadata::Relay;
 pub use relay_fetch::{fetch_relay_texts, parse_relay_metadata, websocket_http_url};

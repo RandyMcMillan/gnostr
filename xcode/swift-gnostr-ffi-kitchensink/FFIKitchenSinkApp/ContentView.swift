@@ -534,11 +534,7 @@ final class KitchenSinkViewModel: ObservableObject {
         self.crawlerServerController = CrawlerServerController()
         self.relayServerController = RelayServerController()
         self.crawlerBucketsRootURL = Self.crawlerBucketsRootDirectoryURL()
-        #if os(macOS) || targetEnvironment(macCatalyst)
-        self.supportsLocalCrawlerControl = true
-        #else
-        self.supportsLocalCrawlerControl = false
-        #endif
+        self.supportsLocalCrawlerControl = self.crawlerServerController.isAvailable
         self.loadRelayDefaults()
         self.crawlerRelay = Self.defaultCrawlerRelayTargets().joined(separator: ",")
         self.refreshCrawlerStatus()
@@ -1209,7 +1205,7 @@ final class KitchenSinkViewModel: ObservableObject {
     }()
 }
 
-#if os(macOS) || targetEnvironment(macCatalyst)
+#if os(macOS) || targetEnvironment(macCatalyst) || os(iOS)
 private struct CrawlerServerCommand {
     let executableURL: URL
     let arguments: [String]
@@ -1218,72 +1214,45 @@ private struct CrawlerServerCommand {
 
 @MainActor
 final class CrawlerServerController {
+    private let bridge = RustCrawlerBridge.shared
     private let serviceName = "gnostr-crawler"
     private let port: UInt16 = 3030
     private let fileManager = FileManager.default
     private var logTailTask: Task<Void, Never>?
 
-    func status() -> RelayProcessState {
-        guard let pid = existingDetachedPID() else {
-            return RelayProcessState(running: false, message: "Crawler server not running")
-        }
+    var isAvailable: Bool {
+        bridge.isAvailable
+    }
 
-        return RelayProcessState(
-            running: true,
-            pid: pid,
-            message: "Crawler server running (pid \(pid))"
-        )
+    func status() -> RelayProcessState {
+        do {
+            return try bridge.crawlerRuntimeStatus() ?? RelayProcessState(
+                running: false,
+                message: "Crawler runtime status unavailable"
+            )
+        } catch {
+            return RelayProcessState(
+                running: false,
+                message: "Crawler runtime status failed: \(error.localizedDescription)"
+            )
+        }
     }
 
     func start() async throws -> RelayProcessState {
-        if let pid = existingDetachedPID() {
-            startLogTail()
-            return RelayProcessState(
-                running: true,
-                pid: pid,
-                message: "Crawler server already running (pid \(pid))"
-            )
+        guard let state = try bridge.startCrawlerRuntime(port: port) else {
+            throw CocoaError(.coderInvalidValue)
         }
-
-        removeStalePIDFile()
-        let command = try resolveCommand()
-        print("[\(serviceName)] launching \(command.executableURL.path) \(command.arguments.joined(separator: " "))")
-        print("[\(serviceName)] log file: \(crawlerLogFileURL().path)")
-        let launchOutput = try launch(command)
-        startLogTail()
-
-        for _ in 0..<20 {
-            if let pid = existingDetachedPID() {
-                return RelayProcessState(
-                    running: true,
-                    pid: pid,
-                    message: "Crawler server started (pid \(pid))"
-                )
-            }
-            try await Task.sleep(nanoseconds: 100_000_000)
-        }
-
-        return RelayProcessState(
-            running: true,
-            message: launchOutput.isEmpty ? "Crawler server start requested" : launchOutput
-        )
+        return state
     }
 
     func stop() throws -> RelayProcessState {
-        guard let pid = existingDetachedPID() else {
-            return RelayProcessState(running: false, message: "Crawler server not running")
+        guard let state = try bridge.stopCrawlerRuntime() else {
+            throw CocoaError(.coderInvalidValue)
         }
-
-        if kill(pid_t(pid), SIGTERM) != 0, errno != ESRCH {
-            let message = String(cString: strerror(errno))
-            throw NSError(domain: "CrawlerServerController", code: Int(errno), userInfo: [NSLocalizedDescriptionKey: message])
-        }
-
-        removeStalePIDFile()
-        stopLogTail()
-        return RelayProcessState(running: false, pid: pid, message: "Crawler server stopped")
+        return state
     }
 
+    #if false
     private func resolveCommand() throws -> CrawlerServerCommand {
         let workdir = repositoryRootURL()
         let arguments = ["crawler", "serve", "--port", String(port), "--detach"]
@@ -1473,8 +1442,10 @@ final class CrawlerServerController {
 
         return errno == EPERM
     }
+    #endif
 }
 
+ #if os(macOS) || targetEnvironment(macCatalyst)
 @MainActor
 final class RelayServerController {
     private let serviceName = "gnostr-relay"
@@ -1679,6 +1650,24 @@ final class RelayServerController {
         return errno == EPERM
     }
 }
+#else
+@MainActor
+final class RelayServerController {
+    private let unavailableMessage = "Local relay process control is unavailable on this platform"
+
+    func status() -> RelayProcessState {
+        RelayProcessState(running: false, message: unavailableMessage)
+    }
+
+    func start() async throws -> RelayProcessState {
+        status()
+    }
+
+    func stop() throws -> RelayProcessState {
+        status()
+    }
+}
+#endif
 #else
 @MainActor
 final class CrawlerServerController {

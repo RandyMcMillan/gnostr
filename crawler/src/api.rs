@@ -14,6 +14,7 @@ use log::{debug, error, info, warn};
 use serde::Serialize;
 use nostr_sdk::prelude::*;
 use std::collections::{HashMap, HashSet};
+use std::future;
 use std::fs as sync_fs;
 use std::net::SocketAddr;
 use std::path::{Component, Path, PathBuf};
@@ -1617,6 +1618,16 @@ mod tests {
 }
 
 pub async fn run_api_server(port: u16) -> Result<(), Box<dyn std::error::Error>> {
+    run_api_server_with_shutdown(port, future::pending::<()>()).await
+}
+
+pub async fn run_api_server_with_shutdown<F>(
+    port: u16,
+    shutdown: F,
+) -> Result<(), Box<dyn std::error::Error>>
+where
+    F: std::future::Future<Output = ()> + Send + 'static,
+{
     debug!("run_api_server: Starting API server on port {}", port);
 
     let client = reqwest::Client::new();
@@ -1672,7 +1683,9 @@ pub async fn run_api_server(port: u16) -> Result<(), Box<dyn std::error::Error>>
     let addr = SocketAddr::from(([127, 0, 0, 1], port));
     info!("run_api_server: listening on {}", addr);
     let listener = tokio::net::TcpListener::bind(&addr).await?;
-    axum::serve(listener, app.into_make_service()).await?;
+    axum::serve(listener, app.into_make_service())
+        .with_graceful_shutdown(shutdown)
+        .await?;
 
     Ok(())
 }
