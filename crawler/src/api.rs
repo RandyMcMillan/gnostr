@@ -7,10 +7,11 @@ use axum::{
     extract::{Path as AxumPath, Query},
     http::{header::CONTENT_TYPE, StatusCode},
     response::{IntoResponse, Response},
-    routing::get,
+    routing::{get, post},
     Router,
 };
 use log::{debug, error, info, warn};
+use serde::Serialize;
 use nostr_sdk::prelude::*;
 use std::collections::{HashMap, HashSet};
 use std::fs as sync_fs;
@@ -326,6 +327,72 @@ pub(crate) async fn get_relays_txt() -> Response {
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Body::from(format!("Failed to read relays.txt: {}", e)),
+            )
+                .into_response()
+        }
+    }
+}
+
+#[derive(Serialize)]
+struct PrimeRelaysResponse {
+    ok: bool,
+    message: String,
+}
+
+pub(crate) async fn prime_relays_cache() -> Response {
+    let client = reqwest::Client::new();
+
+    if let Err(e) = crate::relays::write_relays_serve_files() {
+        error!("Failed to prepare relay serve files: {}", e);
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Body::from(
+                serde_json::to_string(&PrimeRelaysResponse {
+                    ok: false,
+                    message: format!("failed to prepare relay serve files: {}", e),
+                })
+                .unwrap_or_else(|_| "{\"ok\":false}".to_string()),
+            ),
+        )
+            .into_response();
+    }
+
+    if let Err(e) = prime_all_nip_relays_files(&client).await {
+        error!("Failed to prime relay cache: {}", e);
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Body::from(
+                serde_json::to_string(&PrimeRelaysResponse {
+                    ok: false,
+                    message: format!("failed to prime relay cache: {}", e),
+                })
+                .unwrap_or_else(|_| "{\"ok\":false}".to_string()),
+            ),
+        )
+            .into_response();
+    }
+
+    match serde_json::to_string(&PrimeRelaysResponse {
+        ok: true,
+        message: "relay cache primed".to_string(),
+    }) {
+        Ok(body) => Response::builder()
+            .status(StatusCode::OK)
+            .header(CONTENT_TYPE, "application/json")
+            .body(Body::from(body))
+            .unwrap_or_else(|e| {
+                error!("Failed to build prime relays response: {}", e);
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Body::from("Internal Server Error"),
+                )
+                    .into_response()
+            }),
+        Err(e) => {
+            error!("Failed to serialize prime relays response: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Body::from("Failed to serialize response"),
             )
                 .into_response()
         }
@@ -1457,6 +1524,7 @@ pub async fn run_api_server(port: u16) -> Result<(), Box<dyn std::error::Error>>
     let app = Router::new()
         .route("/", get(get_index_html))
         .route("/query", get(get_query))
+        .route("/api/relays/prime", post(prime_relays_cache))
         .route("/relays.yaml", get(get_relays_yaml))
         .route("/relays.json", get(get_relays_json))
         .route("/relays.txt", get(get_relays_txt))
