@@ -326,6 +326,8 @@ final class KitchenSinkViewModel: ObservableObject {
     @Published var crawlerDiscovery: [RelayDiscoveryEntry] = []
     @Published var crawlerServerMessage = "Idle"
     @Published var crawlerServerState: RelayProcessState?
+    @Published var crawlerQueryStatusMessage = "Ready to submit."
+    @Published var crawlerQueryResult = "No query submitted yet."
     @Published var relayHost = "127.0.0.1"
     @Published var relayPort = "3030"
     @Published var relayStatusMessage = "Idle"
@@ -499,6 +501,8 @@ final class KitchenSinkViewModel: ObservableObject {
         crawlerKinds = "1,7"
         crawlerSearch = ""
         crawlerSubscriptionID = "ffi-kitchen-sink"
+        crawlerQueryStatusMessage = "Ready to submit."
+        crawlerQueryResult = "No query submitted yet."
         rebuildCrawlerPreview()
         log("Crawler fields reset")
     }
@@ -533,6 +537,30 @@ final class KitchenSinkViewModel: ObservableObject {
 
     func rebuildCrawlerPreview() {
         log("Crawler query updated")
+    }
+
+    func submitCrawlerQuery() {
+        let parameters = crawlerQueryParameters
+        let previewURL = crawlerURLPreview
+        let client = crawlerServiceClient
+
+        Task {
+            do {
+                let response = try await client.queryPage(parameters)
+                await MainActor.run {
+                    crawlerQueryStatusMessage = "Submitted query to \(previewURL)"
+                    crawlerQueryResult = response
+                    log("Crawler query submitted")
+                }
+            } catch {
+                let message = "Crawler query failed: \(error.localizedDescription)"
+                await MainActor.run {
+                    crawlerQueryStatusMessage = message
+                    crawlerQueryResult = error.localizedDescription
+                    log(message)
+                }
+            }
+        }
     }
 
     func loadRelayDefaults() {
@@ -1468,7 +1496,7 @@ struct ContentView: View {
 
     private var crawlerTab: some View {
         scroll {
-            title("Crawler", subtitle: "Edit query inputs and watch the query wire format update.")
+            title("Crawler", subtitle: "Edit query inputs, submit them, and inspect the response.")
 
             groupBox("Crawler service") {
                 infoRow("status", model.crawlerServerState?.message ?? model.crawlerServerMessage)
@@ -1514,7 +1542,10 @@ struct ContentView: View {
                 labeledField("kinds", text: $model.crawlerKinds)
                 labeledField("search", text: $model.crawlerSearch)
                 labeledField("subscription_id", text: $model.crawlerSubscriptionID)
-                Button("Refresh preview") { model.rebuildCrawlerPreview() }
+                HStack {
+                    Button("Refresh preview") { model.rebuildCrawlerPreview() }
+                    Button("Submit query") { model.submitCrawlerQuery() }
+                }
             }
 
             groupBox("Preview") {
@@ -1522,6 +1553,17 @@ struct ContentView: View {
                 Text(model.crawlerWirePreview)
                     .font(.footnote.monospaced())
                     .textSelection(.enabled)
+            }
+
+            groupBox("Query result") {
+                infoRow("status", model.crawlerQueryStatusMessage)
+                ScrollView {
+                    Text(model.crawlerQueryResult)
+                        .font(.footnote.monospaced())
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .textSelection(.enabled)
+                }
+                .frame(minHeight: 140)
             }
 
             groupBox("Crawler discovery") {
