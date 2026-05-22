@@ -3,6 +3,10 @@ import Darwin
 import SwiftUI
 import FFIKitchenSink
 
+private func appTrace(_ message: String) {
+    NSLog("%@", "[FFIKitchenSink] \(message)")
+}
+
 final class EmbeddedCrawlerService: @unchecked Sendable {
     static let shared = EmbeddedCrawlerService()
 
@@ -501,6 +505,7 @@ final class KitchenSinkViewModel: ObservableObject {
     let supportsLocalCrawlerControl: Bool
 
     init() {
+        appTrace("KitchenSinkViewModel.init")
         #if targetEnvironment(macCatalyst)
         self.platformLabel = "Mac Catalyst"
         #elseif os(macOS)
@@ -546,6 +551,7 @@ final class KitchenSinkViewModel: ObservableObject {
     }
 
     private static func embeddedCrawlerSession() -> URLSession {
+        appTrace("KitchenSinkViewModel.embeddedCrawlerSession")
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [EmbeddedCrawlerURLProtocol.self]
         configuration.waitsForConnectivity = false
@@ -553,10 +559,12 @@ final class KitchenSinkViewModel: ObservableObject {
     }
 
     private var crawlerServiceClient: CrawlerClient {
+        appTrace("KitchenSinkViewModel.crawlerServiceClient")
         supportsLocalCrawlerControl ? crawlerClient : embeddedCrawlerClient
     }
 
     private var relayServiceClient: RelayClient {
+        appTrace("KitchenSinkViewModel.relayServiceClient")
         #if os(macOS) || targetEnvironment(macCatalyst)
         relayClient
         #else
@@ -610,11 +618,13 @@ final class KitchenSinkViewModel: ObservableObject {
     }
 
     func incrementCounter() {
+        appTrace("KitchenSinkViewModel.incrementCounter")
         counter += 1
         log("Counter -> \(counter)")
     }
 
     func resetWorkbench() {
+        appTrace("KitchenSinkViewModel.resetWorkbench")
         counter = 0
         sliderValue = 42
         stepperValue = 3
@@ -624,6 +634,7 @@ final class KitchenSinkViewModel: ObservableObject {
     }
 
     func randomizeWorkbench() {
+        appTrace("KitchenSinkViewModel.randomizeWorkbench")
         sliderValue = Double.random(in: 0...100)
         stepperValue = Int.random(in: 0...10)
         selectedMode = KitchenSinkMode.allCases.randomElement() ?? .balanced
@@ -632,6 +643,7 @@ final class KitchenSinkViewModel: ObservableObject {
     }
 
     func addItem() {
+        appTrace("KitchenSinkViewModel.addItem")
         let trimmed = newItemText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         items.insert(trimmed, at: 0)
@@ -640,12 +652,14 @@ final class KitchenSinkViewModel: ObservableObject {
     }
 
     func removeItem(at index: Int) {
+        appTrace("KitchenSinkViewModel.removeItem index=\(index)")
         guard items.indices.contains(index) else { return }
         let value = items.remove(at: index)
         log("Removed item \(value)")
     }
 
     func resetCrawlerFields() {
+        appTrace("KitchenSinkViewModel.resetCrawlerFields")
         crawlerRelay = Self.defaultCrawlerRelayTargets().joined(separator: ",")
         crawlerAuthors = ""
         crawlerIds = ""
@@ -665,12 +679,14 @@ final class KitchenSinkViewModel: ObservableObject {
     }
 
     func openCrawlerBuckets() {
+        appTrace("KitchenSinkViewModel.openCrawlerBuckets")
         selectedTab = .buckets
         refreshCrawlerBuckets()
         log("Opened bucket browser")
     }
 
     func applyCrawlerPreset(_ preset: CrawlerPreset) {
+        appTrace("KitchenSinkViewModel.applyCrawlerPreset \(preset.rawValue)")
         switch preset {
         case .nip34:
             crawlerRelay = "wss://relay.damus.io"
@@ -699,10 +715,12 @@ final class KitchenSinkViewModel: ObservableObject {
     }
 
     func rebuildCrawlerPreview() {
+        appTrace("KitchenSinkViewModel.rebuildCrawlerPreview")
         log("Crawler query updated")
     }
 
     func submitCrawlerQuery() {
+        appTrace("KitchenSinkViewModel.submitCrawlerQuery")
         let client = crawlerServiceClient
         let parameters = crawlerQueryParameters
 
@@ -790,6 +808,7 @@ final class KitchenSinkViewModel: ObservableObject {
     }
 
     func loadRelayDefaults() {
+        appTrace("KitchenSinkViewModel.loadRelayDefaults")
         let defaults = RelayConfiguration.rustDefault() ?? RelayConfiguration()
         relayLogging = defaults.logging
         relayConfigFilePath = defaults.configFilePath
@@ -797,6 +816,7 @@ final class KitchenSinkViewModel: ObservableObject {
     }
 
     func bootstrapServices() {
+        appTrace("KitchenSinkViewModel.bootstrapServices supportsLocalCrawlerControl=\(supportsLocalCrawlerControl)")
         if supportsLocalCrawlerControl {
             Task {
                 do {
@@ -841,6 +861,7 @@ final class KitchenSinkViewModel: ObservableObject {
     }
 
     func refreshCrawlerStatus() {
+        appTrace("KitchenSinkViewModel.refreshCrawlerStatus")
         if supportsLocalCrawlerControl {
             let controller = crawlerServerController
             Task {
@@ -880,6 +901,7 @@ final class KitchenSinkViewModel: ObservableObject {
     }
 
     func startCrawler() {
+        appTrace("KitchenSinkViewModel.startCrawler")
         if supportsLocalCrawlerControl {
             let controller = crawlerServerController
             Task {
@@ -927,6 +949,7 @@ final class KitchenSinkViewModel: ObservableObject {
     }
 
     func stopCrawler() {
+        appTrace("KitchenSinkViewModel.stopCrawler")
         if supportsLocalCrawlerControl {
             let controller = crawlerServerController
             Task {
@@ -974,6 +997,7 @@ final class KitchenSinkViewModel: ObservableObject {
     }
 
     func refreshCrawlerDiscovery() {
+        appTrace("KitchenSinkViewModel.refreshCrawlerDiscovery")
         Task {
             do {
                 let discovery = try await crawlerServiceClient.relayDiscovery()
@@ -993,6 +1017,7 @@ final class KitchenSinkViewModel: ObservableObject {
     }
 
     func refreshCrawlerBuckets() {
+        appTrace("KitchenSinkViewModel.refreshCrawlerBuckets")
         let fileManager = FileManager.default
         do {
             try fileManager.createDirectory(at: crawlerBucketsRootURL, withIntermediateDirectories: true)
@@ -1032,6 +1057,7 @@ final class KitchenSinkViewModel: ObservableObject {
     }
 
     func goToCrawlerBucketParent() {
+        appTrace("KitchenSinkViewModel.goToCrawlerBucketParent")
         let directory = crawlerBucketCurrentDirectoryURL
         let parent = directory.deletingLastPathComponent()
         guard parent.path.hasPrefix(crawlerBucketsRootURL.path) else { return }
@@ -1040,6 +1066,7 @@ final class KitchenSinkViewModel: ObservableObject {
     }
 
     func openCrawlerBucket(_ entry: CrawlerBucketEntry) {
+        appTrace("KitchenSinkViewModel.openCrawlerBucket \(entry.name)")
         if entry.isDirectory {
             crawlerBucketCurrentPath = relativeCrawlerBucketPath(for: entry.url)
             crawlerBucketPreviewPath = entry.url.path
@@ -1054,6 +1081,7 @@ final class KitchenSinkViewModel: ObservableObject {
     }
 
     private func readCrawlerBucketFile(at url: URL) -> String {
+        appTrace("KitchenSinkViewModel.readCrawlerBucketFile \(url.path)")
         do {
             let data = try Data(contentsOf: url)
             if let string = String(data: data, encoding: .utf8) {
@@ -1066,6 +1094,7 @@ final class KitchenSinkViewModel: ObservableObject {
     }
 
     private func relativeCrawlerBucketPath(for directory: URL) -> String {
+        appTrace("KitchenSinkViewModel.relativeCrawlerBucketPath \(directory.path)")
         let root = crawlerBucketsRootURL.standardizedFileURL.path
         let path = directory.standardizedFileURL.path
         guard path.hasPrefix(root) else { return "/" }
@@ -1080,6 +1109,7 @@ final class KitchenSinkViewModel: ObservableObject {
     }
 
     func refreshRelayStatus() {
+        appTrace("KitchenSinkViewModel.refreshRelayStatus")
         if supportsLocalCrawlerControl {
             Task {
                 do {
@@ -1106,6 +1136,7 @@ final class KitchenSinkViewModel: ObservableObject {
     }
 
     func startRelay() {
+        appTrace("KitchenSinkViewModel.startRelay")
         if supportsLocalCrawlerControl {
             Task {
                 do {
@@ -1143,6 +1174,7 @@ final class KitchenSinkViewModel: ObservableObject {
     }
 
     func stopRelay() {
+        appTrace("KitchenSinkViewModel.stopRelay")
         if supportsLocalCrawlerControl {
             Task {
                 do {
@@ -1180,6 +1212,7 @@ final class KitchenSinkViewModel: ObservableObject {
     }
 
     func refreshRelayDiscovery() {
+        appTrace("KitchenSinkViewModel.refreshRelayDiscovery")
         Task {
             do {
                 let discovery = try await relayServiceClient.discovery()
@@ -1198,6 +1231,7 @@ final class KitchenSinkViewModel: ObservableObject {
     }
 
     func log(_ message: String) {
+        appTrace("KitchenSinkViewModel.log \(message)")
         let formatter = Self.timestampFormatter
         let line = "[\(formatter.string(from: Date()))] \(message)"
         activityLog.insert(line, at: 0)
@@ -1205,6 +1239,7 @@ final class KitchenSinkViewModel: ObservableObject {
     }
 
     private func trimmedOrNil(_ value: String) -> String? {
+        appTrace("KitchenSinkViewModel.trimmedOrNil")
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
     }
