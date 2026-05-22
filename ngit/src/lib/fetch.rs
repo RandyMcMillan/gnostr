@@ -121,7 +121,9 @@ fn fetch_from_git_server_url(
     }
     let git_config = git_repo.config()?;
     let mut git_server_remote = git_repo.remote_anonymous(git_server_url)?;
-    let ssh_key_file = ssh_key_file.map(PathBuf::from_str).transpose()?;
+    let ssh_key_file = ssh_key_file
+        .map(|ssh_key_file| PathBuf::from_str(ssh_key_file))
+        .transpose()?;
     let mut fetch_options = git2::FetchOptions::new();
     let mut remote_callbacks = git2::RemoteCallbacks::new();
     let fetch_reporter = Arc::new(Mutex::new(FetchReporter::new(term)));
