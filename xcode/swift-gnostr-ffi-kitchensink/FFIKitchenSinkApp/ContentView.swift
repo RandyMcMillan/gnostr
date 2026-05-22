@@ -1166,6 +1166,7 @@ final class KitchenSinkViewModel: ObservableObject {
         do {
             try fileManager.createDirectory(at: crawlerBucketsRootURL, withIntermediateDirectories: true)
             let directory = crawlerBucketCurrentDirectoryURL
+            appTrace("KitchenSinkViewModel.refreshCrawlerBuckets dir=\(directory.path)")
             let values: Set<URLResourceKey> = [.isDirectoryKey, .fileSizeKey, .contentModificationDateKey]
             let entries = try fileManager.contentsOfDirectory(
                 at: directory,
@@ -1174,12 +1175,14 @@ final class KitchenSinkViewModel: ObservableObject {
             )
             let mapped: [CrawlerBucketEntry] = entries.compactMap { url in
                 let resourceValues = try? url.resourceValues(forKeys: values)
-                return CrawlerBucketEntry(
+                let entry = CrawlerBucketEntry(
                     url: url,
                     isDirectory: resourceValues?.isDirectory ?? false,
                     size: resourceValues?.fileSize.map(UInt64.init),
                     modifiedAt: resourceValues?.contentModificationDate
                 )
+                appTrace("KitchenSinkViewModel.refreshCrawlerBuckets entry=\(entry.name) kind=\(entry.displayKind) size=\(entry.sizeLabel)")
+                return entry
             }
             .sorted {
                 if $0.isDirectory != $1.isDirectory { return $0.isDirectory && !$1.isDirectory }
@@ -1225,6 +1228,7 @@ final class KitchenSinkViewModel: ObservableObject {
         appTrace("KitchenSinkViewModel.goToCrawlerBucketParent")
         let directory = crawlerBucketCurrentDirectoryURL
         let parent = directory.deletingLastPathComponent()
+        appTrace("KitchenSinkViewModel.goToCrawlerBucketParent parent=\(parent.path)")
         guard parent.path.hasPrefix(crawlerBucketsRootURL.path) else { return }
         crawlerBucketCurrentPath = relativeCrawlerBucketPath(for: parent)
         refreshCrawlerBuckets()
@@ -1233,6 +1237,7 @@ final class KitchenSinkViewModel: ObservableObject {
     func openCrawlerBucket(_ entry: CrawlerBucketEntry) {
         appTrace("KitchenSinkViewModel.openCrawlerBucket \(entry.name)")
         if entry.isDirectory {
+            appTrace("KitchenSinkViewModel.openCrawlerBucket directory=\(entry.url.path)")
             crawlerBucketCurrentPath = relativeCrawlerBucketPath(for: entry.url)
             crawlerBucketPreviewPath = entry.url.path
             crawlerBucketPreview = "Directory selected."
@@ -1240,6 +1245,7 @@ final class KitchenSinkViewModel: ObservableObject {
             return
         }
 
+        appTrace("KitchenSinkViewModel.openCrawlerBucket file=\(entry.url.path)")
         crawlerBucketPreviewPath = entry.url.path
         crawlerBucketPreview = readCrawlerBucketFile(at: entry.url)
         crawlerBucketStatusMessage = "Previewing \(entry.name)"
