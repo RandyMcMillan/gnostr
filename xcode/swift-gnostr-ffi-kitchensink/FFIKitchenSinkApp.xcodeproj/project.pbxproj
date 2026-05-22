@@ -152,7 +152,9 @@
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				"ARCHS[sdk=iphonesimulator*]" = arm64;
+				"ARCHS[sdk=macosx*]" = arm64;
 				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
+				"EXCLUDED_ARCHS[sdk=macosx*]" = x86_64;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -183,7 +185,9 @@
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				"ARCHS[sdk=iphonesimulator*]" = arm64;
+				"ARCHS[sdk=macosx*]" = arm64;
 				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
+				"EXCLUDED_ARCHS[sdk=macosx*]" = x86_64;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",

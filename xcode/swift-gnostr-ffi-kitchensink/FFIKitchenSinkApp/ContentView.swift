@@ -15,7 +15,6 @@ final class KitchenSinkViewModel: ObservableObject {
     @Published var selectedTab: KitchenSinkTab = .overview
 
     let platformLabel: String
-    let bridgeStatuses: [(String, Bool)]
     let asyncGitKinds: [AsyncGitEventKind]
     let sampleNote: GitNote
     let queryWire: String
@@ -34,11 +33,6 @@ final class KitchenSinkViewModel: ObservableObject {
         self.platformLabel = "Other"
         #endif
 
-        self.bridgeStatuses = [
-            ("GnostrTypes", FFIKitchenSink.gnostrTypesBridge.isAvailable),
-            ("Crawler", FFIKitchenSink.crawlerBridge.isAvailable),
-            ("Relay", FFIKitchenSink.relayBridge.isAvailable),
-        ]
         self.asyncGitKinds = FFIKitchenSink.asyncGitEventKinds()
         self.sampleNote = GitNote(
             noteID: "deadbeef",
@@ -96,9 +90,8 @@ struct ContentView: View {
             }
 
             groupBox("Bridge availability") {
-                ForEach(model.bridgeStatuses, id: \.0) { status in
-                    infoRow(status.0, status.1 ? "available" : "unavailable")
-                }
+                infoRow("Crawler", FFIKitchenSink.crawlerBridge.isAvailable ? "available" : "unavailable")
+                infoRow("Relay", FFIKitchenSink.relayBridge.isAvailable ? "available" : "unavailable")
             }
         }
     }
