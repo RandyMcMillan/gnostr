@@ -71,7 +71,7 @@ final class EmbeddedCrawlerService: @unchecked Sendable {
 
     func discoveryEntries() -> [RelayDiscoveryEntry] {
         appTrace("EmbeddedCrawlerService.discoveryEntries")
-        [
+        return [
             RelayDiscoveryEntry(
                 url: "http://127.0.0.1:3030",
                 description: "In-app crawler backend",
@@ -566,15 +566,15 @@ final class KitchenSinkViewModel: ObservableObject {
 
     private var crawlerServiceClient: CrawlerClient {
         appTrace("KitchenSinkViewModel.crawlerServiceClient")
-        supportsLocalCrawlerControl ? crawlerClient : embeddedCrawlerClient
+        return supportsLocalCrawlerControl ? crawlerClient : embeddedCrawlerClient
     }
 
     private var relayServiceClient: RelayClient {
         appTrace("KitchenSinkViewModel.relayServiceClient")
         #if os(macOS) || targetEnvironment(macCatalyst)
-        relayClient
+        return relayClient
         #else
-        embeddedRelayClient
+        return embeddedRelayClient
         #endif
     }
 
