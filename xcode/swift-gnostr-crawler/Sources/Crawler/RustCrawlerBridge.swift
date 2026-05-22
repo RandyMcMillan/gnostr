@@ -51,7 +51,7 @@ public final class RustCrawlerBridge: @unchecked Sendable {
         guard let data = try? encoder.encode(parameters), let json = String(data: data, encoding: .utf8) else {
             throw CocoaError(.coderInvalidValue)
         }
-        return try self.callString(buildQueryFn, input: json)
+        return self.callString(buildQueryFn, input: json)
     }
 
     public func websocketHTTPURL(_ url: String) -> String? {
@@ -65,7 +65,7 @@ public final class RustCrawlerBridge: @unchecked Sendable {
         return normalized
     }
 
-    private func callString(_ fn: RustStringFn?, input: String) throws -> String? {
+    private func callString(_ fn: RustStringFn?, input: String) -> String? {
         guard let fn else { return nil }
         let inputCString = input.cString(using: .utf8)!
         return inputCString.withUnsafeBufferPointer { buffer in
