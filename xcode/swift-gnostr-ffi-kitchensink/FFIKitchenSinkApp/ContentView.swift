@@ -235,7 +235,7 @@ final class KitchenSinkViewModel: ObservableObject {
     func startCrawler() {
         Task {
             do {
-                let state = try crawlerServerController.start()
+                let state = try await crawlerServerController.start()
                 await MainActor.run {
                     crawlerServerState = state
                     crawlerServerMessage = state.message
@@ -379,6 +379,215 @@ final class KitchenSinkViewModel: ObservableObject {
         formatter.dateFormat = "HH:mm:ss"
         return formatter
     }()
+}
+
+private struct CrawlerServerCommand {
+    let executableURL: URL
+    let arguments: [String]
+    let currentDirectoryURL: URL
+}
+
+final class CrawlerServerController {
+    private let serviceName = "gnostr-crawler"
+    private let port: UInt16 = 3030
+    private let fileManager = FileManager.default
+
+    func status() -> RelayProcessState {
+        guard let pid = existingDetachedPID() else {
+            return RelayProcessState(running: false, message: "Crawler server not running")
+        }
+
+        return RelayProcessState(
+            running: true,
+            pid: pid,
+            message: "Crawler server running (pid \(pid))"
+        )
+    }
+
+    func start() async throws -> RelayProcessState {
+        if let pid = existingDetachedPID() {
+            return RelayProcessState(
+                running: true,
+                pid: pid,
+                message: "Crawler server already running (pid \(pid))"
+            )
+        }
+
+        try removeStalePIDFile()
+        let command = try resolveCommand()
+        let launchOutput = try launch(command)
+
+        for _ in 0..<20 {
+            if let pid = existingDetachedPID() {
+                return RelayProcessState(
+                    running: true,
+                    pid: pid,
+                    message: "Crawler server started (pid \(pid))"
+                )
+            }
+            try await Task.sleep(nanoseconds: 100_000_000)
+        }
+
+        return RelayProcessState(
+            running: true,
+            message: launchOutput.isEmpty ? "Crawler server start requested" : launchOutput
+        )
+    }
+
+    func stop() throws -> RelayProcessState {
+        guard let pid = existingDetachedPID() else {
+            return RelayProcessState(running: false, message: "Crawler server not running")
+        }
+
+        if kill(pid_t(pid), SIGTERM) != 0, errno != ESRCH {
+            throw CocoaError(.fileWriteNoPermission)
+        }
+
+        try removeStalePIDFile()
+        return RelayProcessState(running: false, pid: pid, message: "Crawler server stopped")
+    }
+
+    private func resolveCommand() throws -> CrawlerServerCommand {
+        let workdir = repositoryRootURL()
+        let arguments = ["crawler", "serve", "--port", String(port), "--detach"]
+
+        if let binary = resolvedBinaryURL() {
+            return CrawlerServerCommand(
+                executableURL: binary,
+                arguments: arguments,
+                currentDirectoryURL: workdir
+            )
+        }
+
+        if fileManager.isExecutableFile(atPath: "/usr/bin/env") {
+            return CrawlerServerCommand(
+                executableURL: URL(fileURLWithPath: "/usr/bin/env"),
+                arguments: ["gnostr"] + arguments,
+                currentDirectoryURL: workdir
+            )
+        }
+
+        throw CocoaError(.fileNoSuchFile)
+    }
+
+    private func launch(_ command: CrawlerServerCommand) throws -> String {
+        let process = Process()
+        let stdout = Pipe()
+        let stderr = Pipe()
+        process.executableURL = command.executableURL
+        process.arguments = command.arguments
+        process.currentDirectoryURL = command.currentDirectoryURL
+        process.standardOutput = stdout
+        process.standardError = stderr
+
+        try process.run()
+        process.waitUntilExit()
+
+        let output = [stdout, stderr]
+            .flatMap { [$0.fileHandleForReading.readDataToEndOfFile()] }
+            .compactMap { String(data: $0, encoding: .utf8) }
+            .joined(separator: "\n")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard process.terminationStatus == 0 else {
+            let message = output.isEmpty ? "gnostr crawler serve exited with status \(process.terminationStatus)" : output
+            throw NSError(domain: "CrawlerServerController", code: Int(process.terminationStatus), userInfo: [NSLocalizedDescriptionKey: message])
+        }
+
+        return output
+    }
+
+    private func existingDetachedPID() -> UInt32? {
+        guard let pid = readDetachedPID() else {
+            return nil
+        }
+
+        if pidIsRunning(pid) {
+            return pid
+        }
+
+        removeStalePIDFile()
+        return nil
+    }
+
+    private func readDetachedPID() -> UInt32? {
+        let url = detachedPIDFileURL()
+        guard let raw = try? String(contentsOf: url, encoding: .utf8) else {
+            return nil
+        }
+        return UInt32(raw.trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+
+    private func removeStalePIDFile() throws {
+        let url = detachedPIDFileURL()
+        if fileManager.fileExists(atPath: url.path) {
+            try fileManager.removeItem(at: url)
+        }
+    }
+
+    private func detachedPIDFileURL() -> URL {
+        repositoryRootURL().appendingPathComponent(".gnostr/\(serviceName).pid")
+    }
+
+    private func repositoryRootURL() -> URL {
+        var directory = URL(fileURLWithPath: fileManager.currentDirectoryPath, isDirectory: true)
+        while true {
+            let cargoToml = directory.appendingPathComponent("Cargo.toml")
+            if fileManager.fileExists(atPath: cargoToml.path) {
+                return directory
+            }
+
+            let parent = directory.deletingLastPathComponent()
+            if parent.path == directory.path {
+                return URL(fileURLWithPath: fileManager.currentDirectoryPath, isDirectory: true)
+            }
+            directory = parent
+        }
+    }
+
+    private func resolvedBinaryURL() -> URL? {
+        if let envBinary = ProcessInfo.processInfo.environment["GNOSTR_BIN"]?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !envBinary.isEmpty,
+           fileManager.isExecutableFile(atPath: envBinary) {
+            return URL(fileURLWithPath: envBinary)
+        }
+
+        for root in ancestorDirectories(from: repositoryRootURL()) {
+            let debug = root.appendingPathComponent("target/debug/gnostr")
+            if fileManager.isExecutableFile(atPath: debug.path) {
+                return debug
+            }
+
+            let release = root.appendingPathComponent("target/release/gnostr")
+            if fileManager.isExecutableFile(atPath: release.path) {
+                return release
+            }
+        }
+
+        return nil
+    }
+
+    private func ancestorDirectories(from url: URL) -> [URL] {
+        var directories: [URL] = []
+        var current = url
+        while true {
+            directories.append(current)
+            let parent = current.deletingLastPathComponent()
+            if parent.path == current.path {
+                break
+            }
+            current = parent
+        }
+        return directories
+    }
+
+    private func pidIsRunning(_ pid: UInt32) -> Bool {
+        if kill(pid_t(pid), 0) == 0 {
+            return true
+        }
+
+        return errno == EPERM
+    }
 }
 
 enum CrawlerPreset: String, CaseIterable, Identifiable {
