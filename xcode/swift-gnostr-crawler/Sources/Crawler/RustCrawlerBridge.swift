@@ -51,7 +51,7 @@ public final class RustCrawlerBridge: @unchecked Sendable {
                 self.runtimeStartFn == nil ? "crawler_runtime_start_json" : nil,
                 self.runtimeStopFn == nil ? "crawler_runtime_stop_json" : nil,
                 self.runtimeStatusFn == nil ? "crawler_runtime_status_json" : nil,
-                self.setLogCallbackFn == nil ? "crawler_set_log_callback" : nil,
+                self.setLogCallbackFn == nil ? "crawler_set_log_callback (optional)" : nil,
                 self.freeFn == nil ? "crawler_string_free" : nil,
             ].compactMap { $0 }
             NSLog("Crawler FFI: missing symbols=%@", missing.isEmpty ? "none" : missing.joined(separator: ", "))
@@ -78,7 +78,6 @@ public final class RustCrawlerBridge: @unchecked Sendable {
             && self.runtimeStartFn != nil
             && self.runtimeStopFn != nil
             && self.runtimeStatusFn != nil
-            && self.setLogCallbackFn != nil
             && self.freeFn != nil
     }
 
