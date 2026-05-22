@@ -238,7 +238,7 @@ final class KitchenSinkViewModel: ObservableObject {
         }
 
         Task {
-            let state = await crawlerServerController.status()
+            let state = crawlerServerController.status()
             await MainActor.run {
                 crawlerServerState = state
                 crawlerServerMessage = state.message
