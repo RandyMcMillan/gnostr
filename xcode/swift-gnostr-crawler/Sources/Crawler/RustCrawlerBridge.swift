@@ -52,6 +52,7 @@ public final class RustCrawlerBridge: @unchecked Sendable {
     }
 
     public var isAvailable: Bool {
+        NSLog("Crawler FFI: isAvailable=%@", self.handle != nil ? "yes" : "no")
         self.handle != nil
             && self.buildQueryFn != nil
             && self.websocketHttpURLFn != nil
@@ -63,6 +64,7 @@ public final class RustCrawlerBridge: @unchecked Sendable {
     }
 
     public func buildGnostrQuery(_ parameters: CrawlerQueryParameters) throws -> String? {
+        NSLog("Crawler FFI: buildGnostrQuery")
         guard let buildQueryFn else { return nil }
         let encoder = JSONEncoder()
         encoder.keyEncodingStrategy = .convertToSnakeCase
@@ -73,10 +75,12 @@ public final class RustCrawlerBridge: @unchecked Sendable {
     }
 
     public func websocketHTTPURL(_ url: String) -> String? {
+        NSLog("Crawler FFI: websocketHTTPURL %@", url)
         self.callString(self.websocketHttpURLFn, input: url)
     }
 
     public func normalize(_ relay: RelayMetadata) throws -> RelayMetadata {
+        NSLog("Crawler FFI: normalize relay %@", relay.url)
         guard self.isAvailable, let normalized: RelayMetadata = self.callRoundTrip(self.roundtripRelayMetadataFn, request: relay) else {
             return relay
         }
@@ -102,17 +106,21 @@ public final class RustCrawlerBridge: @unchecked Sendable {
     }
 
     private func callString(_ fn: RustStringFn?, input: String) -> String? {
+        NSLog("Crawler FFI: callString input=%@", input)
         guard let fn else { return nil }
         let inputCString = input.cString(using: .utf8)!
         return inputCString.withUnsafeBufferPointer { buffer in
             guard let base = buffer.baseAddress else { return nil }
             guard let rawResult = fn(base) else { return nil }
             defer { self.freeFn?(rawResult) }
-            return Self.decodeEnvelopeString(rawResult)
+            let decoded = Self.decodeEnvelopeString(rawResult)
+            NSLog("Crawler FFI: callString decoded=%@", decoded ?? "nil")
+            return decoded
         }
     }
 
     private func callRoundTrip<Request: Codable, Response: Codable>(_ fn: RustStringFn?, request: Request) -> Response? {
+        NSLog("Crawler FFI: callRoundTrip request=%@", String(describing: request))
         guard let fn else { return nil }
         let encoder = JSONEncoder()
         encoder.keyEncodingStrategy = .convertToSnakeCase
@@ -129,12 +137,15 @@ public final class RustCrawlerBridge: @unchecked Sendable {
             let envelope = try? JSONDecoder().decode(RustEnvelope<String>.self, from: data)
             guard let envelope, envelope.ok, let payload = envelope.data else { return nil }
             guard let payloadData = payload.data(using: .utf8) else { return nil }
-            return try? JSONDecoder().decode(Response.self, from: payloadData)
+            let decoded = try? JSONDecoder().decode(Response.self, from: payloadData)
+            NSLog("Crawler FFI: callRoundTrip decoded=%@", decoded.map { String(describing: $0) } ?? "nil")
+            return decoded
         }
     }
 
     private static func decodeEnvelopeString(_ rawResult: UnsafeMutablePointer<CChar>) -> String? {
         let json = String(cString: rawResult)
+        NSLog("Crawler FFI: envelope=%@", json)
         guard let data = json.data(using: .utf8) else { return nil }
         let envelope = try? JSONDecoder().decode(RustEnvelope<String>.self, from: data)
         guard let envelope, envelope.ok, let value = envelope.data else { return nil }
@@ -176,6 +187,7 @@ public final class RustCrawlerBridge: @unchecked Sendable {
     }
 
     private static func loadSymbol<T>(_ name: String, from handle: UnsafeMutableRawPointer) -> T? {
+        NSLog("Crawler FFI: loading symbol %@", name)
         guard let symbol = dlsym(handle, name) else { return nil }
         return unsafeBitCast(symbol, to: T.self)
     }
