@@ -474,6 +474,7 @@ final class KitchenSinkViewModel: ObservableObject {
     @Published var crawlerKinds = "1,7"
     @Published var crawlerSearch = ""
     @Published var crawlerSubscriptionID = "ffi-kitchen-sink"
+    @Published var crawlerRelayOptions: [String] = []
     @Published var relayLogging = "info"
     @Published var relayConfigFilePath = ".gnostr/relay.toml"
     @Published var crawlerStatusMessage = "Idle"
@@ -553,6 +554,7 @@ final class KitchenSinkViewModel: ObservableObject {
         self.rebuildCrawlerPreview()
         self.refreshCrawlerBuckets()
         self.bootstrapServices()
+        self.refreshCrawlerRelayOptions()
         self.log("GUI ready")
     }
 
@@ -735,12 +737,12 @@ final class KitchenSinkViewModel: ObservableObject {
 
         Task {
             do {
+                let selectedRelay = trimmedOrNil(crawlerRelay)
                 let bucketRelays = Self.sampleRelayTargets(from: crawlerBucketsRootURL, limit: 12)
                 let discoveredRelays = (try? await client.relaysTXT())
                     .map(Self.relayTargets(from:)) ?? []
-                let configuredRelays = Self.relayTargets(from: crawlerRelay)
                 let targets = Self.uniqueRelayTargets(
-                    bucketRelays + configuredRelays + discoveredRelays
+                    [selectedRelay].compactMap { $0 } + bucketRelays + discoveredRelays
                 )
 
                 guard !targets.isEmpty else {
@@ -1105,11 +1107,22 @@ final class KitchenSinkViewModel: ObservableObject {
             if crawlerBucketPreview.isEmpty {
                 crawlerBucketPreview = "Select a bucket file to inspect it."
             }
+            refreshCrawlerRelayOptions()
         } catch {
             crawlerBucketEntries = []
             crawlerBucketStatusMessage = "Bucket browser failed: \(error.localizedDescription)"
             crawlerBucketPreview = error.localizedDescription
         }
+    }
+
+    func refreshCrawlerRelayOptions() {
+        appTrace("KitchenSinkViewModel.refreshCrawlerRelayOptions")
+        let sampled = Self.sampleRelayTargets(from: crawlerBucketsRootURL, limit: 12)
+        crawlerRelayOptions = sampled.isEmpty ? Self.defaultCrawlerRelayTargets() : sampled
+        if let first = crawlerRelayOptions.first, !crawlerRelayOptions.contains(crawlerRelay) || crawlerRelay.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            crawlerRelay = first
+        }
+        log("Loaded \(crawlerRelayOptions.count) crawler relay options from buckets")
     }
 
     func goToCrawlerBucketParent() {
@@ -2014,7 +2027,17 @@ struct ContentView: View {
             }
 
             groupBox("Query editor") {
-                labeledField("relay", text: $model.crawlerRelay)
+                HStack(alignment: .firstTextBaseline, spacing: 12) {
+                    Text("relay")
+                        .font(.headline)
+                        .frame(width: 160, alignment: .leading)
+                    Picker("relay", selection: $model.crawlerRelay) {
+                        ForEach(model.crawlerRelayOptions.isEmpty ? [model.crawlerRelay] : model.crawlerRelayOptions, id: \.self) { relay in
+                            Text(relay).tag(relay)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                }
                 labeledField("authors", text: $model.crawlerAuthors)
                 labeledField("ids", text: $model.crawlerIds)
                 labeledField("limit", text: $model.crawlerLimit)
