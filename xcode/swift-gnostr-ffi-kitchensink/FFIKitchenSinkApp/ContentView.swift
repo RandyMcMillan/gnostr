@@ -16,6 +16,7 @@ final class EmbeddedCrawlerService: @unchecked Sendable {
     private var nextPID: UInt32 = 31_000
 
     func status() -> RelayProcessState {
+        appTrace("EmbeddedCrawlerService.status")
         lock.lock()
         defer { lock.unlock() }
 
@@ -31,6 +32,7 @@ final class EmbeddedCrawlerService: @unchecked Sendable {
     }
 
     func start() -> RelayProcessState {
+        appTrace("EmbeddedCrawlerService.start")
         lock.lock()
         defer { lock.unlock() }
 
@@ -53,6 +55,7 @@ final class EmbeddedCrawlerService: @unchecked Sendable {
     }
 
     func stop() -> RelayProcessState {
+        appTrace("EmbeddedCrawlerService.stop")
         lock.lock()
         defer { lock.unlock() }
 
@@ -67,6 +70,7 @@ final class EmbeddedCrawlerService: @unchecked Sendable {
     }
 
     func discoveryEntries() -> [RelayDiscoveryEntry] {
+        appTrace("EmbeddedCrawlerService.discoveryEntries")
         [
             RelayDiscoveryEntry(
                 url: "http://127.0.0.1:3030",
@@ -80,12 +84,14 @@ final class EmbeddedCrawlerService: @unchecked Sendable {
     }
 
     func primeBuckets() -> CrawlerBucketRefreshState {
+        appTrace("EmbeddedCrawlerService.primeBuckets")
         let entries = discoveryEntries()
         Self.writeBucketTree(entries: entries)
         return CrawlerBucketRefreshState(ok: true, message: "Embedded crawler buckets primed")
     }
 
     static func writeBucketTree(entries: [RelayDiscoveryEntry]) {
+        appTrace("EmbeddedCrawlerService.writeBucketTree \(entries.count)")
         let fileManager = FileManager.default
         let root = crawlerConfigDirectoryURL()
         do {
@@ -1271,6 +1277,7 @@ final class CrawlerServerController {
     }
 
     func status() -> RelayProcessState {
+        appTrace("CrawlerServerController.status")
         do {
             return try bridge.crawlerRuntimeStatus() ?? RelayProcessState(
                 running: false,
@@ -1285,6 +1292,7 @@ final class CrawlerServerController {
     }
 
     func start() async throws -> RelayProcessState {
+        appTrace("CrawlerServerController.start")
         guard let state = try bridge.startCrawlerRuntime(port: port) else {
             throw CocoaError(.coderInvalidValue)
         }
@@ -1292,6 +1300,7 @@ final class CrawlerServerController {
     }
 
     func stop() throws -> RelayProcessState {
+        appTrace("CrawlerServerController.stop")
         guard let state = try bridge.stopCrawlerRuntime() else {
             throw CocoaError(.coderInvalidValue)
         }
@@ -1499,6 +1508,7 @@ final class RelayServerController {
     private let fileManager = FileManager.default
 
     func status() -> RelayProcessState {
+        appTrace("RelayServerController.status")
         guard let pid = existingDetachedPID() else {
             return RelayProcessState(running: false, message: "Relay server not running")
         }
@@ -1511,6 +1521,7 @@ final class RelayServerController {
     }
 
     func start() async throws -> RelayProcessState {
+        appTrace("RelayServerController.start")
         if let pid = existingDetachedPID() {
             return RelayProcessState(
                 running: true,
@@ -1541,6 +1552,7 @@ final class RelayServerController {
     }
 
     func stop() throws -> RelayProcessState {
+        appTrace("RelayServerController.stop")
         guard let pid = existingDetachedPID() else {
             return RelayProcessState(running: false, message: "Relay server not running")
         }
@@ -1555,6 +1567,7 @@ final class RelayServerController {
     }
 
     private func resolveCommand() throws -> CrawlerServerCommand {
+        appTrace("RelayServerController.resolveCommand")
         let workdir = repositoryRootURL()
         let arguments = ["relay", "--detach"]
 
@@ -1578,6 +1591,7 @@ final class RelayServerController {
     }
 
     private func launch(_ command: CrawlerServerCommand) throws -> String {
+        appTrace("RelayServerController.launch \(command.executableURL.path)")
         let process = Process()
         let stdout = Pipe()
         let stderr = Pipe()
@@ -1605,6 +1619,7 @@ final class RelayServerController {
     }
 
     private func existingDetachedPID() -> UInt32? {
+        appTrace("RelayServerController.existingDetachedPID")
         guard let pid = readDetachedPID() else {
             return nil
         }
@@ -1618,6 +1633,7 @@ final class RelayServerController {
     }
 
     private func readDetachedPID() -> UInt32? {
+        appTrace("RelayServerController.readDetachedPID")
         let url = detachedPIDFileURL()
         guard let raw = try? String(contentsOf: url, encoding: .utf8) else {
             return nil
@@ -1626,6 +1642,7 @@ final class RelayServerController {
     }
 
     private func removeStalePIDFile() {
+        appTrace("RelayServerController.removeStalePIDFile")
         let url = detachedPIDFileURL()
         if fileManager.fileExists(atPath: url.path) {
             try? fileManager.removeItem(at: url)
@@ -1633,10 +1650,12 @@ final class RelayServerController {
     }
 
     private func detachedPIDFileURL() -> URL {
+        appTrace("RelayServerController.detachedPIDFileURL")
         repositoryRootURL().appendingPathComponent(".gnostr/\(serviceName).pid")
     }
 
     private func repositoryRootURL() -> URL {
+        appTrace("RelayServerController.repositoryRootURL")
         var directory = URL(fileURLWithPath: fileManager.currentDirectoryPath, isDirectory: true)
         while true {
             let cargoToml = directory.appendingPathComponent("Cargo.toml")
@@ -1653,6 +1672,7 @@ final class RelayServerController {
     }
 
     private func resolvedBinaryURL() -> URL? {
+        appTrace("RelayServerController.resolvedBinaryURL")
         if let envBinary = ProcessInfo.processInfo.environment["GNOSTR_BIN"]?.trimmingCharacters(in: .whitespacesAndNewlines),
            !envBinary.isEmpty,
            fileManager.isExecutableFile(atPath: envBinary) {
@@ -1675,6 +1695,7 @@ final class RelayServerController {
     }
 
     private func ancestorDirectories(from url: URL) -> [URL] {
+        appTrace("RelayServerController.ancestorDirectories \(url.path)")
         var directories: [URL] = []
         var current = url
         while true {
@@ -1689,6 +1710,7 @@ final class RelayServerController {
     }
 
     private func pidIsRunning(_ pid: UInt32) -> Bool {
+        appTrace("RelayServerController.pidIsRunning \(pid)")
         if kill(pid_t(pid), 0) == 0 {
             return true
         }
