@@ -14,7 +14,7 @@ use std::{
     sync::{Mutex, OnceLock},
 };
 
-use tracing_subscriber::{fmt, prelude::*, util::SubscriberInitExt, EnvFilter};
+use tracing_subscriber::fmt;
 pub mod processor;
 pub mod api;
 pub mod cli;
@@ -127,7 +127,7 @@ pub unsafe extern "C" fn crawler_set_log_callback(callback: LogCallback) {
 
 pub fn init_tracing() -> Result<(), Box<dyn std::error::Error>> {
     let _ = tracing_log::LogTracer::init();
-    tracing_subscriber::fmt()
+    let _ = tracing_subscriber::fmt()
         .with_ansi(false)
         .with_writer(CrawlerLogWriter)
         .without_time()
@@ -141,6 +141,6 @@ pub fn init_tracing() -> Result<(), Box<dyn std::error::Error>> {
                 .add_directive("nostr_relay_pool=off".parse()?)
                 .add_directive("nostr_relay_pool::relay::inner=off".parse()?),
         )
-        .try_init()?;
+        .try_init();
     Ok(())
 }
