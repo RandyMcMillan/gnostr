@@ -43,6 +43,9 @@ final class KitchenSinkViewModel: ObservableObject {
     @Published var crawlerSubscriptionID = "ffi-kitchen-sink"
     @Published var relayLogging = "info"
     @Published var relayConfigFilePath = ".gnostr/relay.toml"
+    @Published var crawlerStatusMessage = "Idle"
+    @Published var crawlerStatus: RelayProcessState?
+    @Published var crawlerDiscovery: [RelayDiscoveryEntry] = []
     @Published var relayHost = "127.0.0.1"
     @Published var relayPort = "3030"
     @Published var relayStatusMessage = "Idle"
@@ -54,6 +57,7 @@ final class KitchenSinkViewModel: ObservableObject {
     let sampleNote: GitNote
     let crawlerBaseURL = URL(string: "http://127.0.0.1:3030")!
     let relayBaseURL = URL(string: "http://127.0.0.1:3030")!
+    let crawlerClient: CrawlerClient
     let relayClient: RelayClient
 
     init() {
@@ -77,8 +81,10 @@ final class KitchenSinkViewModel: ObservableObject {
             committer: "bob",
             committerTime: 1_234
         )
+        self.crawlerClient = FFIKitchenSink.crawlerClient()
         self.relayClient = FFIKitchenSink.relayClient()
         self.loadRelayDefaults()
+        self.refreshCrawlerStatus()
         self.rebuildCrawlerPreview()
         self.log("GUI ready")
     }
@@ -206,6 +212,78 @@ final class KitchenSinkViewModel: ObservableObject {
         relayLogging = defaults.logging
         relayConfigFilePath = defaults.configFilePath
         log("Loaded relay defaults")
+    }
+
+    func refreshCrawlerStatus() {
+        Task {
+            do {
+                let state = try await crawlerClient.relayStatus()
+                await MainActor.run {
+                    crawlerStatus = state
+                    crawlerStatusMessage = state.message
+                    log("Crawler status refreshed")
+                }
+            } catch {
+                await MainActor.run {
+                    crawlerStatusMessage = "Crawler status failed: \(error.localizedDescription)"
+                    log(crawlerStatusMessage)
+                }
+            }
+        }
+    }
+
+    func startCrawler() {
+        Task {
+            do {
+                let state = try await crawlerClient.startRelay()
+                await MainActor.run {
+                    crawlerStatus = state
+                    crawlerStatusMessage = state.message
+                    log("Crawler started")
+                }
+            } catch {
+                await MainActor.run {
+                    crawlerStatusMessage = "Crawler start failed: \(error.localizedDescription)"
+                    log(crawlerStatusMessage)
+                }
+            }
+        }
+    }
+
+    func stopCrawler() {
+        Task {
+            do {
+                let state = try await crawlerClient.stopRelay()
+                await MainActor.run {
+                    crawlerStatus = state
+                    crawlerStatusMessage = state.message
+                    log("Crawler stopped")
+                }
+            } catch {
+                await MainActor.run {
+                    crawlerStatusMessage = "Crawler stop failed: \(error.localizedDescription)"
+                    log(crawlerStatusMessage)
+                }
+            }
+        }
+    }
+
+    func refreshCrawlerDiscovery() {
+        Task {
+            do {
+                let discovery = try await crawlerClient.relayDiscovery()
+                await MainActor.run {
+                    crawlerDiscovery = discovery
+                    crawlerStatusMessage = "Loaded \(discovery.count) crawler discovery entries"
+                    log(crawlerStatusMessage)
+                }
+            } catch {
+                await MainActor.run {
+                    crawlerStatusMessage = "Crawler discovery failed: \(error.localizedDescription)"
+                    log(crawlerStatusMessage)
+                }
+            }
+        }
     }
 
     func refreshRelayStatus() {
@@ -357,6 +435,7 @@ struct ContentView: View {
             groupBox("Live previews") {
                 infoRow("Relay endpoint", model.relayListenPreview)
                 infoRow("Relay status", model.relayStatus?.message ?? model.relayStatusMessage)
+                infoRow("Crawler status", model.crawlerStatus?.message ?? model.crawlerStatusMessage)
             }
         }
     }
@@ -451,6 +530,17 @@ struct ContentView: View {
         scroll {
             title("Crawler", subtitle: "Edit query inputs and watch the query wire format update.")
 
+            groupBox("Crawler service") {
+                infoRow("status", model.crawlerStatus?.message ?? model.crawlerStatusMessage)
+                infoRow("running", (model.crawlerStatus?.running ?? false) ? "yes" : "no")
+                HStack {
+                    Button("Start") { model.startCrawler() }
+                    Button("Stop") { model.stopCrawler() }
+                    Button("Refresh") { model.refreshCrawlerStatus() }
+                    Button("Discovery") { model.refreshCrawlerDiscovery() }
+                }
+            }
+
             groupBox("Quick presets") {
                 Picker("Preset", selection: .constant(CrawlerPreset.nip34)) {
                     ForEach(CrawlerPreset.allCases) { preset in
@@ -488,6 +578,24 @@ struct ContentView: View {
                 Text(model.crawlerWirePreview)
                     .font(.footnote.monospaced())
                     .textSelection(.enabled)
+            }
+
+            groupBox("Crawler discovery") {
+                if model.crawlerDiscovery.isEmpty {
+                    Text("No crawler discovery entries loaded.")
+                        .foregroundStyle(.secondary)
+                }
+                ForEach(model.crawlerDiscovery, id: \.self) { entry in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(entry.url)
+                            .font(.headline)
+                        Text(entry.name ?? entry.description ?? "No description")
+                            .foregroundStyle(.secondary)
+                        Text("NIPs: \(entry.supportedNips.map(String.init).joined(separator: ", "))")
+                            .font(.footnote.monospaced())
+                    }
+                    .padding(.vertical, 4)
+                }
             }
         }
     }
