@@ -126,6 +126,7 @@ class ViewModel: ObservableObject, ChatDelegate {
             print("We got a message from libP2P!")
             let index = self.ensureChat(for: from, active: true)
             self.chats[index].peer.isActive = true
+            self.p2pService.markPeerConnected(from)
             self.chats[index].messages.append(
                 Message(message, type: .received)
             )
@@ -139,6 +140,7 @@ class ViewModel: ObservableObject, ChatDelegate {
             print("We got a nickname from libP2P!")
             let index = self.ensureChat(for: from, nickname: nickname, active: true)
             self.chats[index].peer.nickname = nickname
+            self.p2pService.markPeerConnected(from)
         }
     }
 
