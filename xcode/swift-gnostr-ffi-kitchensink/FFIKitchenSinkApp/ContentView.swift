@@ -3,6 +3,155 @@ import Darwin
 import SwiftUI
 import FFIKitchenSink
 
+final class EmbeddedCrawlerService {
+    static let shared = EmbeddedCrawlerService()
+
+    private let lock = NSLock()
+    private var running = false
+    private var pid: UInt32?
+    private var nextPID: UInt32 = 31_000
+
+    func status() -> RelayProcessState {
+        lock.lock()
+        defer { lock.unlock() }
+
+        if running {
+            return RelayProcessState(
+                running: true,
+                pid: pid,
+                message: "Embedded crawler service running (pid \(pid.map(String.init) ?? "unknown"))"
+            )
+        }
+
+        return RelayProcessState(running: false, message: "Embedded crawler service stopped")
+    }
+
+    func start() -> RelayProcessState {
+        lock.lock()
+        defer { lock.unlock() }
+
+        if running {
+            return RelayProcessState(
+                running: true,
+                pid: pid,
+                message: "Embedded crawler service already running (pid \(pid.map(String.init) ?? "unknown"))"
+            )
+        }
+
+        nextPID &+= 1
+        pid = nextPID
+        running = true
+        return RelayProcessState(
+            running: true,
+            pid: pid,
+            message: "Embedded crawler service started (pid \(pid.map(String.init) ?? "unknown"))"
+        )
+    }
+
+    func stop() -> RelayProcessState {
+        lock.lock()
+        defer { lock.unlock() }
+
+        running = false
+        let stoppedPID = pid
+        pid = nil
+        return RelayProcessState(
+            running: false,
+            pid: stoppedPID,
+            message: "Embedded crawler service stopped"
+        )
+    }
+
+    func discoveryEntries() -> [RelayDiscoveryEntry] {
+        [
+            RelayDiscoveryEntry(
+                url: "http://127.0.0.1:3030",
+                name: "Embedded Crawler",
+                description: "In-app crawler backend",
+                software: "gnostr-ffi-kitchensink",
+                version: "embedded",
+                supportedNips: [1, 11, 13, 19, 25, 28, 40, 42, 45, 50, 65, 98, 101, 108, 112, 113, 114, 115, 117, 118, 119, 125, 126, 127, 131, 176, 188, 202, 214, 215, 231, 241, 272, 294, 319, 341, 345, 381, 7000, 7001, 7708, 9734, 9735, 10002, 10063, 10096, 10166, 13235, 17375, 17550, 21000, 22242, 23194, 24133, 27235, 30023, 30024, 30033, 30078, 30079, 30361, 30362, 31555, 31922, 31923, 31924, 31925, 31989, 31990, 34550, 37375, 38383, 39000, 39001, 39002, 39003, 39004, 39005, 39006, 39007, 39008, 39009, 39010, 39011, 39012, 39013, 39014, 39015, 39016, 39017, 39018, 39019, 39020, 39021, 39022, 39023, 39024, 39025, 39026, 39027, 39028, 39029, 39030, 39031, 39032, 39033, 39034, 39035, 39036, 39037, 39038, 39039, 39040, 39041, 39042, 39043, 39044, 39045, 39046, 39047, 39048, 39049, 39050, 39051, 39052, 39053, 39054, 39055, 39056, 39057, 39058, 39059, 39060, 39061, 39062, 39063, 39064, 39065, 39066, 39067, 39068, 39069, 39070, 39071, 39072, 39073, 39074, 39075, 39076, 39077, 39078, 39079, 39080, 39081, 39082, 39083, 39084, 39085, 39086, 39087, 39088, 39089, 39090, 39091, 39092, 39093, 39094, 39095, 39096, 39097, 39098, 39099]
+            )
+        ]
+    }
+}
+
+final class EmbeddedCrawlerURLProtocol: URLProtocol {
+    override class func canInit(with request: URLRequest) -> Bool {
+        guard let url = request.url else { return false }
+        guard let host = url.host?.lowercased(), host == "127.0.0.1" || host == "localhost" else {
+            return false
+        }
+        return true
+    }
+
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest {
+        request
+    }
+
+    override func startLoading() {
+        guard let requestURL = request.url else {
+            client?.urlProtocol(self, didFailWithError: URLError(.badURL))
+            return
+        }
+
+        let method = (request.httpMethod ?? "GET").uppercased()
+        let (statusCode, headers, body): (Int, [String: String], Data) = EmbeddedCrawlerURLProtocol.handle(
+            url: requestURL,
+            method: method
+        )
+        let response = HTTPURLResponse(
+            url: requestURL,
+            statusCode: statusCode,
+            httpVersion: "HTTP/1.1",
+            headerFields: headers
+        )!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: body)
+        client?.urlProtocolDidFinishLoading(self)
+    }
+
+    override func stopLoading() {}
+
+    private static func handle(url: URL, method: String) -> (Int, [String: String], Data) {
+        let path = url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        switch (method, path) {
+        case ("GET", "api/relay/status"):
+            return json(EmbeddedCrawlerService.shared.status())
+        case ("POST", "api/relay/start"):
+            return json(EmbeddedCrawlerService.shared.start())
+        case ("POST", "api/relay/stop"):
+            return json(EmbeddedCrawlerService.shared.stop())
+        case ("GET", "api/relay/discovery"):
+            return json(EmbeddedCrawlerService.shared.discoveryEntries())
+        case ("GET", _):
+            return textResponse(queryResponse(for: url))
+        default:
+            return jsonError(statusCode: 405, message: "unsupported embedded crawler request")
+        }
+    }
+
+    private static func queryResponse(for url: URL) -> String {
+        "embedded crawler response for \(url.absoluteString)"
+    }
+
+    private static func json<T: Encodable>(_ value: T) -> (Int, [String: String], Data) {
+        let encoder = JSONEncoder()
+        let data = (try? encoder.encode(value)) ?? Data(#"{"error":"failed to encode embedded crawler response"}"#.utf8)
+        return (200, ["Content-Type": "application/json"], data)
+    }
+
+    private static func textResponse(_ string: String) -> (Int, [String: String], Data) {
+        (200, ["Content-Type": "text/plain; charset=utf-8"], Data(string.utf8))
+    }
+
+    private static func jsonError(statusCode: Int, message: String) -> (Int, [String: String], Data) {
+        let payload = ["ok": false, "error": message]
+        let data = (try? JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])) ?? Data()
+        return (statusCode, ["Content-Type": "application/json"], data)
+    }
+}
+
 enum KitchenSinkTab: String, CaseIterable, Hashable {
     case overview = "Overview"
     case workbench = "Workbench"
