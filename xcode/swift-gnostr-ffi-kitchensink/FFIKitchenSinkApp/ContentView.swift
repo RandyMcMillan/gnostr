@@ -730,16 +730,17 @@ final class KitchenSinkViewModel: ObservableObject {
         let client = crawlerServiceClient
         let parameters = crawlerQueryParameters
 
-        crawlerQueryStatusMessage = "Discovering relay targets..."
+        crawlerQueryStatusMessage = "Sampling relay targets from crawler buckets..."
         crawlerQueryResult = "Waiting for response..."
 
         Task {
             do {
+                let bucketRelays = Self.sampleRelayTargets(from: crawlerBucketsRootURL, limit: 12)
                 let discoveredRelays = (try? await client.relaysTXT())
                     .map(Self.relayTargets(from:)) ?? []
                 let configuredRelays = Self.relayTargets(from: crawlerRelay)
                 let targets = Self.uniqueRelayTargets(
-                    [Self.localCrawlerRelay] + configuredRelays + discoveredRelays
+                    bucketRelays + configuredRelays + discoveredRelays
                 )
 
                 guard !targets.isEmpty else {
@@ -752,8 +753,9 @@ final class KitchenSinkViewModel: ObservableObject {
                 }
 
                 await MainActor.run {
-                    crawlerQueryStatusMessage = "Submitting query to \(targets.count) relays..."
+                    crawlerQueryStatusMessage = "Submitting query to \(targets.count) sampled relays..."
                     crawlerQueryResult = "Waiting for \(targets.count) relay responses..."
+                    log("Crawler query sampled \(bucketRelays.count) relays from buckets")
                 }
 
                 var sections: [String] = []
@@ -800,6 +802,54 @@ final class KitchenSinkViewModel: ObservableObject {
             .split { $0 == "," || $0.isNewline || $0.isWhitespace }
             .map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
+    }
+
+    nonisolated private static func sampleRelayTargets(from root: URL, limit: Int) -> [String] {
+        let fileManager = FileManager.default
+        guard let enumerator = fileManager.enumerator(
+            at: root,
+            includingPropertiesForKeys: [.isRegularFileKey],
+            options: [.skipsHiddenFiles]
+        ) else {
+            return []
+        }
+
+        var relays: [String] = []
+        for case let fileURL as URL in enumerator {
+            let name = fileURL.lastPathComponent
+            guard name == "relays.json" || name == "relays.yaml" || name == "relays.txt" else {
+                continue
+            }
+
+            guard let data = try? Data(contentsOf: fileURL) else { continue }
+            let parsed = Self.relayTargets(fromBucketFile: fileURL, data: data)
+            relays.append(contentsOf: parsed)
+            if relays.count >= limit {
+                break
+            }
+        }
+
+        return Array(Set(relays)).sorted().prefix(limit).map { $0 }
+    }
+
+    nonisolated private static func relayTargets(fromBucketFile fileURL: URL, data: Data) -> [String] {
+        let text = String(data: data, encoding: .utf8) ?? ""
+        switch fileURL.pathExtension.lowercased() {
+        case "json":
+            if let decoded = try? JSONDecoder().decode([String].self, from: data) {
+                return decoded
+                    .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                    .filter { !$0.isEmpty }
+            }
+            return relayTargets(from: text)
+        case "yaml":
+            let normalized = text
+                .replacingOccurrences(of: "- ", with: " ")
+                .replacingOccurrences(of: "-\t", with: " ")
+            return relayTargets(from: normalized)
+        default:
+            return relayTargets(from: text)
+        }
     }
 
     nonisolated private static func uniqueRelayTargets(_ relays: [String]) -> [String] {
