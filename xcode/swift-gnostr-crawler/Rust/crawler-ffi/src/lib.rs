@@ -1,8 +1,10 @@
 use std::{
     ffi::{CStr, CString},
     os::raw::c_char,
+    sync::mpsc,
     sync::{Mutex, OnceLock},
     thread,
+    time::Duration,
 };
 
 use gnostr_crawler::{
@@ -10,7 +12,7 @@ use gnostr_crawler::{
     query::build_gnostr_query,
     relay_fetch::websocket_http_url,
     relay_metadata::Relay,
-    run_api_server_with_shutdown,
+    run_api_server_with_shutdown_and_ready,
 };
 use serde::{Deserialize, Serialize};
 use tokio::{runtime::Builder, sync::oneshot};
@@ -139,6 +141,7 @@ pub unsafe extern "C" fn crawler_runtime_start_json(request_json: *const c_char)
     }
 
     let (stop_tx, stop_rx) = oneshot::channel::<()>();
+    let (ready_tx, ready_rx) = mpsc::channel::<Result<(), String>>();
     let join = thread::spawn(move || {
         let runtime = Builder::new_multi_thread()
             .enable_all()
@@ -155,24 +158,38 @@ pub unsafe extern "C" fn crawler_runtime_start_json(request_json: *const c_char)
             let shutdown = async move {
                 let _ = stop_rx.await;
             };
-            match run_api_server_with_shutdown(port, shutdown).await {
+            match run_api_server_with_shutdown_and_ready(port, shutdown, Some(ready_tx)).await {
                 Ok(_) => tracing::info!("crawler runtime stopped on port {}", port),
                 Err(error) => tracing::error!("crawler runtime failed: {}", error),
             }
         });
     });
 
-    *guard = Some(RuntimeHandle {
-        port,
-        stop_tx: Some(stop_tx),
-        join,
-    });
+    match ready_rx.recv_timeout(Duration::from_secs(15)) {
+        Ok(Ok(())) => {
+            *guard = Some(RuntimeHandle {
+                port,
+                stop_tx: Some(stop_tx),
+                join,
+            });
 
-    encode(&Envelope::ok(serde_json::to_string(&runtime_state(
-        true,
-        format!("crawler runtime starting on port {}", port),
-    ))
-    .unwrap()))
+            encode(&Envelope::ok(serde_json::to_string(&runtime_state(
+                true,
+                format!("crawler runtime running on port {}", port),
+            ))
+            .unwrap()))
+        }
+        Ok(Err(error)) => {
+            let _ = stop_tx.send(());
+            let _ = join.join();
+            encode(&Envelope::<String>::err(format!("crawler runtime failed to start: {}", error)))
+        }
+        Err(_) => {
+            let _ = stop_tx.send(());
+            let _ = join.join();
+            encode(&Envelope::<String>::err("crawler runtime start timed out"))
+        }
+    }
 }
 
 #[no_mangle]
