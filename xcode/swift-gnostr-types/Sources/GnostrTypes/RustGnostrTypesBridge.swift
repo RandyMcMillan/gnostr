@@ -20,6 +20,10 @@ public final class RustGnostrTypesBridge: @unchecked Sendable {
     private let gitNoteEventIDFn: RustStringFn?
     private let gitNoteTagsFn: RustStringFn?
     private let generateGitNoteEventFn: RustNoteFn?
+    private let normalizeEventFn: RustStringFn?
+    private let normalizePreEventFn: RustStringFn?
+    private let normalizeTagFn: RustStringFn?
+    private let normalizeNAddrFn: RustStringFn?
     private let freeFn: RustFreeFn?
 
     private init() {
@@ -28,11 +32,19 @@ public final class RustGnostrTypesBridge: @unchecked Sendable {
             self.gitNoteEventIDFn = Self.loadSymbol("gnostr_types_git_note_event_id_json", from: handle)
             self.gitNoteTagsFn = Self.loadSymbol("gnostr_types_git_note_tags_json", from: handle)
             self.generateGitNoteEventFn = Self.loadSymbol("gnostr_types_generate_git_note_event_json", from: handle)
+            self.normalizeEventFn = Self.loadSymbol("gnostr_types_roundtrip_event_json", from: handle)
+            self.normalizePreEventFn = Self.loadSymbol("gnostr_types_roundtrip_pre_event_json", from: handle)
+            self.normalizeTagFn = Self.loadSymbol("gnostr_types_roundtrip_tag_json", from: handle)
+            self.normalizeNAddrFn = Self.loadSymbol("gnostr_types_roundtrip_naddr_json", from: handle)
             self.freeFn = Self.loadSymbol("gnostr_types_string_free", from: handle)
         } else {
             self.gitNoteEventIDFn = nil
             self.gitNoteTagsFn = nil
             self.generateGitNoteEventFn = nil
+            self.normalizeEventFn = nil
+            self.normalizePreEventFn = nil
+            self.normalizeTagFn = nil
+            self.normalizeNAddrFn = nil
             self.freeFn = nil
         }
     }
@@ -42,6 +54,10 @@ public final class RustGnostrTypesBridge: @unchecked Sendable {
             && self.gitNoteEventIDFn != nil
             && self.gitNoteTagsFn != nil
             && self.generateGitNoteEventFn != nil
+            && self.normalizeEventFn != nil
+            && self.normalizePreEventFn != nil
+            && self.normalizeTagFn != nil
+            && self.normalizeNAddrFn != nil
             && self.freeFn != nil
     }
 
@@ -86,6 +102,34 @@ public final class RustGnostrTypesBridge: @unchecked Sendable {
         return try JSONDecoder().decode(Event.self, from: data)
     }
 
+    public func normalize(_ event: Event) throws -> Event {
+        guard self.isAvailable, let normalized: Event = self.callRoundTrip(self.normalizeEventFn, value: event) else {
+            return event
+        }
+        return normalized
+    }
+
+    public func normalize(_ preEvent: PreEvent) throws -> PreEvent {
+        guard self.isAvailable, let normalized: PreEvent = self.callRoundTrip(self.normalizePreEventFn, value: preEvent) else {
+            return preEvent
+        }
+        return normalized
+    }
+
+    public func normalize(_ tag: Tag) throws -> Tag {
+        guard self.isAvailable, let normalized: Tag = self.callRoundTrip(self.normalizeTagFn, value: tag) else {
+            return tag
+        }
+        return normalized
+    }
+
+    public func normalize(_ naddr: NAddr) throws -> NAddr {
+        guard self.isAvailable, let normalized: NAddr = self.callRoundTrip(self.normalizeNAddrFn, value: naddr) else {
+            return naddr
+        }
+        return normalized
+    }
+
     private func callString(_ fn: RustStringFn?, input: String) -> String? {
         guard let fn else { return nil }
         let inputCString = input.cString(using: .utf8)!
@@ -110,6 +154,28 @@ public final class RustGnostrTypesBridge: @unchecked Sendable {
                 defer { self.freeFn?(rawResult) }
                 return Self.decodeEnvelopeString(rawResult)
             }
+        }
+    }
+
+    private func callRoundTrip<T: Decodable & Encodable>(_ fn: RustStringFn?, value: T) -> T? {
+        guard let fn else { return nil }
+        let encoder = JSONEncoder()
+        encoder.keyEncodingStrategy = .convertToSnakeCase
+        guard let valueData = try? encoder.encode(value), let json = String(data: valueData, encoding: .utf8) else {
+            return nil
+        }
+
+        let inputCString = json.cString(using: .utf8)!
+        return inputCString.withUnsafeBufferPointer { buffer in
+            guard let base = buffer.baseAddress else { return nil }
+            guard let rawResult = fn(base) else { return nil }
+            defer { self.freeFn?(rawResult) }
+            let responseJSON = String(cString: rawResult)
+            guard let data = responseJSON.data(using: .utf8) else { return nil }
+            let envelope = try? JSONDecoder().decode(RustEnvelope<String>.self, from: data)
+            guard let envelope, envelope.ok, let payload = envelope.data else { return nil }
+            guard let payloadData = payload.data(using: .utf8) else { return nil }
+            return try? JSONDecoder().decode(T.self, from: payloadData)
         }
     }
 

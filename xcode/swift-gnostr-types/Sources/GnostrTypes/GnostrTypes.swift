@@ -35,6 +35,15 @@ public enum EventKind: UInt32, Codable, Sendable {
     case gitStatusApplied = 1631
     case gitStatusClosed = 1632
     case gitStatusDraft = 1633
+    case followSets = 30000
+    case genericSets = 30001
+    case relaySets = 30002
+    case bookmarkSets = 30003
+    case curationSets = 30004
+    case profileBadges = 30008
+    case badgeDefinition = 30009
+    case longFormContent = 30023
+    case draftLongFormContent = 30024
     case other = 0xffff_fffe
 }
 
@@ -322,6 +331,20 @@ public struct RepoRef: Codable, Hashable, Sendable {
     }
 }
 
+public struct NAddr: Codable, Hashable, Sendable {
+    public var d: String
+    public var relays: [String]
+    public var kind: EventKind
+    public var author: PublicKey
+
+    public init(d: String, relays: [String], kind: EventKind, author: PublicKey) {
+        self.d = d
+        self.relays = relays
+        self.kind = kind
+        self.author = author
+    }
+}
+
 public enum NIP34 {
     public static let repoAnnouncementKind: UInt32 = 30617
     public static let repoStateKind: UInt32 = 30618
@@ -353,6 +376,22 @@ public enum NIP34 {
             privateKeyHex: privateKeyHex,
             powTargetBits: powTargetBits
         )
+    }
+
+    public static func rustNormalizeEvent(_ event: Event) throws -> Event {
+        try RustGnostrTypesBridge.shared.normalize(event)
+    }
+
+    public static func rustNormalizePreEvent(_ preEvent: PreEvent) throws -> PreEvent {
+        try RustGnostrTypesBridge.shared.normalize(preEvent)
+    }
+
+    public static func rustNormalizeTag(_ tag: Tag) throws -> Tag {
+        try RustGnostrTypesBridge.shared.normalize(tag)
+    }
+
+    public static func rustNormalizeNAddr(_ naddr: NAddr) throws -> NAddr {
+        try RustGnostrTypesBridge.shared.normalize(naddr)
     }
 }
 
