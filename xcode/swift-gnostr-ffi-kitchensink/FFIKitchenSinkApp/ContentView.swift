@@ -234,7 +234,13 @@ final class EmbeddedCrawlerURLProtocol: URLProtocol {
     }
 
     private static func queryResponse(for url: URL) -> String {
-        "embedded crawler response for \(url.absoluteString)"
+        let query = url.query?.isEmpty == false ? url.query! : "(none)"
+        return """
+        Embedded crawler query response
+        URL: \(url.absoluteString)
+        Query: \(query)
+        Results: No results.
+        """
     }
 
     private static func json<T: Encodable>(_ value: T) -> (Int, [String: String], Data) {
