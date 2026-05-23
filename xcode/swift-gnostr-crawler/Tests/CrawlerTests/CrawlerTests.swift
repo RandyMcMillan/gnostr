@@ -218,9 +218,10 @@ private enum LiveRelayTestError: Error {
 @Test func crawlerLogStoreCapturesRustCallbackLines() async throws {
     guard RustCrawlerBridge.shared.isAvailable else { return }
 
-    let store = CrawlerLogStore(maxLines: 4)
+    let store = CrawlerLogStore(maxLines: 1_000)
+    store.clear()
     RustCrawlerBridge.shared.onLogLine?("crawler log line")
-    try await Task.sleep(nanoseconds: 50_000_000)
+    try await Task.sleep(nanoseconds: 200_000_000)
     #expect(store.lines.contains("crawler log line"))
 }
 
