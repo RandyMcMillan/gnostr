@@ -189,7 +189,6 @@ public struct RelayDashboardView: View {
             controls
             card(title: "Rust defaults", compact: false, content: configurationContent)
             card(title: "Listen endpoint", compact: model.isConfigEditorVisible, content: endpointContent)
-            card(title: "Status", compact: model.isConfigEditorVisible, content: statusContent)
             card(title: "Log console", compact: model.isConfigEditorVisible, content: consoleContent)
         }
         .padding()
@@ -208,6 +207,8 @@ public struct RelayDashboardView: View {
                 Text("FFI-only relay tools backed by the Rust relay crate.")
                     .foregroundColor(.secondary)
             }
+            Spacer()
+            trafficLightIndicator
         }
     }
 
@@ -333,17 +334,6 @@ public struct RelayDashboardView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private var statusContent: some View {
-        VStack(alignment: .leading, spacing: model.isConfigEditorVisible ? 6 : 12) {
-            Text(model.statusMessage)
-            row(label: "Running", value: model.isRunning ? "yes" : "no")
-            Text("This package exposes models and defaults from `./relay` via FFI, then renders them in SwiftUI.")
-                .font(.footnote)
-                .foregroundColor(.secondary)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
     private var consoleContent: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 8) {
@@ -356,6 +346,25 @@ public struct RelayDashboardView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .frame(maxHeight: model.isConfigEditorVisible ? 60 : 220, alignment: .topLeading)
+    }
+
+    private var trafficLightIndicator: some View {
+        HStack(spacing: 8) {
+            Circle()
+                .fill(Color.green)
+                .frame(width: 12, height: 12)
+            Circle()
+                .fill(Color.yellow)
+                .frame(width: 12, height: 12)
+            Circle()
+                .fill(Color.red)
+                .frame(width: 12, height: 12)
+        }
+        .padding(8)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Color.secondary.opacity(0.12))
+        )
     }
 
     private func row(label: String, value: String) -> some View {
