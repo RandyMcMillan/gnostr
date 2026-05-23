@@ -248,6 +248,8 @@
 		FFIKS000000000000000054 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = "";
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_ENABLE_OBJC_WEAK = YES;
@@ -268,6 +270,8 @@
 		FFIKS000000000000000055 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = "";
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_ENABLE_OBJC_WEAK = YES;
@@ -319,10 +323,6 @@
 		4BE2D1372FC2439F00461214 /* LibP2P */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = LibP2P;
-		};
-		4BE2D1392FC2439F00461214 /* LibP2PTesting */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = LibP2PTesting;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
