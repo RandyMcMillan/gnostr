@@ -11,7 +11,7 @@ import AppKit
 public final class RelayDashboardViewModel: ObservableObject {
     @Published public var host: String
     @Published public var port: String
-    @Published public private(set) var defaultConfiguration: RelayConfiguration
+    @Published public var defaultConfiguration: RelayConfiguration
     @Published public private(set) var listenEndpoint: String
     @Published public private(set) var statusMessage: String
     @Published public private(set) var isRunning = false
@@ -36,6 +36,16 @@ public final class RelayDashboardViewModel: ObservableObject {
         statusMessage = RustRelayBridge.shared.isAvailable ? "Relay FFI available" : "Relay FFI unavailable"
         appendLog("Refreshed relay defaults")
         appendLog("Listen endpoint: \(listenEndpoint)")
+    }
+
+    public func updateLogging(_ value: String) {
+        defaultConfiguration.logging = value
+        appendLog("Logging updated to \(value)")
+    }
+
+    public func updateConfigFilePath(_ value: String) {
+        defaultConfiguration.configFilePath = value
+        appendLog("Config file updated to \(value)")
     }
 
     public func updateEndpoint() {
@@ -133,8 +143,16 @@ public struct RelayDashboardView: View {
 
     private var configurationContent: some View {
         VStack(alignment: .leading, spacing: 12) {
-            row(label: "Logging", value: model.defaultConfiguration.logging)
-            row(label: "Config file", value: model.defaultConfiguration.configFilePath)
+            TextField("Logging", text: Binding(
+                get: { model.defaultConfiguration.logging },
+                set: { model.updateLogging($0) }
+            ))
+            .textFieldStyle(.roundedBorder)
+            TextField("Config file", text: Binding(
+                get: { model.defaultConfiguration.configFilePath },
+                set: { model.updateConfigFilePath($0) }
+            ))
+            .textFieldStyle(.roundedBorder)
             HStack {
                 Button("Refresh defaults") { model.refresh() }
                 Button("Clear console") { model.clearLog() }
