@@ -7,14 +7,17 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		4001ABCD0000000000000001 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4002ABCD0000000000000001 /* main.swift */; };
-		4BE2D0272FC220D300461214 /* LibP2P in Frameworks */ = {isa = PBXBuildFile; productRef = 4BE2D0262FC220D300461214 /* LibP2P */; };
-		4BE2D0292FC220D300461214 /* LibP2PTesting in Frameworks */ = {isa = PBXBuildFile; productRef = 4BE2D0282FC220D300461214 /* LibP2PTesting */; };
+		4001ABCD0000000000000001 /* entrypoint.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4002ABCD0000000000000001 /* entrypoint.swift */; };
+		400AABCD0000000000000001 /* configure.swift in Sources */ = {isa = PBXBuildFile; fileRef = 400BABCD0000000000000001 /* configure.swift */; };
+		400CABCD0000000000000001 /* routes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 400DABCD0000000000000001 /* routes.swift */; };
+		4BE2D0372FC2257600461214 /* LibP2P in Frameworks */ = {isa = PBXBuildFile; productRef = 4BE2D0262FC220D300461214 /* LibP2P */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		4002ABCD0000000000000001 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		4002ABCD0000000000000001 /* entrypoint.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = entrypoint.swift; sourceTree = "<group>"; };
 		4003ABCD0000000000000001 /* LibP2PAppTemplateBuild */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = LibP2PAppTemplateBuild; sourceTree = BUILT_PRODUCTS_DIR; };
+		400BABCD0000000000000001 /* configure.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = configure.swift; sourceTree = "<group>"; };
+		400DABCD0000000000000001 /* routes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = routes.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -22,8 +25,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				4BE2D0292FC220D300461214 /* LibP2PTesting in Frameworks */,
-				4BE2D0272FC220D300461214 /* LibP2P in Frameworks */,
+				4BE2D0372FC2257600461214 /* LibP2P in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -33,17 +35,19 @@
 		4005ABCD0000000000000001 = {
 			isa = PBXGroup;
 			children = (
-				4006ABCD0000000000000001 /* LibP2PAppTemplateBuild */,
+				4006ABCD0000000000000001 /* Sources/App */,
 				4007ABCD0000000000000001 /* Products */,
 			);
 			sourceTree = "<group>";
 		};
-		4006ABCD0000000000000001 /* LibP2PAppTemplateBuild */ = {
+		4006ABCD0000000000000001 /* Sources/App */ = {
 			isa = PBXGroup;
 			children = (
-				4002ABCD0000000000000001 /* main.swift */,
+				400BABCD0000000000000001 /* configure.swift */,
+				4002ABCD0000000000000001 /* entrypoint.swift */,
+				400DABCD0000000000000001 /* routes.swift */,
 			);
-			path = LibP2PAppTemplateBuild;
+			path = Sources/App;
 			sourceTree = "<group>";
 		};
 		4007ABCD0000000000000001 /* Products */ = {
@@ -99,7 +103,7 @@
 			);
 			mainGroup = 4005ABCD0000000000000001;
 			packageReferences = (
-				4BE2D0252FC220D300461214 /* XCLocalSwiftPackageReference "../swift-libp2p" */,
+				4BE2D0312FC2257600461214 /* XCLocalSwiftPackageReference "../swift-libp2p" */,
 			);
 			productRefGroup = 4007ABCD0000000000000001 /* Products */;
 			projectDirPath = "";
@@ -135,7 +139,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				4001ABCD0000000000000001 /* main.swift in Sources */,
+				400AABCD0000000000000001 /* configure.swift in Sources */,
+				4001ABCD0000000000000001 /* entrypoint.swift in Sources */,
+				400CABCD0000000000000001 /* routes.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -157,6 +163,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = org.gnostr.libp2p.app.template;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
+				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = macosx;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
 				SUPPORTS_MACCATALYST = YES;
@@ -181,6 +188,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = org.gnostr.libp2p.app.template;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
+				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = macosx;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
 				SUPPORTS_MACCATALYST = YES;
@@ -246,7 +254,7 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		4BE2D0252FC220D300461214 /* XCLocalSwiftPackageReference "../swift-libp2p" */ = {
+		4BE2D0312FC2257600461214 /* XCLocalSwiftPackageReference "../swift-libp2p" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = "../swift-libp2p";
 		};
@@ -255,11 +263,8 @@
 /* Begin XCSwiftPackageProductDependency section */
 		4BE2D0262FC220D300461214 /* LibP2P */ = {
 			isa = XCSwiftPackageProductDependency;
+			package = 4BE2D0312FC2257600461214 /* XCLocalSwiftPackageReference "../swift-libp2p" */;
 			productName = LibP2P;
-		};
-		4BE2D0282FC220D300461214 /* LibP2PTesting */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = LibP2PTesting;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
