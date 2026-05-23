@@ -14,10 +14,7 @@ public final class RelayDashboardViewModel: ObservableObject {
         self.host = host
         self.port = port
         self.defaultConfiguration = RelayConfiguration.rustDefault() ?? RelayConfiguration()
-        self.listenEndpoint = RelayEndpoints.listenEndpoint(
-            host: host,
-            port: UInt16(port) ?? 8080
-        )
+        self.listenEndpoint = RelayEndpoints.listenEndpoint(host: host, port: UInt16(port) ?? 8080)
         self.statusMessage = RustRelayBridge.shared.isAvailable ? "Relay FFI available" : "Relay FFI unavailable"
     }
 
@@ -40,16 +37,14 @@ public struct RelayDashboardView: View {
     }
 
     public var body: some View {
-        NavigationView {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    header
-                    card(title: "Rust defaults", content: configurationContent)
-                    card(title: "Listen endpoint", content: endpointContent)
-                    card(title: "Status", content: statusContent)
-                }
-                .padding()
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                header
+                card(title: "Rust defaults", content: configurationContent)
+                card(title: "Listen endpoint", content: endpointContent)
+                card(title: "Status", content: statusContent)
             }
+            .padding()
         }
     }
 
@@ -66,9 +61,7 @@ public struct RelayDashboardView: View {
         VStack(alignment: .leading, spacing: 12) {
             row(label: "Logging", value: model.defaultConfiguration.logging)
             row(label: "Config file", value: model.defaultConfiguration.configFilePath)
-            Button("Refresh defaults") {
-                model.refresh()
-            }
+            Button("Refresh defaults") { model.refresh() }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -83,7 +76,7 @@ public struct RelayDashboardView: View {
                         model.updateEndpoint()
                     }
                 ))
-                    .textFieldStyle(.roundedBorder)
+                .textFieldStyle(.roundedBorder)
                 TextField("Port", text: Binding(
                     get: { model.port },
                     set: { newValue in
@@ -91,8 +84,8 @@ public struct RelayDashboardView: View {
                         model.updateEndpoint()
                     }
                 ))
-                    .textFieldStyle(.roundedBorder)
-                    .frame(width: 100)
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 100)
             }
             row(label: "Endpoint", value: model.listenEndpoint)
         }
@@ -132,11 +125,3 @@ public struct RelayDashboardView: View {
         )
     }
 }
-
-#if DEBUG
-struct RelayDashboardView_Previews: PreviewProvider {
-    static var previews: some View {
-        RelayDashboardView()
-    }
-}
-#endif

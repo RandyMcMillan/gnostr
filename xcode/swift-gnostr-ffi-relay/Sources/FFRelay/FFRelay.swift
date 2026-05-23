@@ -7,6 +7,16 @@ private struct RustEnvelope<T: Decodable>: Decodable {
     let error: String?
 }
 
+private struct RelayCliDefaults: Codable, Sendable {
+    let logging: String
+    let configFilePath: String
+
+    private enum CodingKeys: String, CodingKey {
+        case logging
+        case configFilePath = "config_file_path"
+    }
+}
+
 private typealias RustStringFn = @convention(c) (UnsafePointer<CChar>) -> UnsafeMutablePointer<CChar>?
 private typealias RustRelayEndpointFn = @convention(c) (UnsafePointer<CChar>, UInt16) -> UnsafeMutablePointer<CChar>?
 private typealias RustFreeFn = @convention(c) (UnsafeMutablePointer<CChar>) -> Void
@@ -27,77 +37,6 @@ public struct RelayConfiguration: Codable, Hashable, Sendable {
 
     public static func rustDefault() -> RelayConfiguration? {
         RustRelayBridge.shared.defaultConfiguration()
-    }
-}
-
-public struct RelayProcessState: Codable, Hashable, Sendable {
-    public var running: Bool
-    public var pid: UInt32?
-    public var message: String
-    public var diskUsageBytes: UInt64?
-
-    public init(running: Bool, pid: UInt32? = nil, message: String, diskUsageBytes: UInt64? = nil) {
-        self.running = running
-        self.pid = pid
-        self.message = message
-        self.diskUsageBytes = diskUsageBytes
-    }
-
-    private enum CodingKeys: String, CodingKey {
-        case running
-        case pid
-        case message
-        case diskUsageBytes = "disk_usage_bytes"
-    }
-}
-
-public struct RelayDiscoveryEntry: Codable, Hashable, Sendable {
-    public var url: String
-    public var contact: String?
-    public var description: String?
-    public var name: String?
-    public var pingMs: UInt64?
-    public var software: String?
-    public var version: String?
-    public var supportedNips: [Int]
-    public var supportedNipExtensions: [String]
-    public var sourceNips: [Int]
-
-    public init(
-        url: String,
-        contact: String? = nil,
-        description: String? = nil,
-        name: String? = nil,
-        pingMs: UInt64? = nil,
-        software: String? = nil,
-        version: String? = nil,
-        supportedNips: [Int] = [],
-        supportedNipExtensions: [String] = [],
-        sourceNips: [Int] = []
-    ) {
-        self.url = url
-        self.contact = contact
-        self.description = description
-        self.name = name
-        self.pingMs = pingMs
-        self.software = software
-        self.version = version
-        self.supportedNips = supportedNips
-        self.supportedNipExtensions = supportedNipExtensions
-        self.sourceNips = sourceNips
-    }
-
-    private enum CodingKeys: String, CodingKey {
-        case url
-        case contact
-        case description
-        case name
-        case pingMs = "ping_ms"
-        case software
-        case version
-        case supportedNips = "supported_nips"
-        case supportedNipExtensions = "supported_nip_extensions"
-        case sourceNips = "source_nips"
     }
 }
 
@@ -144,30 +83,25 @@ public final class RustRelayBridge: @unchecked Sendable {
     }
 
     public var isAvailable: Bool {
-        self.handle != nil
-            && self.defaultConfigurationFn != nil
-            && self.listenEndpointFn != nil
-            && self.freeFn != nil
+        handle != nil && defaultConfigurationFn != nil && listenEndpointFn != nil && freeFn != nil
     }
 
     public func defaultConfiguration() -> RelayConfiguration? {
-        guard let json: String = self.callString(self.defaultConfigurationFn, input: "") else {
-            return nil
-        }
+        guard let json: String = callString(defaultConfigurationFn, input: "") else { return nil }
         guard let data = json.data(using: .utf8),
-              let defaults = try? JSONDecoder().decode(RelayConfiguration.self, from: data) else {
+              let defaults = try? JSONDecoder().decode(RelayCliDefaults.self, from: data) else {
             return nil
         }
-        return defaults
+        return RelayConfiguration(logging: defaults.logging, configFilePath: defaults.configFilePath)
     }
 
     public func listenEndpoint(host: String, port: UInt16) -> String? {
-        guard let fn = self.listenEndpointFn else { return nil }
+        guard let fn = listenEndpointFn else { return nil }
         let hostCString = host.cString(using: .utf8)!
         return hostCString.withUnsafeBufferPointer { buffer in
             guard let base = buffer.baseAddress else { return nil }
             guard let rawResult = fn(base, port) else { return nil }
-            defer { self.freeFn?(rawResult) }
+            defer { freeFn?(rawResult) }
             return Self.decodeEnvelopeString(rawResult)
         }
     }
@@ -178,7 +112,7 @@ public final class RustRelayBridge: @unchecked Sendable {
         return inputCString.withUnsafeBufferPointer { buffer in
             guard let base = buffer.baseAddress else { return nil }
             guard let rawResult = fn(base) else { return nil }
-            defer { self.freeFn?(rawResult) }
+            defer { freeFn?(rawResult) }
             return Self.decodeEnvelopeString(rawResult)
         }
     }

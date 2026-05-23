@@ -43,9 +43,8 @@ fn to_c_string(json: String) -> *mut c_char {
 }
 
 fn encode<T: Serialize>(envelope: &Envelope<T>) -> *mut c_char {
-    let json = serde_json::to_string(envelope).unwrap_or_else(|error| {
-        format!(r#"{{"ok":false,"error":"failed to serialize response: {error}"}}"#)
-    });
+    let json = serde_json::to_string(envelope)
+        .unwrap_or_else(|error| format!(r#"{{"ok":false,"error":"failed to serialize response: {error}"}}"#));
     to_c_string(json)
 }
 
@@ -67,7 +66,7 @@ pub unsafe extern "C" fn relay_string_free(ptr: *mut c_char) {
 pub unsafe extern "C" fn relay_default_configuration_json(_unused: *const c_char) -> *mut c_char {
     let defaults = RelayCli::default();
     let view = RelayCliView {
-        logging: defaults.logging.to_string(),
+        logging: defaults.logging,
         config_file_path: defaults.config_file_path,
     };
     encode(&Envelope::ok(view))

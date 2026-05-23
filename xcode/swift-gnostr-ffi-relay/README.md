@@ -1,19 +1,18 @@
-# swift-gnostr-ff-relay
+# swift-gnostr-ffi-relay
 
 Swift wrapper for the Rust relay crate using FFI only.
 
 ### Dependency chain
 
-`FFRelay` → `RustRelayBridge` → `relay-ffi` (`cdylib`) → `gnostr-relay` Rust crate
+`FFRelay` → `relay-ffi` (`cdylib`) → `gnostr-relay`
 
-`RelayGUI` → `FFRelay` → `relay-ffi`
+`RelayGUI` → `FFRelay`
 
 ### What it covers
 
 - relay configuration defaults from the Rust relay CLI
 - relay listen-endpoint normalization
-- relay process and discovery models for FFI payloads
-- cross-platform SwiftUI dashboard for iOS and macOS
+- cross-platform SwiftUI dashboard for iOS, iPadOS, and Mac Catalyst
 
 ### Runtime loading
 
