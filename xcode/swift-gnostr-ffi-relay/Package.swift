@@ -13,7 +13,13 @@ let package = Package(
     ],
     targets: [
         .target(name: "FFRelay"),
-        .target(name: "RelayGUI", dependencies: ["FFRelay"]),
+        .target(
+            name: "RelayGUI",
+            dependencies: ["FFRelay"],
+            resources: [
+                .process("Resources")
+            ]
+        ),
         .testTarget(name: "FFRelayTests", dependencies: ["FFRelay"]),
         .testTarget(name: "RelayGUITests", dependencies: ["RelayGUI"]),
     ]

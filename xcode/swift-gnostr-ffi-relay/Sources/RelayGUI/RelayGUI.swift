@@ -9,6 +9,8 @@ public final class RelayDashboardViewModel: ObservableObject {
     @Published public private(set) var defaultConfiguration: RelayConfiguration
     @Published public private(set) var listenEndpoint: String
     @Published public private(set) var statusMessage: String
+    @Published public private(set) var isRunning = false
+    @Published public private(set) var logLines: [String] = []
 
     public init(host: String = "127.0.0.1", port: String = "8080") {
         self.host = host
@@ -16,16 +18,52 @@ public final class RelayDashboardViewModel: ObservableObject {
         self.defaultConfiguration = RelayConfiguration.rustDefault() ?? RelayConfiguration()
         self.listenEndpoint = RelayEndpoints.listenEndpoint(host: host, port: UInt16(port) ?? 8080)
         self.statusMessage = RustRelayBridge.shared.isAvailable ? "Relay FFI available" : "Relay FFI unavailable"
+        appendLog("Relay dashboard ready")
+        appendLog(statusMessage)
     }
 
     public func refresh() {
         defaultConfiguration = RelayConfiguration.rustDefault() ?? RelayConfiguration()
         listenEndpoint = RelayEndpoints.listenEndpoint(host: host, port: UInt16(port) ?? 8080)
         statusMessage = RustRelayBridge.shared.isAvailable ? "Relay FFI available" : "Relay FFI unavailable"
+        appendLog("Refreshed relay defaults")
+        appendLog("Listen endpoint: \(listenEndpoint)")
     }
 
     public func updateEndpoint() {
         listenEndpoint = RelayEndpoints.listenEndpoint(host: host, port: UInt16(port) ?? 8080)
+        appendLog("Endpoint updated to \(listenEndpoint)")
+    }
+
+    public func startRelay() {
+        isRunning = true
+        statusMessage = "Relay start requested"
+        appendLog("Start pressed")
+        appendLog(statusMessage)
+        appendLog("FFI bridge does not expose relay process control yet.")
+    }
+
+    public func stopRelay() {
+        isRunning = false
+        statusMessage = "Relay stop requested"
+        appendLog("Stop pressed")
+        appendLog(statusMessage)
+        appendLog("FFI bridge does not expose relay process control yet.")
+    }
+
+    public func clearLog() {
+        logLines.removeAll()
+        appendLog("Console cleared")
+    }
+
+    private func appendLog(_ message: String) {
+        logLines.insert("[\(Self.timestamp())] \(message)", at: 0)
+    }
+
+    private static func timestamp() -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm:ss"
+        return formatter.string(from: Date())
     }
 }
 
@@ -40,20 +78,28 @@ public struct RelayDashboardView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 header
+                controls
                 card(title: "Rust defaults", content: configurationContent)
                 card(title: "Listen endpoint", content: endpointContent)
                 card(title: "Status", content: statusContent)
+                card(title: "Log console", content: consoleContent)
             }
             .padding()
         }
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("FF Relay")
-                .font(.largeTitle.bold())
-            Text("FFI-only relay tools backed by the Rust relay crate.")
-                .foregroundColor(.secondary)
+        HStack(alignment: .center, spacing: 16) {
+            Image("Icon", bundle: Bundle.module)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 56, height: 56)
+            VStack(alignment: .leading, spacing: 8) {
+                Text("FF Relay")
+                    .font(.largeTitle.bold())
+                Text("FFI-only relay tools backed by the Rust relay crate.")
+                    .foregroundColor(.secondary)
+            }
         }
     }
 
@@ -61,9 +107,22 @@ public struct RelayDashboardView: View {
         VStack(alignment: .leading, spacing: 12) {
             row(label: "Logging", value: model.defaultConfiguration.logging)
             row(label: "Config file", value: model.defaultConfiguration.configFilePath)
-            Button("Refresh defaults") { model.refresh() }
+            HStack {
+                Button("Refresh defaults") { model.refresh() }
+                Button("Clear console") { model.clearLog() }
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var controls: some View {
+        HStack(spacing: 12) {
+            Button("Start") { model.startRelay() }
+                .disabled(model.isRunning)
+            Button("Stop") { model.stopRelay() }
+                .disabled(!model.isRunning)
+            Button("Refresh") { model.refresh() }
+        }
     }
 
     private var endpointContent: some View {
@@ -95,11 +154,26 @@ public struct RelayDashboardView: View {
     private var statusContent: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(model.statusMessage)
+            row(label: "Running", value: model.isRunning ? "yes" : "no")
             Text("This package exposes models and defaults from `./relay` via FFI, then renders them in SwiftUI.")
                 .font(.footnote)
                 .foregroundColor(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var consoleContent: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(Array(model.logLines.enumerated()), id: \.offset) { _, line in
+                    Text(line)
+                        .font(.system(.caption, design: .monospaced))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .frame(minHeight: 180)
     }
 
     private func row(label: String, value: String) -> some View {
