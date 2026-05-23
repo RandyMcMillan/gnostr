@@ -80,17 +80,16 @@ public struct RelayDashboardView: View {
     }
 
     public var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                header
-                controls
-                card(title: "Rust defaults", content: configurationContent)
-                card(title: "Listen endpoint", content: endpointContent)
-                card(title: "Status", content: statusContent)
-                card(title: "Log console", content: consoleContent)
-            }
-            .padding()
+        VStack(alignment: .leading, spacing: 20) {
+            header
+            controls
+            card(title: "Rust defaults", content: configurationContent)
+            card(title: "Listen endpoint", content: endpointContent)
+            card(title: "Status", content: statusContent)
+            card(title: "Log console", content: consoleContent)
         }
+        .padding()
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
     private var header: some View {
@@ -199,7 +198,7 @@ public struct RelayDashboardView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(minHeight: 180)
+        .frame(maxHeight: 220, alignment: .topLeading)
     }
 
     private func row(label: String, value: String) -> some View {
