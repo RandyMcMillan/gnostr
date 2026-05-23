@@ -169,6 +169,83 @@ final class EmbeddedCrawlerService: @unchecked Sendable {
     }
 }
 
+final class EmbeddedRelayService: @unchecked Sendable {
+    static let shared = EmbeddedRelayService()
+
+    private let lock = NSLock()
+    private var running = false
+    private var pid: UInt32?
+    private var nextPID: UInt32 = 41_000
+
+    func status() -> RelayProcessState {
+        appTrace("EmbeddedRelayService.status")
+        lock.lock()
+        defer { lock.unlock() }
+
+        if running {
+            return RelayProcessState(
+                running: true,
+                pid: pid,
+                message: "Embedded relay service running (pid \(pid.map(String.init) ?? "unknown"))"
+            )
+        }
+
+        return RelayProcessState(running: false, message: "Embedded relay service stopped")
+    }
+
+    func start() -> RelayProcessState {
+        appTrace("EmbeddedRelayService.start")
+        lock.lock()
+        defer { lock.unlock() }
+
+        if running {
+            return RelayProcessState(
+                running: true,
+                pid: pid,
+                message: "Embedded relay service already running (pid \(pid.map(String.init) ?? "unknown"))"
+            )
+        }
+
+        nextPID &+= 1
+        pid = nextPID
+        running = true
+        return RelayProcessState(
+            running: true,
+            pid: pid,
+            message: "Embedded relay service started (pid \(pid.map(String.init) ?? "unknown"))"
+        )
+    }
+
+    func stop() -> RelayProcessState {
+        appTrace("EmbeddedRelayService.stop")
+        lock.lock()
+        defer { lock.unlock() }
+
+        running = false
+        let stoppedPID = pid
+        pid = nil
+        return RelayProcessState(
+            running: false,
+            pid: stoppedPID,
+            message: "Embedded relay service stopped"
+        )
+    }
+
+    func discoveryEntries() -> [RelayDiscoveryEntry] {
+        appTrace("EmbeddedRelayService.discoveryEntries")
+        return [
+            RelayDiscoveryEntry(
+                url: "http://127.0.0.1:8080",
+                description: "In-app relay backend",
+                name: "Embedded Relay",
+                software: "gnostr-ffi-kitchensink",
+                version: "embedded",
+                supportedNips: [1, 11, 22, 33, 40, 50]
+            )
+        ]
+    }
+}
+
 final class EmbeddedCrawlerURLProtocol: URLProtocol {
     override class func canInit(with request: URLRequest) -> Bool {
         guard let url = request.url else { return false }
@@ -1387,6 +1464,7 @@ final class CrawlerServerController {
     private let bridge = RustCrawlerBridge.shared
     private let serviceName = "gnostr-crawler"
     private let port: UInt16 = 3030
+    private let fileManager = FileManager.default
     private var logTailTask: Task<Void, Never>?
 
     init() {
@@ -1572,7 +1650,7 @@ final class CrawlerServerController {
     }
 }
 
- #if os(macOS) || targetEnvironment(macCatalyst)
+#if os(macOS) || targetEnvironment(macCatalyst)
 @MainActor
 final class RelayServerController {
     private let serviceName = "gnostr-relay"
@@ -1808,42 +1886,6 @@ final class RelayServerController {
     }
 }
 #endif
-#else
-@MainActor
-final class CrawlerServerController {
-    private let unavailableMessage = "Local crawler process control is unavailable on this platform"
-
-    func status() -> RelayProcessState {
-        RelayProcessState(running: false, message: unavailableMessage)
-    }
-
-    func start() async throws -> RelayProcessState {
-        status()
-    }
-
-    func stop() throws -> RelayProcessState {
-        status()
-    }
-}
-
-@MainActor
-final class RelayServerController {
-    private let unavailableMessage = "Local relay process control is unavailable on this platform"
-
-    func status() -> RelayProcessState {
-        RelayProcessState(running: false, message: unavailableMessage)
-    }
-
-    func start() async throws -> RelayProcessState {
-        status()
-    }
-
-    func stop() throws -> RelayProcessState {
-        status()
-    }
-}
-#endif
-
 enum CrawlerPreset: String, CaseIterable, Identifiable {
     case nip34 = "NIP-34"
     case hashtags = "Hashtags"
