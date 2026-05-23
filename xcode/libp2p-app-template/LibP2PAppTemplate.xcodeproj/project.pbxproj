@@ -74,6 +74,14 @@
 			dependencies = (
 			);
 			name = LibP2PAppTemplateBuild;
+			packageProductDependencies = (
+				4BE2D0262FC220D300461214 /* LibP2P */,
+				4BE2D0282FC220D300461214 /* LibP2PNoise */,
+				4BE2D02A2FC220D300461214 /* LibP2PYAMUX */,
+				4BE2D02C2FC220D300461214 /* LibP2PDCUtR */,
+				4BE2D02E2FC220D300461214 /* LibP2PMDNS */,
+				4BE2D0302FC220D300461214 /* LibP2PKadDHT */,
+			);
 			productName = LibP2PAppTemplateBuild;
 			productReference = 4003ABCD0000000000000001 /* LibP2PAppTemplateBuild */;
 			productType = "com.apple.product-type.tool";
