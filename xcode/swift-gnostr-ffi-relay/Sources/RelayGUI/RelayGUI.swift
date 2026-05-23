@@ -46,6 +46,7 @@ public final class RelayDashboardViewModel: ObservableObject {
     public func updateConfigFilePath(_ value: String) {
         defaultConfiguration.configFilePath = value
         appendLog("Config file updated to \(value)")
+        appendLog("System path: \(defaultConfiguration.resolvedConfigFilePath)")
     }
 
     public func updateEndpoint() {
@@ -153,6 +154,7 @@ public struct RelayDashboardView: View {
                 set: { model.updateConfigFilePath($0) }
             ))
             .textFieldStyle(.roundedBorder)
+            row(label: "System path", value: model.defaultConfiguration.resolvedConfigFilePath)
             HStack {
                 Button("Refresh defaults") { model.refresh() }
                 Button("Clear console") { model.clearLog() }
