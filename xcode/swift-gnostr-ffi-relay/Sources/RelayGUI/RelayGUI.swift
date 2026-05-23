@@ -100,7 +100,7 @@ public struct RelayDashboardView: View {
                 .aspectRatio(contentMode: .fit)
                 .frame(width: 56, height: 56)
             VStack(alignment: .leading, spacing: 8) {
-                Text("FF Relay")
+                Text("Gnostr Relay")
                     .font(.largeTitle.bold())
                 Text("FFI-only relay tools backed by the Rust relay crate.")
                     .foregroundColor(.secondary)

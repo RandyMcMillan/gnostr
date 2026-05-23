@@ -13,7 +13,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		FFRELAY000000000000000010 /* FFRelayApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FFRelayApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		FFRELAY000000000000000010 /* GnostrRelay.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GnostrRelay.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		FFRELAY000000000000000011 /* FFRelayApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FFRelayApp.swift; sourceTree = "<group>"; };
 		FFRELAY000000000000000012 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -50,7 +50,7 @@
 		FFRELAY000000000000000032 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				FFRELAY000000000000000010 /* FFRelayApp.app */,
+				FFRELAY000000000000000010 /* GnostrRelay.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -58,9 +58,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		FFRELAY000000000000000040 /* FFRelayApp */ = {
+		FFRELAY000000000000000040 /* GnostrRelay */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = FFRELAY000000000000000050 /* Build configuration list for PBXNativeTarget "FFRelayApp" */;
+			buildConfigurationList = FFRELAY000000000000000050 /* Build configuration list for PBXNativeTarget "GnostrRelay" */;
 			buildPhases = (
 				FFRELAY000000000000000022 /* ShellScript */,
 				FFRELAY000000000000000021 /* ShellScript */,
@@ -72,12 +72,12 @@
 			);
 			dependencies = (
 			);
-			name = FFRelayApp;
+			name = GnostrRelay;
 			packageProductDependencies = (
 				FFRELAY000000000000000060 /* RelayGUI */,
 			);
 			productName = FFRelayApp;
-			productReference = FFRELAY000000000000000010 /* FFRelayApp.app */;
+			productReference = FFRELAY000000000000000010 /* GnostrRelay.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -95,7 +95,7 @@
 					};
 				};
 			};
-			buildConfigurationList = FFRELAY000000000000000051 /* Build configuration list for PBXProject "FFRelayApp" */;
+			buildConfigurationList = FFRELAY000000000000000051 /* Build configuration list for PBXProject "GnostrRelay" */;
 			compatibilityVersion = "Xcode 15.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
@@ -111,7 +111,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				FFRELAY000000000000000040 /* FFRelayApp */,
+				FFRELAY000000000000000040 /* GnostrRelay */,
 			);
 		};
 /* End PBXProject section */
@@ -287,7 +287,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		FFRELAY000000000000000050 /* Build configuration list for PBXNativeTarget "FFRelayApp" */ = {
+		FFRELAY000000000000000050 /* Build configuration list for PBXNativeTarget "GnostrRelay" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				FFRELAY000000000000000052 /* Debug */,
@@ -296,7 +296,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		FFRELAY000000000000000051 /* Build configuration list for PBXProject "FFRelayApp" */ = {
+		FFRELAY000000000000000051 /* Build configuration list for PBXProject "GnostrRelay" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				FFRELAY000000000000000054 /* Debug */,
