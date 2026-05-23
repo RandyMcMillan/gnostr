@@ -50,13 +50,13 @@
             ReferencedContainer = "container:GnostrRelay.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
-      <EnvironmentVariables>
-         <EnvironmentVariable
-            key = "GNOSTR_RELAY_FFI_LIBRARY"
-            value = "$(BUILT_PRODUCTS_DIR)/$(FRAMEWORKS_FOLDER_PATH)/librelay_ffi.dylib"
-            isEnabled = "YES">
-         </EnvironmentVariable>
-      </EnvironmentVariables>
+       <EnvironmentVariables>
+          <EnvironmentVariable
+             key = "GNOSTR_RELAY_FFI_LIBRARY"
+             value = "$(TARGET_BUILD_DIR)/$(FULL_PRODUCT_NAME)/$(FRAMEWORKS_FOLDER_PATH)/librelay_ffi.dylib"
+             isEnabled = "YES">
+          </EnvironmentVariable>
+       </EnvironmentVariables>
    </LaunchAction>
    <ProfileAction
       buildConfiguration = "Release"

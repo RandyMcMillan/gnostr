@@ -128,13 +128,20 @@ public final class RustRelayBridge: @unchecked Sendable {
     private static func openLibrary() -> UnsafeMutableRawPointer? {
         let env = ProcessInfo.processInfo.environment
         let candidates: [String] = {
+            var paths: [String] = []
             if let explicit = env["GNOSTR_RELAY_FFI_LIBRARY"], !explicit.isEmpty {
-                return [explicit]
+                paths.append(explicit)
             }
-            return [
-                "Rust/relay-ffi/target/debug/librelay_ffi.dylib",
-                "Rust/relay-ffi/target/release/librelay_ffi.dylib",
-            ]
+
+            if let frameworksURL = Bundle.main.privateFrameworksURL {
+                paths.append(frameworksURL.appendingPathComponent("librelay_ffi.dylib").path)
+            }
+
+            paths.append(Bundle.main.bundleURL.appendingPathComponent("Frameworks/librelay_ffi.dylib").path)
+            paths.append(Bundle.main.bundleURL.appendingPathComponent("Contents/Frameworks/librelay_ffi.dylib").path)
+            paths.append("Rust/relay-ffi/target/debug/librelay_ffi.dylib")
+            paths.append("Rust/relay-ffi/target/release/librelay_ffi.dylib")
+            return paths
         }()
 
         for candidate in candidates {
