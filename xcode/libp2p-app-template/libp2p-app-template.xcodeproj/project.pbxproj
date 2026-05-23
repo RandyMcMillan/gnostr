@@ -8,7 +8,6 @@
 
 /* Begin PBXBuildFile section */
 		4BE2D0712FC234EE00461214 /* LibP2P in Frameworks */ = {isa = PBXBuildFile; productRef = 4BE2D0702FC234EE00461214 /* LibP2P */; };
-		4BE2D0732FC234EE00461214 /* LibP2PTesting in Frameworks */ = {isa = PBXBuildFile; productRef = 4BE2D0722FC234EE00461214 /* LibP2PTesting */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -57,7 +56,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				4BE2D0732FC234EE00461214 /* LibP2PTesting in Frameworks */,
 				4BE2D0712FC234EE00461214 /* LibP2P in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -120,7 +118,6 @@
 			name = "libp2p-app-template";
 			packageProductDependencies = (
 				4BE2D0702FC234EE00461214 /* LibP2P */,
-				4BE2D0722FC234EE00461214 /* LibP2PTesting */,
 			);
 			productName = "libp2p-app-template";
 			productReference = 4BE2D03F2FC2347A00461214 /* libp2p-app-template.app */;
@@ -476,7 +473,6 @@
 		4BE2D06A2FC2347B00461214 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = M684FYCYG6;
@@ -499,7 +495,6 @@
 		4BE2D06B2FC2347B00461214 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = M684FYCYG6;
@@ -615,10 +610,6 @@
 		4BE2D0702FC234EE00461214 /* LibP2P */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = LibP2P;
-		};
-		4BE2D0722FC234EE00461214 /* LibP2PTesting */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = LibP2PTesting;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
