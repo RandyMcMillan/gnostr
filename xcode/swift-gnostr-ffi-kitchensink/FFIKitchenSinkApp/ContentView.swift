@@ -510,6 +510,7 @@ final class KitchenSinkViewModel: ObservableObject {
     let crawlerServerController: CrawlerServerController
     let relayServerController: RelayServerController
     let supportsLocalCrawlerControl: Bool
+    let supportsLocalRelayControl: Bool
     private var crawlerDiscoveryLoopTask: Task<Void, Never>?
 
     init() {
@@ -540,6 +541,13 @@ final class KitchenSinkViewModel: ObservableObject {
         self.relayServerController = RelayServerController()
         self.crawlerBucketsRootURL = Self.crawlerBucketsRootDirectoryURL()
         self.supportsLocalCrawlerControl = self.crawlerServerController.isAvailable
+        self.supportsLocalRelayControl = {
+            #if os(macOS) || targetEnvironment(macCatalyst)
+            return true
+            #else
+            return false
+            #endif
+        }()
         RustCrawlerBridge.shared.onLogLine = { [weak self] line in
             Task { @MainActor in
                 self?.log("Crawler Rust: \(line)")
@@ -547,6 +555,7 @@ final class KitchenSinkViewModel: ObservableObject {
         }
         RustCrawlerBridge.shared.registerLogCallback()
         self.log("Crawler control available: \(self.supportsLocalCrawlerControl)")
+        self.log("Relay control available: \(self.supportsLocalRelayControl)")
         self.loadRelayDefaults()
         self.crawlerRelay = Self.defaultCrawlerRelayTargets().joined(separator: ",")
         self.refreshCrawlerStatus()
@@ -965,31 +974,30 @@ final class KitchenSinkViewModel: ObservableObject {
                     }
                 }
             }
-
-            Task {
-                do {
-                    let relayState = try await relayServerController.start()
-                    await MainActor.run {
-                        relayStatus = relayState
-                        relayStatusMessage = relayState.message
-                        log("Relay bootstrapped")
-                    }
-                    await MainActor.run {
-                        refreshRelayDiscovery()
-                    }
-                } catch {
-                    await MainActor.run {
-                        relayStatusMessage = "Relay bootstrap failed: \(error.localizedDescription)"
-                        log(relayStatusMessage)
-                    }
-                }
-            }
-            return
         }
 
         relayStatusMessage = "Crawler FFI unavailable; real crawler control disabled"
         crawlerStatusMessage = relayStatusMessage
         log(relayStatusMessage)
+
+        Task {
+            do {
+                let relayState = try await startRelayController()
+                await MainActor.run {
+                    relayStatus = relayState
+                    relayStatusMessage = relayState.message
+                    log("Relay bootstrapped")
+                }
+                await MainActor.run {
+                    refreshRelayDiscovery()
+                }
+            } catch {
+                await MainActor.run {
+                    relayStatusMessage = "Relay bootstrap failed: \(error.localizedDescription)"
+                    log(relayStatusMessage)
+                }
+            }
+        }
     }
 
     func refreshCrawlerStatus() {
@@ -1328,7 +1336,7 @@ final class KitchenSinkViewModel: ObservableObject {
         appTrace("KitchenSinkViewModel.refreshRelayStatus")
         Task {
             do {
-                let state = try await relayServiceClient.status()
+                let state = try await relayControllerStatus()
                 await MainActor.run {
                     relayStatus = state
                     relayStatusMessage = state.message
@@ -1345,10 +1353,10 @@ final class KitchenSinkViewModel: ObservableObject {
 
     func startRelay() {
         appTrace("KitchenSinkViewModel.startRelay")
-        if supportsLocalCrawlerControl {
+        if supportsLocalRelayControl {
             Task {
                 do {
-                    let state = try await relayServerController.start()
+                    let state = try await startRelayController()
                     await MainActor.run {
                         relayStatus = state
                         relayStatusMessage = state.message
@@ -1383,10 +1391,10 @@ final class KitchenSinkViewModel: ObservableObject {
 
     func stopRelay() {
         appTrace("KitchenSinkViewModel.stopRelay")
-        if supportsLocalCrawlerControl {
+        if supportsLocalRelayControl {
             Task {
                 do {
-                    let state = try await relayServerController.stop()
+                    let state = try await stopRelayController()
                     await MainActor.run {
                         relayStatus = state
                         relayStatusMessage = state.message
@@ -1423,7 +1431,7 @@ final class KitchenSinkViewModel: ObservableObject {
         appTrace("KitchenSinkViewModel.refreshRelayDiscovery")
         Task {
             do {
-                let discovery = try await relayServiceClient.discovery()
+                let discovery = try await relayControllerDiscovery()
                 await MainActor.run {
                     relayDiscovery = discovery
                     relayStatusMessage = "Loaded \(discovery.count) discovery entries"
@@ -1450,6 +1458,34 @@ final class KitchenSinkViewModel: ObservableObject {
         appTrace("KitchenSinkViewModel.trimmedOrNil")
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
+    }
+
+    private func startRelayController() async throws -> RelayProcessState {
+        if supportsLocalRelayControl {
+            return try await relayServerController.start()
+        }
+        return try await relayServiceClient.start()
+    }
+
+    private func stopRelayController() async throws -> RelayProcessState {
+        if supportsLocalRelayControl {
+            return try relayServerController.stop()
+        }
+        return try await relayServiceClient.stop()
+    }
+
+    private func relayControllerStatus() async throws -> RelayProcessState {
+        if supportsLocalRelayControl {
+            return relayServerController.status()
+        }
+        return try await relayServiceClient.status()
+    }
+
+    private func relayControllerDiscovery() async throws -> [RelayDiscoveryEntry] {
+        if supportsLocalRelayControl {
+            return relayServerController.discoveryEntries()
+        }
+        return try await relayServiceClient.discovery()
     }
 
     private static let timestampFormatter: DateFormatter = {
