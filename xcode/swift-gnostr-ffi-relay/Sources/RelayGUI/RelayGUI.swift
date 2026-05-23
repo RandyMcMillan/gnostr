@@ -1,6 +1,11 @@
 import Foundation
 import SwiftUI
 import FFRelay
+#if canImport(UIKit)
+import UIKit
+#elseif canImport(AppKit)
+import AppKit
+#endif
 
 @MainActor
 public final class RelayDashboardViewModel: ObservableObject {
@@ -90,7 +95,7 @@ public struct RelayDashboardView: View {
 
     private var header: some View {
         HStack(alignment: .center, spacing: 16) {
-            Image("Icon", bundle: Bundle.module)
+            relayHeaderIcon()
                 .resizable()
                 .aspectRatio(contentMode: .fit)
                 .frame(width: 56, height: 56)
@@ -101,6 +106,22 @@ public struct RelayDashboardView: View {
                     .foregroundColor(.secondary)
             }
         }
+    }
+
+    private func relayHeaderIcon() -> Image {
+#if canImport(UIKit)
+        if let image = UIImage(named: "Icon", in: .module, compatibleWith: nil) {
+            return Image(uiImage: image)
+        }
+        return Image(systemName: "antenna.radiowaves.left.and.right")
+#elseif canImport(AppKit)
+        if let image = NSImage(named: NSImage.Name("Icon"), in: .module, compatibleWith: nil) {
+            return Image(nsImage: image)
+        }
+        return Image(systemName: "antenna.radiowaves.left.and.right")
+#else
+        return Image(systemName: "antenna.radiowaves.left.and.right")
+#endif
     }
 
     private var configurationContent: some View {
