@@ -265,7 +265,6 @@ public enum CrawlerQueryBuilder {
     }
 }
 
-@MainActor
 public final class CrawlerLogStore: ObservableObject {
     @Published public private(set) var lines: [String]
 
@@ -281,7 +280,7 @@ public final class CrawlerLogStore: ObservableObject {
 
     public func bind() {
         RustCrawlerBridge.shared.onLogLine = { [weak self] line in
-            Task { @MainActor [weak self] in
+            DispatchQueue.main.async { [weak self] in
                 self?.append(line)
             }
         }
