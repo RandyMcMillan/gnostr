@@ -234,11 +234,14 @@ async fn send_to_relay(
             match serde_json::from_str::<RelayMessage>(&text) {
                 Ok(RelayMessage::Event(_, _)) => {
                     vec_result.push(text.to_string());
-                    debug!(
-                        "send_to_relay: {} event received count={}",
+                    info!("================================================================");
+                    info!(
+                        "QUERY SUCCESS relay={} count={} event={}",
                         relay,
-                        vec_result.len()
+                        vec_result.len(),
+                        text
                     );
+                    info!("================================================================");
                     if vec_result.len() as i32 >= limit {
                         return Ok(vec_result);
                     }
