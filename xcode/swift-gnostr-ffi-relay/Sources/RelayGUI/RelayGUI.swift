@@ -239,10 +239,13 @@ public struct RelayDashboardView: View {
                     .font(.subheadline.weight(.semibold))
                 Spacer()
                 Button(action: { model.toggleConfigEditorVisibility() }) {
-                    Image(systemName: model.isConfigEditorVisible ? "gearshape.fill" : "gearshape")
+                    if #available(macOS 11.0, iOS 14.0, *) {
+                        Image(systemName: model.isConfigEditorVisible ? "gearshape.fill" : "gearshape")
+                    } else {
+                        Text("⚙")
+                    }
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(model.isConfigEditorVisible ? "Hide config editor" : "Show config editor")
             }
             if model.isConfigEditorVisible {
                 TextField("Logging", text: Binding(
