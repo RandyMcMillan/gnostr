@@ -762,8 +762,7 @@ final class KitchenSinkViewModel: ObservableObject {
             }
 
             for case let fileURL as URL in enumerator {
-                let name = fileURL.lastPathComponent
-                guard name == "relays.json" || name == "relays.yaml" || name == "relays.txt" else {
+                guard Self.isRelayBucketFile(fileURL.lastPathComponent) else {
                     continue
                 }
 
@@ -795,8 +794,8 @@ final class KitchenSinkViewModel: ObservableObject {
     nonisolated private static func relayTargets(fromBucketFile fileURL: URL, data: Data) -> [String] {
         appTrace("KitchenSinkViewModel.relayTargets(fromBucketFile) file=\(fileURL.path)")
         let text = String(data: data, encoding: .utf8) ?? ""
-        switch fileURL.pathExtension.lowercased() {
-        case "json":
+        switch Self.bucketFileFormat(for: fileURL) {
+        case .json:
             if let decoded = try? JSONDecoder().decode([String].self, from: data) {
                 appTrace("KitchenSinkViewModel.relayTargets json decoded=\(decoded.count) file=\(fileURL.path)")
                 decoded.forEach { appTrace("KitchenSinkViewModel.relayTargets json relay=\($0)") }
@@ -806,15 +805,42 @@ final class KitchenSinkViewModel: ObservableObject {
             }
             appTrace("KitchenSinkViewModel.relayTargets json fallback text file=\(fileURL.path)")
             return relayTargets(from: text)
-        case "yaml":
+        case .yaml:
             let normalized = text
                 .replacingOccurrences(of: "- ", with: " ")
                 .replacingOccurrences(of: "-\t", with: " ")
             appTrace("KitchenSinkViewModel.relayTargets yaml file=\(fileURL.path)")
             return relayTargets(from: normalized)
-        default:
+        case .txt:
             appTrace("KitchenSinkViewModel.relayTargets txt file=\(fileURL.path)")
             return relayTargets(from: text)
+        case .unknown:
+            appTrace("KitchenSinkViewModel.relayTargets unknown format file=\(fileURL.path)")
+            return relayTargets(from: text)
+        }
+    }
+
+    nonisolated private static func isRelayBucketFile(_ name: String) -> Bool {
+        bucketFileFormat(for: URL(fileURLWithPath: name)) != .unknown
+    }
+
+    private enum BucketFileFormat {
+        case json
+        case yaml
+        case txt
+        case unknown
+    }
+
+    nonisolated private static func bucketFileFormat(for url: URL) -> BucketFileFormat {
+        switch url.pathExtension.lowercased() {
+        case "json":
+            return .json
+        case "yaml", "yml":
+            return .yaml
+        case "txt":
+            return .txt
+        default:
+            return .unknown
         }
     }
 
