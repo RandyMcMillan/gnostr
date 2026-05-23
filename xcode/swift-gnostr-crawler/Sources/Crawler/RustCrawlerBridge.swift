@@ -18,6 +18,8 @@ private struct RuntimeRequest: Codable {
     let port: UInt16?
 }
 
+private struct CrawlRequest: Codable {}
+
 public final class RustCrawlerBridge: @unchecked Sendable {
     public static let shared = RustCrawlerBridge()
 
@@ -28,6 +30,9 @@ public final class RustCrawlerBridge: @unchecked Sendable {
     private let runtimeStartFn: RustStringFn?
     private let runtimeStopFn: RustStringFn?
     private let runtimeStatusFn: RustStringFn?
+    private let crawlStartFn: RustStringFn?
+    private let crawlStopFn: RustStringFn?
+    private let crawlStatusFn: RustStringFn?
     private let setLogCallbackFn: RustSetLogCallbackFn?
     private let freeFn: RustFreeFn?
     public var onLogLine: ((String) -> Void)?
@@ -42,6 +47,9 @@ public final class RustCrawlerBridge: @unchecked Sendable {
             self.runtimeStartFn = Self.loadSymbol("crawler_runtime_start_json", from: handle)
             self.runtimeStopFn = Self.loadSymbol("crawler_runtime_stop_json", from: handle)
             self.runtimeStatusFn = Self.loadSymbol("crawler_runtime_status_json", from: handle)
+            self.crawlStartFn = Self.loadSymbol("crawler_crawl_start_json", from: handle)
+            self.crawlStopFn = Self.loadSymbol("crawler_crawl_stop_json", from: handle)
+            self.crawlStatusFn = Self.loadSymbol("crawler_crawl_status_json", from: handle)
             self.setLogCallbackFn = Self.loadSymbol("crawler_set_log_callback", from: handle)
             self.freeFn = Self.loadSymbol("crawler_string_free", from: handle)
             let missing = [
@@ -51,11 +59,14 @@ public final class RustCrawlerBridge: @unchecked Sendable {
                 self.runtimeStartFn == nil ? "crawler_runtime_start_json" : nil,
                 self.runtimeStopFn == nil ? "crawler_runtime_stop_json" : nil,
                 self.runtimeStatusFn == nil ? "crawler_runtime_status_json" : nil,
+                self.crawlStartFn == nil ? "crawler_crawl_start_json" : nil,
+                self.crawlStopFn == nil ? "crawler_crawl_stop_json" : nil,
+                self.crawlStatusFn == nil ? "crawler_crawl_status_json" : nil,
                 self.setLogCallbackFn == nil ? "crawler_set_log_callback (optional)" : nil,
                 self.freeFn == nil ? "crawler_string_free" : nil,
             ].compactMap { $0 }
             NSLog("Crawler FFI: missing symbols=%@", missing.isEmpty ? "none" : missing.joined(separator: ", "))
-            self.setLogCallbackFn?(Self.rustLogCallback)
+            self.registerLogCallback()
         } else {
             NSLog("Crawler FFI: library not found")
             self.buildQueryFn = nil
@@ -64,6 +75,9 @@ public final class RustCrawlerBridge: @unchecked Sendable {
             self.runtimeStartFn = nil
             self.runtimeStopFn = nil
             self.runtimeStatusFn = nil
+            self.crawlStartFn = nil
+            self.crawlStopFn = nil
+            self.crawlStatusFn = nil
             self.setLogCallbackFn = nil
             self.freeFn = nil
         }
@@ -78,7 +92,19 @@ public final class RustCrawlerBridge: @unchecked Sendable {
             && self.runtimeStartFn != nil
             && self.runtimeStopFn != nil
             && self.runtimeStatusFn != nil
+            && self.crawlStartFn != nil
+            && self.crawlStopFn != nil
+            && self.crawlStatusFn != nil
             && self.freeFn != nil
+    }
+
+    public func registerLogCallback() {
+        guard let setLogCallbackFn else {
+            NSLog("Crawler FFI: registerLogCallback skipped (missing symbol)")
+            return
+        }
+        NSLog("Crawler FFI: registering Rust log callback")
+        setLogCallbackFn(Self.rustLogCallback)
     }
 
     public func buildGnostrQuery(_ parameters: CrawlerQueryParameters) throws -> String? {
@@ -123,6 +149,27 @@ public final class RustCrawlerBridge: @unchecked Sendable {
         NSLog("Crawler FFI: status requested")
         let state: RelayProcessState? = try self.callRoundTrip(self.runtimeStatusFn, request: RuntimeRequest(port: nil))
         NSLog("Crawler FFI: status result=%@", String(describing: state))
+        return state
+    }
+
+    public func startCrawlerCrawl() throws -> RelayProcessState? {
+        NSLog("Crawler FFI: crawl start requested")
+        let state: RelayProcessState? = try self.callRoundTrip(self.crawlStartFn, request: CrawlRequest())
+        NSLog("Crawler FFI: crawl start result=%@", String(describing: state))
+        return state
+    }
+
+    public func stopCrawlerCrawl() throws -> RelayProcessState? {
+        NSLog("Crawler FFI: crawl stop requested")
+        let state: RelayProcessState? = try self.callRoundTrip(self.crawlStopFn, request: CrawlRequest())
+        NSLog("Crawler FFI: crawl stop result=%@", String(describing: state))
+        return state
+    }
+
+    public func crawlerCrawlStatus() throws -> RelayProcessState? {
+        NSLog("Crawler FFI: crawl status requested")
+        let state: RelayProcessState? = try self.callRoundTrip(self.crawlStatusFn, request: CrawlRequest())
+        NSLog("Crawler FFI: crawl status result=%@", String(describing: state))
         return state
     }
 
