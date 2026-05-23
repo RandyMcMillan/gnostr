@@ -128,9 +128,6 @@ private enum LiveRelayTestError: Error {
 @Test func liveRelayWebsocketRoundTripAndCrawlerQuery() async throws {
     guard RustCrawlerBridge.shared.isAvailable else { return }
 
-    let relay = try await publishLiveGitNoteEvent()
-    let event = relay.event
-
     let port = try pickFreePort()
     let bridge = RustCrawlerBridge.shared
     guard bridge.isAvailable else { return }
@@ -143,6 +140,9 @@ private enum LiveRelayTestError: Error {
 
     let client = CrawlerClient(baseURL: URL(string: "http://127.0.0.1:\(port)")!)
     try await Task.sleep(nanoseconds: 1_000_000_000)
+    let crawlerRelays = try await crawlerRelayList(client: client, nip: 34)
+    let relay = try await publishLiveGitNoteEvent(relays: Array(crawlerRelays.prefix(10)))
+    let event = relay.event
 
     var crawlerResult = ""
     var matched = false
@@ -271,14 +271,10 @@ private struct LiveRelayPublishResult: Sendable {
     let event: Event
 }
 
-private func publishLiveGitNoteEvent() async throws -> LiveRelayPublishResult {
-    let relays = [
-        URL(string: "wss://nostr-kyomu-haskell.onrender.com/")!,
-        URL(string: "wss://nostr-relay.amethyst.name/")!,
-        URL(string: "wss://relay.bitcoindistrict.org/")!,
-        URL(string: "wss://nos.lol/")!,
-        URL(string: "wss://relay.damus.io/")!,
-    ]
+private func publishLiveGitNoteEvent(relays: [URL]) async throws -> LiveRelayPublishResult {
+    guard !relays.isEmpty else {
+        throw LiveRelayTestError.invalidResponse
+    }
 
     let uniqueContent = "crawler websocket live test \(UUID().uuidString)"
     let note = GitNote(
@@ -298,6 +294,28 @@ private func publishLiveGitNoteEvent() async throws -> LiveRelayPublishResult {
         throw LiveRelayTestError.timeout
     }
     return LiveRelayPublishResult(relayURLs: published.relayURLs, event: published.event)
+}
+
+private func crawlerRelayList(client: CrawlerClient, nip: Int) async throws -> [URL] {
+    for attempt in 0..<5 {
+        do {
+            let relays = try await client.relaysTXT(nip: nip)
+                .split(whereSeparator: { $0.isWhitespace })
+                .compactMap { URL(string: String($0)) }
+            if !relays.isEmpty {
+                return relays
+            }
+        } catch {
+            if attempt < 4 {
+                try await Task.sleep(nanoseconds: 1_000_000_000)
+            }
+            continue
+        }
+        if attempt < 4 {
+            try await Task.sleep(nanoseconds: 1_000_000_000)
+        }
+    }
+    throw LiveRelayTestError.invalidResponse
 }
 
 private func send(socket: URLSessionWebSocketTask, message: ClientMessage) async throws {
