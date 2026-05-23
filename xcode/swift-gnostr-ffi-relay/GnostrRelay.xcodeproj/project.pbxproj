@@ -7,16 +7,16 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		4B4A418C2FC25FF700E5E3C1 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 4B4A418B2FC25FF700E5E3C1 /* Assets.xcassets */; };
 		4BE8318D2FC14F5300E7EF76 /* Icon.png in Resources */ = {isa = PBXBuildFile; fileRef = 4BE8318C2FC14F5300E7EF76 /* Icon.png */; };
-		4BE831A02FC14F6300E7EF76 /* FFRelayApp/Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 4BE831A12FC14F6300E7EF76 /* FFRelayApp/Assets.xcassets */; };
 		FFRELAY000000000000000001 /* FFRelayApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFRELAY000000000000000011 /* FFRelayApp.swift */; };
 		FFRELAY000000000000000002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFRELAY000000000000000012 /* ContentView.swift */; };
 		FFRELAY000000000000000003 /* RelayGUI in Frameworks */ = {isa = PBXBuildFile; productRef = FFRELAY000000000000000060 /* RelayGUI */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		4B4A418B2FC25FF700E5E3C1 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Assets.xcassets; path = ../icons/Assets.xcassets; sourceTree = SOURCE_ROOT; };
 		4BE8318C2FC14F5300E7EF76 /* Icon.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = Icon.png; path = Sources/RelayGUI/Resources/Icon.png; sourceTree = "<group>"; };
-		4BE831A12FC14F6300E7EF76 /* FFRelayApp/Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = FFRelayApp/Assets.xcassets; sourceTree = "<group>"; };
 		FFRELAY000000000000000010 /* GnostrRelay.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GnostrRelay.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		FFRELAY000000000000000011 /* FFRelayApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FFRelayApp.swift; sourceTree = "<group>"; };
 		FFRELAY000000000000000012 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -37,7 +37,7 @@
 		FFRELAY000000000000000030 = {
 			isa = PBXGroup;
 			children = (
-				4BE831A12FC14F6300E7EF76 /* FFRelayApp/Assets.xcassets */,
+				4B4A418B2FC25FF700E5E3C1 /* Assets.xcassets */,
 				4BE8318C2FC14F5300E7EF76 /* Icon.png */,
 				FFRELAY000000000000000031 /* FFRelayApp */,
 				FFRELAY000000000000000032 /* Products */,
@@ -127,7 +127,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				4BE831A02FC14F6300E7EF76 /* FFRelayApp/Assets.xcassets in Resources */,
+				4B4A418C2FC25FF700E5E3C1 /* Assets.xcassets in Resources */,
 				4BE8318D2FC14F5300E7EF76 /* Icon.png in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
