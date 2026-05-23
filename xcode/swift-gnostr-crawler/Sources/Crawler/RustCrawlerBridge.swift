@@ -2,6 +2,7 @@ import Foundation
 #if canImport(Darwin)
 import Darwin
 #endif
+import GnostrTypes
 
 private struct RustEnvelope<T: Decodable>: Decodable {
     let ok: Bool
@@ -27,6 +28,10 @@ public final class RustCrawlerBridge: @unchecked Sendable {
     private let buildQueryFn: RustStringFn?
     private let websocketHttpURLFn: RustStringFn?
     private let roundtripRelayMetadataFn: RustStringFn?
+    private let generateGitNoteEventFn: RustStringFn?
+    private let generateTextNoteEventFn: RustStringFn?
+    private let publishTextNoteEventFn: RustStringFn?
+    private let publishGitNoteEventFn: RustStringFn?
     private let runtimeStartFn: RustStringFn?
     private let runtimeStopFn: RustStringFn?
     private let runtimeStatusFn: RustStringFn?
@@ -44,6 +49,10 @@ public final class RustCrawlerBridge: @unchecked Sendable {
             self.buildQueryFn = Self.loadSymbol("crawler_build_gnostr_query_json", from: handle)
             self.websocketHttpURLFn = Self.loadSymbol("crawler_websocket_http_url_json", from: handle)
             self.roundtripRelayMetadataFn = Self.loadSymbol("crawler_roundtrip_relay_metadata_json", from: handle)
+            self.generateGitNoteEventFn = Self.loadSymbol("crawler_generate_git_note_event_json", from: handle)
+            self.generateTextNoteEventFn = Self.loadSymbol("crawler_generate_text_note_event_json", from: handle)
+            self.publishTextNoteEventFn = Self.loadSymbol("crawler_publish_text_note_json", from: handle)
+            self.publishGitNoteEventFn = Self.loadSymbol("crawler_publish_git_note_json", from: handle)
             self.runtimeStartFn = Self.loadSymbol("crawler_runtime_start_json", from: handle)
             self.runtimeStopFn = Self.loadSymbol("crawler_runtime_stop_json", from: handle)
             self.runtimeStatusFn = Self.loadSymbol("crawler_runtime_status_json", from: handle)
@@ -56,6 +65,10 @@ public final class RustCrawlerBridge: @unchecked Sendable {
                 self.buildQueryFn == nil ? "crawler_build_gnostr_query_json" : nil,
                 self.websocketHttpURLFn == nil ? "crawler_websocket_http_url_json" : nil,
                 self.roundtripRelayMetadataFn == nil ? "crawler_roundtrip_relay_metadata_json" : nil,
+                self.generateGitNoteEventFn == nil ? "crawler_generate_git_note_event_json" : nil,
+                self.generateTextNoteEventFn == nil ? "crawler_generate_text_note_event_json" : nil,
+                self.publishTextNoteEventFn == nil ? "crawler_publish_text_note_json" : nil,
+                self.publishGitNoteEventFn == nil ? "crawler_publish_git_note_json" : nil,
                 self.runtimeStartFn == nil ? "crawler_runtime_start_json" : nil,
                 self.runtimeStopFn == nil ? "crawler_runtime_stop_json" : nil,
                 self.runtimeStatusFn == nil ? "crawler_runtime_status_json" : nil,
@@ -72,6 +85,10 @@ public final class RustCrawlerBridge: @unchecked Sendable {
             self.buildQueryFn = nil
             self.websocketHttpURLFn = nil
             self.roundtripRelayMetadataFn = nil
+            self.generateGitNoteEventFn = nil
+            self.generateTextNoteEventFn = nil
+            self.publishTextNoteEventFn = nil
+            self.publishGitNoteEventFn = nil
             self.runtimeStartFn = nil
             self.runtimeStopFn = nil
             self.runtimeStatusFn = nil
@@ -89,6 +106,10 @@ public final class RustCrawlerBridge: @unchecked Sendable {
             && self.buildQueryFn != nil
             && self.websocketHttpURLFn != nil
             && self.roundtripRelayMetadataFn != nil
+            && self.generateGitNoteEventFn != nil
+            && self.generateTextNoteEventFn != nil
+            && self.publishTextNoteEventFn != nil
+            && self.publishGitNoteEventFn != nil
             && self.runtimeStartFn != nil
             && self.runtimeStopFn != nil
             && self.runtimeStatusFn != nil
@@ -131,44 +152,88 @@ public final class RustCrawlerBridge: @unchecked Sendable {
         return normalized
     }
 
-    public func startCrawlerRuntime(port: UInt16 = 3030) throws -> RelayProcessState? {
+    public func generateGitNoteEvent(note: GitNote, privateKeyHex: String, powTargetBits: UInt8 = 0) throws -> Event? {
+        NSLog("Crawler FFI: generateGitNoteEvent")
+        let request = GitNoteEventRequest(note: note, privateKeyHex: privateKeyHex, powTargetBits: powTargetBits)
+        return try self.callRoundTrip(self.generateGitNoteEventFn, request: request)
+    }
+
+    public func generateTextNoteEvent(content: String, privateKeyHex: String, powTargetBits: UInt8 = 0) throws -> Event? {
+        NSLog("Crawler FFI: generateTextNoteEvent")
+        let request = TextNoteEventRequest(content: content, privateKeyHex: privateKeyHex, powTargetBits: powTargetBits)
+        return try self.callRoundTrip(self.generateTextNoteEventFn, request: request)
+    }
+
+    func publishTextNoteEvent(
+        content: String,
+        privateKeyHex: String,
+        relays: [URL],
+        powTargetBits: UInt8 = 0
+    ) throws -> PublishedTextNoteResult? {
+        NSLog("Crawler FFI: publishTextNoteEvent")
+        let request = PublishTextNoteRequest(
+            relays: relays.map(\.absoluteString),
+            content: content,
+            privateKeyHex: privateKeyHex,
+            powTargetBits: powTargetBits
+        )
+        return try self.callRoundTrip(self.publishTextNoteEventFn, request: request)
+    }
+
+    func publishGitNoteEvent(
+        note: GitNote,
+        privateKeyHex: String,
+        relays: [URL],
+        powTargetBits: UInt8 = 0
+    ) throws -> PublishedGitNoteResult? {
+        NSLog("Crawler FFI: publishGitNoteEvent")
+        let publishRequest = PublishGitNoteRequest(
+            relays: relays.map(\.absoluteString),
+            note: note,
+            privateKeyHex: privateKeyHex,
+            powTargetBits: powTargetBits
+        )
+        return try self.callRoundTrip(self.publishGitNoteEventFn, request: publishRequest)
+    }
+
+    public func startCrawlerRuntime(port: UInt16 = 3030) -> RelayProcessState? {
         NSLog("Crawler FFI: start requested on port %d", port)
-        let state: RelayProcessState? = try self.callRoundTrip(self.runtimeStartFn, request: RuntimeRequest(port: port))
+        let state: RelayProcessState? = self.callRoundTrip(self.runtimeStartFn, request: RuntimeRequest(port: port))
         NSLog("Crawler FFI: start result=%@", String(describing: state))
         return state
     }
 
-    public func stopCrawlerRuntime() throws -> RelayProcessState? {
+    public func stopCrawlerRuntime() -> RelayProcessState? {
         NSLog("Crawler FFI: stop requested")
-        let state: RelayProcessState? = try self.callRoundTrip(self.runtimeStopFn, request: RuntimeRequest(port: nil))
+        let state: RelayProcessState? = self.callRoundTrip(self.runtimeStopFn, request: RuntimeRequest(port: nil))
         NSLog("Crawler FFI: stop result=%@", String(describing: state))
         return state
     }
 
-    public func crawlerRuntimeStatus() throws -> RelayProcessState? {
+    public func crawlerRuntimeStatus() -> RelayProcessState? {
         NSLog("Crawler FFI: status requested")
-        let state: RelayProcessState? = try self.callRoundTrip(self.runtimeStatusFn, request: RuntimeRequest(port: nil))
+        let state: RelayProcessState? = self.callRoundTrip(self.runtimeStatusFn, request: RuntimeRequest(port: nil))
         NSLog("Crawler FFI: status result=%@", String(describing: state))
         return state
     }
 
-    public func startCrawlerCrawl() throws -> RelayProcessState? {
+    public func startCrawlerCrawl() -> RelayProcessState? {
         NSLog("Crawler FFI: crawl start requested")
-        let state: RelayProcessState? = try self.callRoundTrip(self.crawlStartFn, request: CrawlRequest())
+        let state: RelayProcessState? = self.callRoundTrip(self.crawlStartFn, request: CrawlRequest())
         NSLog("Crawler FFI: crawl start result=%@", String(describing: state))
         return state
     }
 
-    public func stopCrawlerCrawl() throws -> RelayProcessState? {
+    public func stopCrawlerCrawl() -> RelayProcessState? {
         NSLog("Crawler FFI: crawl stop requested")
-        let state: RelayProcessState? = try self.callRoundTrip(self.crawlStopFn, request: CrawlRequest())
+        let state: RelayProcessState? = self.callRoundTrip(self.crawlStopFn, request: CrawlRequest())
         NSLog("Crawler FFI: crawl stop result=%@", String(describing: state))
         return state
     }
 
-    public func crawlerCrawlStatus() throws -> RelayProcessState? {
+    public func crawlerCrawlStatus() -> RelayProcessState? {
         NSLog("Crawler FFI: crawl status requested")
-        let state: RelayProcessState? = try self.callRoundTrip(self.crawlStatusFn, request: CrawlRequest())
+        let state: RelayProcessState? = self.callRoundTrip(self.crawlStatusFn, request: CrawlRequest())
         NSLog("Crawler FFI: crawl status result=%@", String(describing: state))
         return state
     }
@@ -236,7 +301,11 @@ public final class RustCrawlerBridge: @unchecked Sendable {
             NSLog("Crawler FFI: explicit library=%@", explicit)
             candidates.append(explicit)
         } else {
+            let cached = FileManager.default.homeDirectoryForCurrentUser
+                .appendingPathComponent(".cache/cargo/debug/deps/libcrawler_ffi.dylib")
+                .path
             candidates.append(contentsOf: [
+                cached,
                 bundle.privateFrameworksURL?.appendingPathComponent("libcrawler_ffi.dylib").path,
                 bundle.bundleURL.appendingPathComponent("Frameworks/libcrawler_ffi.dylib").path,
                 bundle.executableURL?.deletingLastPathComponent().appendingPathComponent("Frameworks/libcrawler_ffi.dylib").path,
@@ -276,3 +345,67 @@ public final class RustCrawlerBridge: @unchecked Sendable {
         RustCrawlerBridge.shared.onLogLine?(line)
     }
 }
+
+private struct GitNoteEventRequest: Codable {
+    let note: GitNote
+    let privateKeyHex: String
+    let powTargetBits: UInt8
+
+    private enum CodingKeys: String, CodingKey {
+        case note
+        case privateKeyHex = "private_key_hex"
+        case powTargetBits = "pow_target_bits"
+    }
+}
+
+private struct TextNoteEventRequest: Codable {
+    let content: String
+    let privateKeyHex: String
+    let powTargetBits: UInt8
+
+    private enum CodingKeys: String, CodingKey {
+        case content
+        case privateKeyHex = "private_key_hex"
+        case powTargetBits = "pow_target_bits"
+    }
+}
+
+private struct PublishTextNoteRequest: Codable {
+    let relays: [String]
+    let content: String
+    let privateKeyHex: String
+    let powTargetBits: UInt8
+
+    private enum CodingKeys: String, CodingKey {
+        case relays
+        case content
+        case privateKeyHex = "private_key_hex"
+        case powTargetBits = "pow_target_bits"
+    }
+}
+
+struct PublishedTextNoteResult: Codable, Sendable {
+    let relayURLs: [URL]
+    let event: Event
+
+    private enum CodingKeys: String, CodingKey {
+        case relayURLs = "relay_urls"
+        case event
+    }
+}
+
+private struct PublishGitNoteRequest: Codable {
+    let relays: [String]
+    let note: GitNote
+    let privateKeyHex: String
+    let powTargetBits: UInt8
+
+    private enum CodingKeys: String, CodingKey {
+        case relays
+        case note
+        case privateKeyHex = "private_key_hex"
+        case powTargetBits = "pow_target_bits"
+    }
+}
+
+typealias PublishedGitNoteResult = PublishedTextNoteResult

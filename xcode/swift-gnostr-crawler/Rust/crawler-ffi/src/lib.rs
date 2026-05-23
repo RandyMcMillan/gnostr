@@ -8,13 +8,20 @@ use std::{
 };
 
 use gnostr_crawler::{
-    dispatch_cli_command, init_tracing, Cli,
+    init_tracing,
+    processor::{APP_SECRET_KEY, BOOTSTRAP_RELAYS, Processor},
     query::build_gnostr_query,
     relay_fetch::websocket_http_url,
     relay_metadata::Relay,
+    relay_manager::RelayManager,
     run_api_server_with_shutdown_and_ready,
 };
-use clap::Parser;
+use gnostr_types::nostr::{
+    client::{Client, Options},
+    nip34::{generate_git_note_event, generate_git_note_event_with_pow, GitNote},
+    Event as GnostrEvent, EventBuilder, Keys as GnostrKeys, PrivateKey,
+};
+use nostr_sdk::prelude::*;
 use serde::{Deserialize, Serialize};
 use tokio::{runtime::Builder, sync::oneshot};
 
@@ -52,12 +59,63 @@ struct QueryRequest {
 }
 
 #[derive(Debug, Deserialize)]
-struct RuntimeRequest {
-    port: Option<u16>,
+struct GitNoteEventRequest {
+    note: GitNote,
+    private_key_hex: String,
+    pow_target_bits: Option<u8>,
 }
 
 #[derive(Debug, Deserialize)]
-struct CrawlRequest {}
+struct TextNoteEventRequest {
+    content: String,
+    private_key_hex: String,
+    pow_target_bits: Option<u8>,
+}
+
+#[derive(Debug, Deserialize)]
+struct PublishTextNoteRequest {
+    relays: Vec<String>,
+    content: String,
+    private_key_hex: String,
+    pow_target_bits: Option<u8>,
+}
+
+#[derive(Debug, Serialize)]
+struct PublishedTextNoteResponse {
+    relay_urls: Vec<String>,
+    event: GnostrEvent,
+}
+
+#[derive(Debug, Deserialize)]
+struct PublishGitNoteRequest {
+    relays: Vec<String>,
+    note: GitNote,
+    private_key_hex: String,
+    pow_target_bits: Option<u8>,
+}
+
+#[derive(Debug, Serialize)]
+struct PublishedGitNoteResponse {
+    relay_urls: Vec<String>,
+    event: GnostrEvent,
+}
+
+async fn run_crawl_worker() -> Result<(), String> {
+    let app_secret_key = SecretKey::from_bech32(APP_SECRET_KEY).map_err(|error| error.to_string())?;
+    let app_keys = Keys::new(app_secret_key);
+    let processor = Processor::new();
+    let mut relay_manager = RelayManager::new(app_keys, processor).await;
+    let bootstrap_relays: Vec<&str> = BOOTSTRAP_RELAYS.iter().map(|s| s.as_str()).collect();
+    relay_manager
+        .run(bootstrap_relays)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[derive(Debug, Deserialize)]
+struct RuntimeRequest {
+    port: Option<u16>,
+}
 
 #[derive(Debug, Serialize)]
 struct RuntimeState {
@@ -87,6 +145,102 @@ fn runtime_state(running: bool, message: impl Into<String>) -> RuntimeState {
         pid: None,
         message: message.into(),
         disk_usage_bytes: None,
+    }
+}
+
+fn git_note_event_json(request: &GitNoteEventRequest) -> Result<String, String> {
+    let private_key = PrivateKey::try_from_hex_string(&request.private_key_hex)
+        .map_err(|error| error.to_string())?;
+    let event = match request.pow_target_bits.unwrap_or(0) {
+        0 => generate_git_note_event(&request.note, &private_key),
+        pow => generate_git_note_event_with_pow(&request.note, &private_key, pow),
+    }
+    .map_err(|error| error.to_string())?;
+    serde_json::to_string(&event).map_err(|error| error.to_string())
+}
+
+fn text_note_event_json(request: &TextNoteEventRequest) -> Result<String, String> {
+    let private_key = PrivateKey::try_from_hex_string(&request.private_key_hex)
+        .map_err(|error| error.to_string())?;
+    let builder = EventBuilder::text_note(request.content.clone());
+    let event = match request.pow_target_bits.unwrap_or(0) {
+        0 => builder.to_event(&private_key),
+        pow => builder.to_pow_event(&private_key, pow),
+    }
+    .map_err(|error| error.to_string())?;
+    serde_json::to_string(&event).map_err(|error| error.to_string())
+}
+
+async fn publish_text_note(request: PublishTextNoteRequest) -> Result<PublishedTextNoteResponse, String> {
+    let private_key = PrivateKey::try_from_hex_string(&request.private_key_hex)
+        .map_err(|error| error.to_string())?;
+    let keys = GnostrKeys::new(private_key.clone());
+    let builder = EventBuilder::text_note(request.content);
+    let event = match request.pow_target_bits.unwrap_or(0) {
+        0 => builder.to_event(&private_key),
+        pow => builder.to_pow_event(&private_key, pow),
+    }
+    .map_err(|error| error.to_string())?;
+
+    let mut accepted_relays = Vec::new();
+    for relay_url in request.relays {
+        eprintln!("crawler publish: trying relay {relay_url}");
+        let mut client = Client::new(&keys, Options::new());
+        client.add_relays(vec![relay_url.clone()]).await.map_err(|error| error.to_string())?;
+        match client.send_event(event.clone()).await {
+            Ok(_) => {
+                eprintln!("crawler publish: relay accepted {relay_url}");
+                accepted_relays.push(relay_url);
+            }
+            Err(error) => {
+                eprintln!("crawler publish: relay failed {relay_url}: {error}");
+            }
+        }
+    }
+
+    if accepted_relays.is_empty() {
+        Err("failed to publish text note to any relay".to_string())
+    } else {
+        Ok(PublishedTextNoteResponse {
+            relay_urls: accepted_relays,
+            event,
+        })
+    }
+}
+
+async fn publish_git_note(request: PublishGitNoteRequest) -> Result<PublishedGitNoteResponse, String> {
+    let private_key = PrivateKey::try_from_hex_string(&request.private_key_hex)
+        .map_err(|error| error.to_string())?;
+    let keys = GnostrKeys::new(private_key.clone());
+    let event = match request.pow_target_bits.unwrap_or(0) {
+        0 => generate_git_note_event(&request.note, &private_key),
+        pow => generate_git_note_event_with_pow(&request.note, &private_key, pow),
+    }
+    .map_err(|error| error.to_string())?;
+
+    let mut accepted_relays = Vec::new();
+    for relay_url in request.relays {
+        eprintln!("crawler publish: trying relay {relay_url}");
+        let mut client = Client::new(&keys, Options::new());
+        client.add_relays(vec![relay_url.clone()]).await.map_err(|error| error.to_string())?;
+        match client.send_event(event.clone()).await {
+            Ok(_) => {
+                eprintln!("crawler publish: relay accepted {relay_url}");
+                accepted_relays.push(relay_url);
+            }
+            Err(error) => {
+                eprintln!("crawler publish: relay failed {relay_url}: {error}");
+            }
+        }
+    }
+
+    if accepted_relays.is_empty() {
+        Err("failed to publish git note to any relay".to_string())
+    } else {
+        Ok(PublishedGitNoteResponse {
+            relay_urls: accepted_relays,
+            event,
+        })
     }
 }
 
@@ -211,6 +365,104 @@ pub unsafe extern "C" fn crawler_runtime_start_json(request_json: *const c_char)
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn crawler_generate_git_note_event_json(
+    request_json: *const c_char,
+) -> *mut c_char {
+    let request_json = match read_c_string(request_json) {
+        Ok(value) => value,
+        Err(error) => return encode(&Envelope::<String>::err(error)),
+    };
+
+    let request: GitNoteEventRequest = match serde_json::from_str(request_json) {
+        Ok(request) => request,
+        Err(error) => return encode(&Envelope::<String>::err(error.to_string())),
+    };
+
+    match git_note_event_json(&request) {
+        Ok(event_json) => encode(&Envelope::ok(event_json)),
+        Err(error) => encode(&Envelope::<String>::err(error)),
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn crawler_generate_text_note_event_json(
+    request_json: *const c_char,
+) -> *mut c_char {
+    let request_json = match read_c_string(request_json) {
+        Ok(value) => value,
+        Err(error) => return encode(&Envelope::<String>::err(error)),
+    };
+
+    let request: TextNoteEventRequest = match serde_json::from_str(request_json) {
+        Ok(request) => request,
+        Err(error) => return encode(&Envelope::<String>::err(error.to_string())),
+    };
+
+    match text_note_event_json(&request) {
+        Ok(event_json) => encode(&Envelope::ok(event_json)),
+        Err(error) => encode(&Envelope::<String>::err(error)),
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn crawler_publish_text_note_json(
+    request_json: *const c_char,
+) -> *mut c_char {
+    let request_json = match read_c_string(request_json) {
+        Ok(value) => value,
+        Err(error) => return encode(&Envelope::<String>::err(error)),
+    };
+
+    let request: PublishTextNoteRequest = match serde_json::from_str(request_json) {
+        Ok(request) => request,
+        Err(error) => return encode(&Envelope::<String>::err(error.to_string())),
+    };
+
+    let runtime = match Builder::new_current_thread().enable_all().build() {
+        Ok(runtime) => runtime,
+        Err(error) => return encode(&Envelope::<String>::err(error.to_string())),
+    };
+
+    match runtime.block_on(publish_text_note(request)) {
+        Ok(result) => encode(&Envelope::ok(
+            serde_json::to_string(&result).unwrap_or_else(|error| {
+                format!(r#"{{"ok":false,"error":"failed to serialize response: {error}"}}"#)
+            }),
+        )),
+        Err(error) => encode(&Envelope::<String>::err(error)),
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn crawler_publish_git_note_json(
+    request_json: *const c_char,
+) -> *mut c_char {
+    let request_json = match read_c_string(request_json) {
+        Ok(value) => value,
+        Err(error) => return encode(&Envelope::<String>::err(error)),
+    };
+
+    let request: PublishGitNoteRequest = match serde_json::from_str(request_json) {
+        Ok(request) => request,
+        Err(error) => return encode(&Envelope::<String>::err(error.to_string())),
+    };
+
+    let runtime = match Builder::new_current_thread().enable_all().build() {
+        Ok(runtime) => runtime,
+        Err(error) => return encode(&Envelope::<String>::err(error.to_string())),
+    };
+
+    match runtime.block_on(publish_git_note(request)) {
+        Ok(result) => encode(&Envelope::ok(
+            serde_json::to_string(&result).unwrap_or_else(|error| {
+                format!(r#"{{"ok":false,"error":"failed to serialize response: {error}"}}"#)
+            }),
+        )),
+        Err(error) => encode(&Envelope::<String>::err(error)),
+    }
+}
+
+#[no_mangle]
 pub unsafe extern "C" fn crawler_runtime_stop_json(_request_json: *const c_char) -> *mut c_char {
     let slot = runtime_slot();
     let mut guard = slot.lock().unwrap();
@@ -246,17 +498,7 @@ pub unsafe extern "C" fn crawler_runtime_status_json(_request_json: *const c_cha
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn crawler_crawl_start_json(request_json: *const c_char) -> *mut c_char {
-    let request_json = match read_c_string(request_json) {
-        Ok(value) => value,
-        Err(error) => return encode(&Envelope::<String>::err(error)),
-    };
-
-    let _request: CrawlRequest = match serde_json::from_str(request_json) {
-        Ok(request) => request,
-        Err(error) => return encode(&Envelope::<String>::err(error.to_string())),
-    };
-
+pub unsafe extern "C" fn crawler_crawl_start_json(_request_json: *const c_char) -> *mut c_char {
     let slot = crawl_runtime_slot();
     let mut guard = slot.lock().unwrap();
     if guard.is_some() {
@@ -287,19 +529,10 @@ pub unsafe extern "C" fn crawler_crawl_start_json(request_json: *const c_char) -
         };
 
         let _ = runtime.block_on(async move {
-            let cli = match Cli::try_parse_from(["gnostr", "crawl"]) {
-                Ok(cli) => cli,
-                Err(error) => {
-                    let _ = ready_tx.send(Err(error.to_string()));
-                    return;
-                }
-            };
-            let client = reqwest::Client::new();
+            let crawl_future = run_crawl_worker();
             let _ = ready_tx.send(Ok(()));
             let result = tokio::select! {
-                result = dispatch_cli_command(cli, &client) => {
-                    result.map_err(|error| error.to_string())
-                }
+                result = crawl_future => result,
                 _ = stop_rx => Ok(()),
             };
             match result {

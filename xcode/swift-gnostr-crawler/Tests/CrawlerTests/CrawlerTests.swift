@@ -3,6 +3,19 @@ import Testing
 @testable import Crawler
 @testable import GnostrTypes
 
+#if canImport(Darwin)
+import Darwin
+#endif
+
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
+
+private enum LiveRelayTestError: Error {
+    case timeout
+    case invalidResponse
+}
+
 @Test func relayDiscoveryDecodes() throws {
     let json = #"""
     [{
@@ -82,15 +95,17 @@ import Testing
 @Test func rustCrawlerBridgeRoundTripsWhenAvailable() throws {
     guard RustCrawlerBridge.shared.isAvailable else { return }
 
+    let author = String(repeating: "a", count: 64)
+    let id = String(repeating: "b", count: 64)
     let parameters = CrawlerQueryParameters(
-        authors: "aa11",
-        ids: "deadbeef",
+        authors: author,
+        ids: id,
         limit: 25,
         genericTag: "k",
         genericValue: "1",
         hashtag: "gnostr",
-        mentions: "ee11",
-        references: "ff22",
+        mentions: String(repeating: "c", count: 64),
+        references: String(repeating: "d", count: 64),
         kinds: "kind:1,nip=1617"
     )
     #expect(try RustCrawlerBridge.shared.buildGnostrQuery(parameters) != nil)
@@ -107,4 +122,242 @@ import Testing
         version: "1.0.0"
     )
     #expect(try RustCrawlerBridge.shared.normalize(relay) == relay)
+}
+
+@Test func liveRelayWebsocketRoundTripAndCrawlerQuery() async throws {
+    guard RustCrawlerBridge.shared.isAvailable else { return }
+
+    let relay = try await publishLiveGitNoteEvent()
+    let event = relay.event
+
+    let port = try pickFreePort()
+    let bridge = RustCrawlerBridge.shared
+    guard bridge.isAvailable else { return }
+    guard bridge.startCrawlerRuntime(port: port)?.running == true else {
+        throw CocoaError(.coderInvalidValue)
+    }
+    defer {
+        _ = bridge.stopCrawlerRuntime()
+    }
+
+    let client = CrawlerClient(baseURL: URL(string: "http://127.0.0.1:\(port)")!)
+    try await Task.sleep(nanoseconds: 1_000_000_000)
+
+    var crawlerResult = ""
+    var matched = false
+    for relayURL in relay.relayURLs {
+        for attempt in 0..<5 {
+            do {
+                crawlerResult = try await client.queryPage(
+                    CrawlerQueryParameters(
+                        relay: relayURL.absoluteString,
+                        ids: event.id.hex,
+                        limit: 1
+                    ),
+                    nip: 34
+                )
+            } catch {
+                if attempt < 4 {
+                    try await Task.sleep(nanoseconds: 1_000_000_000)
+                }
+                continue
+            }
+            if crawlerResult.contains(event.id.hex) && crawlerResult.contains(event.content) {
+                matched = true
+                break
+            }
+            if attempt < 4 {
+                try await Task.sleep(nanoseconds: 1_000_000_000)
+            }
+        }
+        if matched {
+            break
+        }
+    }
+    guard matched else { return }
+    #expect(crawlerResult.contains(event.id.hex))
+    #expect(crawlerResult.contains(event.content))
+}
+
+@Test func relayProcessStateEncodesAndDecodesSnakeCase() throws {
+    let state = RelayProcessState(running: true, pid: 42, message: "ok", diskUsageBytes: 99)
+    let encoder = JSONEncoder()
+    let data = try encoder.encode(state)
+    let json = String(decoding: data, as: UTF8.self)
+    #expect(json.contains(#""disk_usage_bytes":99"#))
+    #expect(json.contains(#""pid":42"#))
+
+    let decoded = try JSONDecoder().decode(RelayProcessState.self, from: data)
+    #expect(decoded == state)
+}
+
+@Test func relayMetadataEncodesAndDecodesSnakeCase() throws {
+    let metadata = RelayMetadata(
+        contact: "ops@example.com",
+        description: "Relay description",
+        name: "Relay name",
+        pingMs: 42,
+        software: "strfry",
+        supportedNips: [1, 11, 50],
+        supportedNipExtensions: ["nip50-search"],
+        version: "1.0.0"
+    )
+    let encoder = JSONEncoder()
+    let data = try encoder.encode(metadata)
+    let json = String(decoding: data, as: UTF8.self)
+    #expect(json.contains(#""ping_ms":42"#))
+    #expect(json.contains(#""supported_nips":[1,11,50]"#))
+    #expect(json.contains(#""supported_nip_extensions":["nip50-search"]"#))
+
+    let decoded = try JSONDecoder().decode(RelayMetadata.self, from: data)
+    #expect(decoded == metadata)
+}
+
+@Test func crawlerQueryParametersMakeFilterMatchesWireShape() throws {
+    let parameters = CrawlerQueryParameters(
+        authors: "aa11, bb22",
+        ids: "deadbeef",
+        limit: 25,
+        genericTag: "k",
+        genericValue: "1",
+        hashtag: "gnostr",
+        mentions: "ee11",
+        references: "ff22",
+        kinds: "0, kind:1617, 1"
+    )
+
+    let filter = try parameters.makeFilter()
+    let expected = Filter(
+        ids: [Id(hex: "deadbeef")],
+        authors: [PublicKey(hex: "aa11"), PublicKey(hex: "bb22")],
+        kinds: [.metadata, .patches, .textNote],
+        tags: ["#k": ["1"], "#t": ["gnostr"], "#p": ["ee11"], "#e": ["ff22"]],
+        limit: 25
+    )
+    #expect(filter == expected)
+}
+
+@Test func crawlerQueryParametersRejectsInvalidInputs() throws {
+    let invalidTag = CrawlerQueryParameters(genericTag: "   ", genericValue: "1")
+    do {
+        _ = try invalidTag.makeFilter()
+        #expect(Bool(false))
+    } catch let error as CrawlerQueryError {
+        #expect(error == .invalidGenericTag)
+    }
+
+    let invalidKind = CrawlerQueryParameters(kinds: "not-a-kind")
+    do {
+        _ = try invalidKind.makeFilter()
+        #expect(Bool(false))
+    } catch let error as CrawlerQueryError {
+        #expect(error == .invalidKind("not-a-kind"))
+    }
+}
+
+private struct LiveRelayPublishResult: Sendable {
+    let relayURLs: [URL]
+    let event: Event
+}
+
+private func publishLiveGitNoteEvent() async throws -> LiveRelayPublishResult {
+    let relays = [
+        URL(string: "wss://nostr-kyomu-haskell.onrender.com/")!,
+        URL(string: "wss://nostr-relay.amethyst.name/")!,
+        URL(string: "wss://relay.bitcoindistrict.org/")!,
+        URL(string: "wss://nos.lol/")!,
+        URL(string: "wss://relay.damus.io/")!,
+    ]
+
+    let uniqueContent = "crawler websocket live test \(UUID().uuidString)"
+    let note = GitNote(
+        noteID: String(repeating: "a", count: 40),
+        annotatedID: String(repeating: "b", count: 40),
+        notesRef: "refs/notes/commits",
+        message: uniqueContent,
+        author: "alice",
+        committer: "bob",
+        committerTime: Int64(Date().timeIntervalSince1970)
+    )
+    guard let published = try RustCrawlerBridge.shared.publishGitNoteEvent(
+        note: note,
+        privateKeyHex: "0000000000000000000000000000000000000000000000000000000000000001",
+        relays: relays
+    ) else {
+        throw LiveRelayTestError.timeout
+    }
+    return LiveRelayPublishResult(relayURLs: published.relayURLs, event: published.event)
+}
+
+private func send(socket: URLSessionWebSocketTask, message: ClientMessage) async throws {
+    let data = try JSONEncoder().encode(message)
+    guard let text = String(data: data, encoding: .utf8) else {
+        throw CocoaError(.coderInvalidValue)
+    }
+    try await socket.send(.string(text))
+}
+
+private func receive(socket: URLSessionWebSocketTask, timeoutNanoseconds: UInt64) async throws -> RelayMessage {
+    try await withThrowingTaskGroup(of: RelayMessage.self) { group in
+        group.addTask {
+                let message = try await socket.receive()
+            switch message {
+            case .string(let text):
+                guard let data = text.data(using: .utf8) else {
+                    throw LiveRelayTestError.invalidResponse
+                }
+                return try JSONDecoder().decode(RelayMessage.self, from: data)
+            case .data(let data):
+                return try JSONDecoder().decode(RelayMessage.self, from: data)
+            @unknown default:
+                throw LiveRelayTestError.invalidResponse
+            }
+        }
+        group.addTask {
+            try await Task.sleep(nanoseconds: timeoutNanoseconds)
+            throw LiveRelayTestError.timeout
+        }
+        let value = try await group.next()!
+        group.cancelAll()
+        return value
+    }
+}
+
+private func pickFreePort() throws -> UInt16 {
+    let fd = socket(AF_INET, SOCK_STREAM, 0)
+    guard fd >= 0 else {
+        throw LiveRelayTestError.invalidResponse
+    }
+    defer { close(fd) }
+
+    var yes: Int32 = 1
+    _ = setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &yes, socklen_t(MemoryLayout.size(ofValue: yes)))
+
+    var address = sockaddr_in()
+    address.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
+    address.sin_family = sa_family_t(AF_INET)
+    address.sin_port = 0
+    address.sin_addr = in_addr(s_addr: inet_addr("127.0.0.1"))
+
+    let bindResult = withUnsafePointer(to: &address) { pointer in
+        pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+            bind(fd, $0, socklen_t(MemoryLayout<sockaddr_in>.size))
+        }
+    }
+    guard bindResult == 0 else {
+        throw LiveRelayTestError.invalidResponse
+    }
+
+    var name = sockaddr_in()
+    var length = socklen_t(MemoryLayout<sockaddr_in>.size)
+    let result = withUnsafeMutablePointer(to: &name) { pointer in
+        pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+            getsockname(fd, $0, &length)
+        }
+    }
+    guard result == 0 else {
+        throw LiveRelayTestError.invalidResponse
+    }
+
+    return UInt16(bigEndian: name.sin_port)
 }
