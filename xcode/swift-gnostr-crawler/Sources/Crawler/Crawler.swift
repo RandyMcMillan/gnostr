@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 import GnostrTypes
 
 public enum CrawlerQueryError: Error, Equatable, Sendable {
@@ -261,6 +262,40 @@ public enum CrawlerQueryBuilder {
             search: search.map { "\($0.element)=\($0.value)" }
         )
         return try parameters.buildWireQuery()
+    }
+}
+
+@MainActor
+public final class CrawlerLogStore: ObservableObject {
+    @Published public private(set) var lines: [String]
+
+    private let maxLines: Int
+
+    public init(maxLines: Int = 500, bindImmediately: Bool = true) {
+        self.lines = []
+        self.maxLines = maxLines
+        if bindImmediately {
+            bind()
+        }
+    }
+
+    public func bind() {
+        RustCrawlerBridge.shared.onLogLine = { [weak self] line in
+            Task { @MainActor in
+                self?.append(line)
+            }
+        }
+    }
+
+    public func clear() {
+        self.lines.removeAll()
+    }
+
+    private func append(_ line: String) {
+        self.lines.insert(line, at: 0)
+        if self.lines.count > self.maxLines {
+            self.lines.removeLast(self.lines.count - self.maxLines)
+        }
     }
 }
 

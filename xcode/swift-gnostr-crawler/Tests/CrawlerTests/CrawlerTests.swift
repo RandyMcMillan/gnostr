@@ -213,6 +213,16 @@ private enum LiveRelayTestError: Error {
     #expect(decoded == metadata)
 }
 
+@MainActor
+@Test func crawlerLogStoreCapturesRustCallbackLines() async throws {
+    guard RustCrawlerBridge.shared.isAvailable else { return }
+
+    let store = CrawlerLogStore(maxLines: 4)
+    RustCrawlerBridge.shared.onLogLine?("crawler log line")
+    try await Task.sleep(nanoseconds: 50_000_000)
+    #expect(store.lines.first == "crawler log line")
+}
+
 @Test func crawlerQueryParametersMakeFilterMatchesWireShape() throws {
     let parameters = CrawlerQueryParameters(
         authors: "aa11, bb22",
