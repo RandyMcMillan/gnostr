@@ -7,17 +7,11 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		4001ABCD0000000000000001 /* entrypoint.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4002ABCD0000000000000001 /* entrypoint.swift */; };
-		400AABCD0000000000000001 /* configure.swift in Sources */ = {isa = PBXBuildFile; fileRef = 400BABCD0000000000000001 /* configure.swift */; };
-		400CABCD0000000000000001 /* routes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 400DABCD0000000000000001 /* routes.swift */; };
 		4BE2D0372FC2257600461214 /* LibP2P in Frameworks */ = {isa = PBXBuildFile; productRef = 4BE2D0262FC220D300461214 /* LibP2P */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		4002ABCD0000000000000001 /* entrypoint.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = entrypoint.swift; sourceTree = "<group>"; };
 		4003ABCD0000000000000001 /* LibP2PAppTemplateBuild */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = LibP2PAppTemplateBuild; sourceTree = BUILT_PRODUCTS_DIR; };
-		400BABCD0000000000000001 /* configure.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = configure.swift; sourceTree = "<group>"; };
-		400DABCD0000000000000001 /* routes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = routes.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -42,11 +36,6 @@
 		};
 		4006ABCD0000000000000001 /* Sources/App */ = {
 			isa = PBXGroup;
-			children = (
-				400BABCD0000000000000001 /* configure.swift */,
-				4002ABCD0000000000000001 /* entrypoint.swift */,
-				400DABCD0000000000000001 /* routes.swift */,
-			);
 			path = Sources/App;
 			sourceTree = "<group>";
 		};
@@ -147,9 +136,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				400AABCD0000000000000001 /* configure.swift in Sources */,
-				4001ABCD0000000000000001 /* entrypoint.swift in Sources */,
-				400CABCD0000000000000001 /* routes.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
