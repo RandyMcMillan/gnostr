@@ -7,10 +7,12 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		4001ABCD0000000000000001 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4002ABCD0000000000000001 /* main.swift */; };
 		4BE2D0372FC2257600461214 /* LibP2P in Frameworks */ = {isa = PBXBuildFile; productRef = 4BE2D0262FC220D300461214 /* LibP2P */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		4002ABCD0000000000000001 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		4003ABCD0000000000000001 /* LibP2PAppTemplateBuild */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = LibP2PAppTemplateBuild; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -36,6 +38,9 @@
 		};
 		4006ABCD0000000000000001 /* Sources/App */ = {
 			isa = PBXGroup;
+			children = (
+				4002ABCD0000000000000001 /* main.swift */,
+			);
 			path = Sources/App;
 			sourceTree = "<group>";
 		};
@@ -136,6 +141,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4001ABCD0000000000000001 /* main.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
