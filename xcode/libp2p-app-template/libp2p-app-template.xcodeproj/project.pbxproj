@@ -6,6 +6,11 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		4BE2D0712FC234EE00461214 /* LibP2P in Frameworks */ = {isa = PBXBuildFile; productRef = 4BE2D0702FC234EE00461214 /* LibP2P */; };
+		4BE2D0732FC234EE00461214 /* LibP2PTesting in Frameworks */ = {isa = PBXBuildFile; productRef = 4BE2D0722FC234EE00461214 /* LibP2PTesting */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		4BE2D0532FC2347B00461214 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -52,6 +57,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4BE2D0732FC234EE00461214 /* LibP2PTesting in Frameworks */,
+				4BE2D0712FC234EE00461214 /* LibP2P in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -112,6 +119,8 @@
 			);
 			name = "libp2p-app-template";
 			packageProductDependencies = (
+				4BE2D0702FC234EE00461214 /* LibP2P */,
+				4BE2D0722FC234EE00461214 /* LibP2PTesting */,
 			);
 			productName = "libp2p-app-template";
 			productReference = 4BE2D03F2FC2347A00461214 /* libp2p-app-template.app */;
@@ -195,6 +204,9 @@
 			);
 			mainGroup = 4BE2D0362FC2347A00461214;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				4BE2D06F2FC234EE00461214 /* XCLocalSwiftPackageReference "../swift-libp2p" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 4BE2D0402FC2347A00461214 /* Products */;
 			projectDirPath = "";
@@ -591,6 +603,24 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		4BE2D06F2FC234EE00461214 /* XCLocalSwiftPackageReference "../swift-libp2p" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = "../swift-libp2p";
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		4BE2D0702FC234EE00461214 /* LibP2P */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = LibP2P;
+		};
+		4BE2D0722FC234EE00461214 /* LibP2PTesting */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = LibP2PTesting;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 4BE2D0372FC2347A00461214 /* Project object */;
 }
