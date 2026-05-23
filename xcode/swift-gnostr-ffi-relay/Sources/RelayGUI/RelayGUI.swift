@@ -204,7 +204,7 @@ public struct RelayDashboardView: View {
         VStack(alignment: .leading, spacing: 0) {
             header
                 .padding(.bottom, 8)
-            ScrollView {
+            ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: model.isConfigEditorVisible ? 12 : 20) {
                     controls
                     card(title: "Rust defaults", compact: false, content: configurationContent)
