@@ -12,14 +12,26 @@ let package = Package(
             name: "FFRelay",
             targets: ["FFRelay"]
         ),
+        .library(
+            name: "RelayGUI",
+            targets: ["RelayGUI"]
+        ),
     ],
     targets: [
         .target(
             name: "FFRelay"
         ),
+        .target(
+            name: "RelayGUI",
+            dependencies: ["FFRelay"]
+        ),
         .testTarget(
             name: "FFRelayTests",
             dependencies: ["FFRelay"]
+        ),
+        .testTarget(
+            name: "RelayGUITests",
+            dependencies: ["RelayGUI"]
         ),
     ]
 )

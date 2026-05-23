@@ -1,0 +1,143 @@
+import Foundation
+import SwiftUI
+import FFRelay
+
+@MainActor
+public final class RelayDashboardViewModel: ObservableObject {
+    @Published public var host: String
+    @Published public var port: String
+    @Published public private(set) var defaultConfiguration: RelayConfiguration
+    @Published public private(set) var listenEndpoint: String
+    @Published public private(set) var statusMessage: String
+
+    public init(host: String = "127.0.0.1", port: String = "8080") {
+        self.host = host
+        self.port = port
+        self.defaultConfiguration = RelayConfiguration.rustDefault() ?? RelayConfiguration()
+        self.listenEndpoint = RelayEndpoints.listenEndpoint(
+            host: host,
+            port: UInt16(port) ?? 8080
+        )
+        self.statusMessage = RustRelayBridge.shared.isAvailable ? "Relay FFI available" : "Relay FFI unavailable"
+    }
+
+    public func refresh() {
+        defaultConfiguration = RelayConfiguration.rustDefault() ?? RelayConfiguration()
+        listenEndpoint = RelayEndpoints.listenEndpoint(host: host, port: UInt16(port) ?? 8080)
+        statusMessage = RustRelayBridge.shared.isAvailable ? "Relay FFI available" : "Relay FFI unavailable"
+    }
+
+    public func updateEndpoint() {
+        listenEndpoint = RelayEndpoints.listenEndpoint(host: host, port: UInt16(port) ?? 8080)
+    }
+}
+
+public struct RelayDashboardView: View {
+    @StateObject private var model: RelayDashboardViewModel
+
+    public init(model: RelayDashboardViewModel = RelayDashboardViewModel()) {
+        _model = StateObject(wrappedValue: model)
+    }
+
+    public var body: some View {
+        NavigationView {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    header
+                    card(title: "Rust defaults", content: configurationContent)
+                    card(title: "Listen endpoint", content: endpointContent)
+                    card(title: "Status", content: statusContent)
+                }
+                .padding()
+            }
+            .navigationTitle("Relay")
+        }
+    }
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("FF Relay")
+                .font(.largeTitle.bold())
+            Text("FFI-only relay tools backed by the Rust relay crate.")
+                .foregroundColor(.secondary)
+        }
+    }
+
+    private var configurationContent: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            row(label: "Logging", value: model.defaultConfiguration.logging)
+            row(label: "Config file", value: model.defaultConfiguration.configFilePath)
+            Button("Refresh defaults") {
+                model.refresh()
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var endpointContent: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                TextField("Host", text: Binding(
+                    get: { model.host },
+                    set: { newValue in
+                        model.host = newValue
+                        model.updateEndpoint()
+                    }
+                ))
+                    .textFieldStyle(.roundedBorder)
+                TextField("Port", text: Binding(
+                    get: { model.port },
+                    set: { newValue in
+                        model.port = newValue
+                        model.updateEndpoint()
+                    }
+                ))
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 100)
+            }
+            row(label: "Endpoint", value: model.listenEndpoint)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var statusContent: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(model.statusMessage)
+            Text("This package exposes models and defaults from `./relay` via FFI, then renders them in SwiftUI.")
+                .font(.footnote)
+                .foregroundColor(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func row(label: String, value: String) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Text(label)
+                .frame(width: 92, alignment: .leading)
+                .foregroundColor(.secondary)
+            Text(value)
+                .font(.system(.body, design: .monospaced))
+        }
+    }
+
+    private func card(title: String, content: some View) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(title)
+                .font(.headline)
+            content
+        }
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color.secondary.opacity(0.12))
+        )
+    }
+}
+
+#if DEBUG
+struct RelayDashboardView_Previews: PreviewProvider {
+    static var previews: some View {
+        RelayDashboardView()
+    }
+}
+#endif
