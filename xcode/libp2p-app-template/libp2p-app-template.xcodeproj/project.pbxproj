@@ -10,6 +10,8 @@
 		4BE2D1332FC240B400461214 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BE2D12D2FC2404200461214 /* ContentView.swift */; };
 		4BE2D1342FC240B400461214 /* Item.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BE2D12E2FC2404200461214 /* Item.swift */; };
 		4BE2D1352FC240B900461214 /* libp2p_app_templateApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BE2D1302FC2404200461214 /* libp2p_app_templateApp.swift */; };
+		4BE2D1382FC2439F00461214 /* LibP2P in Frameworks */ = {isa = PBXBuildFile; productRef = 4BE2D1372FC2439F00461214 /* LibP2P */; };
+		4BE2D13A2FC2439F00461214 /* LibP2PTesting in Frameworks */ = {isa = PBXBuildFile; productRef = 4BE2D1392FC2439F00461214 /* LibP2PTesting */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -27,6 +29,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4BE2D13A2FC2439F00461214 /* LibP2PTesting in Frameworks */,
+				4BE2D1382FC2439F00461214 /* LibP2P in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -81,6 +85,8 @@
 			);
 			name = LibP2PAppTemplate;
 			packageProductDependencies = (
+				4BE2D1372FC2439F00461214 /* LibP2P */,
+				4BE2D1392FC2439F00461214 /* LibP2PTesting */,
 			);
 			productName = FFIKitchenSinkApp;
 			productReference = FFIKS000000000000000010 /* LibP2PAppTemplate.app */;
@@ -111,6 +117,7 @@
 			);
 			mainGroup = FFIKS000000000000000030;
 			packageReferences = (
+				4BE2D1362FC2439F00461214 /* XCLocalSwiftPackageReference "../swift-libp2p" */,
 			);
 			productRefGroup = FFIKS000000000000000032 /* Products */;
 			projectDirPath = "";
@@ -303,6 +310,24 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		4BE2D1362FC2439F00461214 /* XCLocalSwiftPackageReference "../swift-libp2p" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = "../swift-libp2p";
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		4BE2D1372FC2439F00461214 /* LibP2P */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = LibP2P;
+		};
+		4BE2D1392FC2439F00461214 /* LibP2PTesting */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = LibP2PTesting;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = FFIKS000000000000000100 /* Project object */;
 }
