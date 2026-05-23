@@ -281,7 +281,7 @@ public final class CrawlerLogStore: ObservableObject {
 
     public func bind() {
         RustCrawlerBridge.shared.onLogLine = { [weak self] line in
-            Task { @MainActor in
+            Task { @MainActor [weak self] in
                 self?.append(line)
             }
         }
