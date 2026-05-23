@@ -17,7 +17,7 @@ public final class RelayDashboardViewModel: ObservableObject {
     @Published public private(set) var isRunning = false
     @Published public private(set) var logLines: [String] = []
 
-    public init(host: String = "127.0.0.1", port: String = "8080") {
+    public init(host: String = "127.0.0.1", port: String = "8080", autoStart: Bool = true) {
         self.host = host
         self.port = port
         self.defaultConfiguration = RelayConfiguration.rustDefault() ?? RelayConfiguration()
@@ -25,6 +25,9 @@ public final class RelayDashboardViewModel: ObservableObject {
         self.statusMessage = RustRelayBridge.shared.isAvailable ? "Relay FFI available" : "Relay FFI unavailable"
         appendLog("Relay dashboard ready")
         appendLog(statusMessage)
+        if autoStart {
+            startRelay()
+        }
     }
 
     public func refresh() {
