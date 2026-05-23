@@ -33,10 +33,10 @@ public final class RelayDashboardViewModel: ObservableObject {
 }
 
 public struct RelayDashboardView: View {
-    @StateObject private var model: RelayDashboardViewModel
+    @ObservedObject private var model: RelayDashboardViewModel
 
     public init(model: RelayDashboardViewModel = RelayDashboardViewModel()) {
-        _model = StateObject(wrappedValue: model)
+        _model = ObservedObject(wrappedValue: model)
     }
 
     public var body: some View {
@@ -50,7 +50,6 @@ public struct RelayDashboardView: View {
                 }
                 .padding()
             }
-            .navigationTitle("Relay")
         }
     }
 
