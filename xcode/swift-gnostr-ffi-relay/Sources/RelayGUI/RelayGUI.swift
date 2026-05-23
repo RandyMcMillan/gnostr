@@ -208,7 +208,6 @@ public struct RelayDashboardView: View {
                 VStack(alignment: .leading, spacing: model.isConfigEditorVisible ? 12 : 20) {
                     controls
                     card(title: "Rust defaults", compact: false, content: configurationContent)
-                    card(title: "Listen endpoint", compact: model.isConfigEditorVisible, content: endpointContent)
                     card(title: "Log console", compact: model.isConfigEditorVisible, content: consoleContent)
                 }
                 .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -259,8 +258,11 @@ public struct RelayDashboardView: View {
     private var configurationContent: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Config editor")
+                Text("Listen endpoint")
                     .font(.subheadline.weight(.semibold))
+                Spacer()
+                Text(model.listenEndpoint)
+                    .font(.system(.body, design: .monospaced))
                 Spacer()
                 Button(action: { model.toggleConfigEditorVisibility() }) {
                     if #available(macOS 11.0, iOS 14.0, *) {
@@ -272,6 +274,25 @@ public struct RelayDashboardView: View {
                 .buttonStyle(.plain)
             }
             if model.isConfigEditorVisible {
+                HStack {
+                    TextField("Host", text: Binding(
+                        get: { model.host },
+                        set: { newValue in
+                            model.host = newValue
+                            model.updateEndpoint()
+                        }
+                    ))
+                    .textFieldStyle(.roundedBorder)
+                    TextField("Port", text: Binding(
+                        get: { model.port },
+                        set: { newValue in
+                            model.port = newValue
+                            model.updateEndpoint()
+                        }
+                    ))
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 100)
+                }
                 TextField("Logging", text: Binding(
                     get: { model.defaultConfiguration.logging },
                     set: { model.updateLogging($0) }
@@ -329,32 +350,6 @@ public struct RelayDashboardView: View {
                 .disabled(!model.isRunning)
             Button("Refresh") { model.refresh() }
         }
-    }
-
-    private var endpointContent: some View {
-        VStack(alignment: .leading, spacing: model.isConfigEditorVisible ? 6 : 12) {
-            HStack {
-                TextField("Host", text: Binding(
-                    get: { model.host },
-                    set: { newValue in
-                        model.host = newValue
-                        model.updateEndpoint()
-                    }
-                ))
-                .textFieldStyle(.roundedBorder)
-                TextField("Port", text: Binding(
-                    get: { model.port },
-                    set: { newValue in
-                        model.port = newValue
-                        model.updateEndpoint()
-                    }
-                ))
-                .textFieldStyle(.roundedBorder)
-                .frame(width: 100)
-            }
-            row(label: "Endpoint", value: model.listenEndpoint)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var consoleContent: some View {
