@@ -204,14 +204,13 @@ public struct RelayDashboardView: View {
         VStack(alignment: .leading, spacing: 0) {
             header
                 .padding(.bottom, 8)
-            ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: model.isConfigEditorVisible ? 12 : 20) {
-                    controls
-                    card(title: "", compact: false, content: configurationContent)
-                    card(title: "Log console", compact: model.isConfigEditorVisible, content: consoleContent)
-                }
-                .frame(maxWidth: .infinity, alignment: .topLeading)
-            }
+            controls
+                .padding(.bottom, 8)
+            card(title: "Rust defaults", compact: false, content: configurationContent)
+                .padding(.bottom, 8)
+            card(title: "Log console", compact: model.isConfigEditorVisible, content: consoleContent)
+                .frame(maxHeight: .infinity, alignment: .topLeading)
+                .layoutPriority(1)
         }
         .padding()
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
