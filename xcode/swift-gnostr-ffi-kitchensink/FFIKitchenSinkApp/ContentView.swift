@@ -547,6 +547,7 @@ final class KitchenSinkViewModel: ObservableObject {
                 self?.log("Crawler Rust: \(line)")
             }
         }
+        RustCrawlerBridge.shared.registerLogCallback()
         self.log("Crawler control available: \(self.supportsLocalCrawlerControl)")
         self.loadRelayDefaults()
         self.crawlerRelay = Self.defaultCrawlerRelayTargets().joined(separator: ",")
@@ -740,6 +741,9 @@ final class KitchenSinkViewModel: ObservableObject {
 
         Task {
             do {
+                guard await ensureCrawlerRuntimeAvailable(reason: "submit-query") else {
+                    return
+                }
                 let selectedRelay = trimmedOrNil(crawlerRelay)
                 let bucketRelays = Self.sampleRelayTargets(from: crawlerBucketsRootURL, limit: 12)
                 let discoveredRelays = (try? await client.relaysTXT())
@@ -918,27 +922,41 @@ final class KitchenSinkViewModel: ObservableObject {
             Task {
                 do {
                     let crawlerState = try await crawlerServerController.start()
-                    let relayState = try await relayServerController.start()
                     await MainActor.run {
                         crawlerServerState = crawlerState
                         crawlerStatus = crawlerState
                         crawlerServerMessage = crawlerState.message
                         crawlerStatusMessage = crawlerState.message
-                        relayStatus = relayState
-                        relayStatusMessage = relayState.message
                         self.startCrawlerDiscoveryLoop()
-                        log("Embedded services bootstrapped")
+                        log("Crawler bootstrapped")
                     }
                     await MainActor.run {
                         refreshCrawlerDiscovery()
+                    }
+                } catch {
+                    await MainActor.run {
+                        crawlerServerMessage = "Crawler bootstrap failed: \(error.localizedDescription)"
+                        crawlerStatusMessage = crawlerServerMessage
+                        log(crawlerServerMessage)
+                    }
+                }
+            }
+
+            Task {
+                do {
+                    let relayState = try await relayServerController.start()
+                    await MainActor.run {
+                        relayStatus = relayState
+                        relayStatusMessage = relayState.message
+                        log("Relay bootstrapped")
+                    }
+                    await MainActor.run {
                         refreshRelayDiscovery()
                     }
                 } catch {
                     await MainActor.run {
-                        crawlerServerMessage = "Service bootstrap failed: \(error.localizedDescription)"
-                        crawlerStatusMessage = crawlerServerMessage
-                        relayStatusMessage = crawlerServerMessage
-                        log(crawlerServerMessage)
+                        relayStatusMessage = "Relay bootstrap failed: \(error.localizedDescription)"
+                        log(relayStatusMessage)
                     }
                 }
             }
@@ -970,23 +988,11 @@ final class KitchenSinkViewModel: ObservableObject {
             return
         }
 
-        Task {
-            do {
-                let state = try await crawlerServiceClient.relayStatus()
-                await MainActor.run {
-                    crawlerServerState = state
-                    crawlerServerMessage = state.message
-                    crawlerStatus = state
-                    crawlerStatusMessage = state.message
-                    log("Crawler backend status refreshed")
-                }
-            } catch {
-                await MainActor.run {
-                    crawlerServerMessage = "Crawler status failed: \(error.localizedDescription)"
-                    crawlerStatusMessage = crawlerServerMessage
-                    log(crawlerStatusMessage)
-                }
-            }
+        Task { @MainActor in
+            let message = "Crawler FFI unavailable; real crawler status disabled"
+            crawlerServerMessage = message
+            crawlerStatusMessage = message
+            log(message)
         }
     }
 
@@ -1019,24 +1025,11 @@ final class KitchenSinkViewModel: ObservableObject {
             return
         }
 
-        Task {
-            do {
-                let state = try await crawlerServiceClient.startRelay()
-                    await MainActor.run {
-                        crawlerServerState = state
-                        crawlerServerMessage = state.message
-                        crawlerStatus = state
-                        crawlerStatusMessage = state.message
-                        self.startCrawlerDiscoveryLoop()
-                        log("Crawler backend started")
-                    }
-            } catch {
-                await MainActor.run {
-                    crawlerServerMessage = "Crawler start failed: \(error.localizedDescription)"
-                    crawlerStatusMessage = crawlerServerMessage
-                    log(crawlerStatusMessage)
-                }
-            }
+        Task { @MainActor in
+            let message = "Crawler FFI unavailable; cannot start real crawler"
+            crawlerServerMessage = message
+            crawlerStatusMessage = message
+            log(message)
         }
     }
 
@@ -1069,24 +1062,11 @@ final class KitchenSinkViewModel: ObservableObject {
             return
         }
 
-        Task {
-            do {
-                let state = try await crawlerServiceClient.stopRelay()
-                    await MainActor.run {
-                        crawlerServerState = state
-                        crawlerServerMessage = state.message
-                        crawlerStatus = state
-                        crawlerStatusMessage = state.message
-                        self.stopCrawlerDiscoveryLoop()
-                        log("Crawler backend stopped")
-                    }
-            } catch {
-                await MainActor.run {
-                    crawlerServerMessage = "Crawler stop failed: \(error.localizedDescription)"
-                    crawlerStatusMessage = crawlerServerMessage
-                    log(crawlerStatusMessage)
-                }
-            }
+        Task { @MainActor in
+            let message = "Crawler FFI unavailable; cannot stop real crawler"
+            crawlerServerMessage = message
+            crawlerStatusMessage = message
+            log(message)
         }
     }
 
@@ -1097,8 +1077,68 @@ final class KitchenSinkViewModel: ObservableObject {
         }
     }
 
+    private func ensureCrawlerRuntimeAvailable(reason: String) async -> Bool {
+        appTrace("KitchenSinkViewModel.ensureCrawlerRuntimeAvailable reason=\(reason)")
+        guard supportsLocalCrawlerControl else {
+            await MainActor.run {
+                let message = "Crawler FFI unavailable; cannot reach real crawler"
+                crawlerStatusMessage = message
+                log(message)
+            }
+            return false
+        }
+
+        do {
+            let currentState = crawlerServerController.status()
+            if currentState.running {
+                await MainActor.run {
+                    log("Crawler runtime already running (\(reason))")
+                }
+            } else {
+                await MainActor.run {
+                    log("Crawler runtime not running; starting (\(reason))")
+                }
+                _ = try await crawlerServerController.start()
+            }
+        } catch {
+            await MainActor.run {
+                let message = "Crawler start failed: \(error.localizedDescription)"
+                crawlerStatusMessage = message
+                crawlerServerMessage = message
+                log(message)
+            }
+            return false
+        }
+
+        for attempt in 1...12 {
+            do {
+                _ = try await crawlerServiceClient.relayStatus()
+                await MainActor.run {
+                    log("Crawler runtime ready after \(attempt) poll(s) (\(reason))")
+                }
+                return true
+            } catch {
+                await MainActor.run {
+                    log("Crawler runtime poll \(attempt) failed (\(reason)): \(error.localizedDescription)")
+                }
+                try? await Task.sleep(nanoseconds: 250_000_000)
+            }
+        }
+
+        await MainActor.run {
+            let message = "Crawler service unavailable after retry"
+            crawlerStatusMessage = message
+            crawlerServerMessage = message
+            log(message)
+        }
+        return false
+    }
+
     private func pollCrawlerDiscoveryOnce(reason: String) async {
         appTrace("KitchenSinkViewModel.pollCrawlerDiscoveryOnce reason=\(reason)")
+        guard await ensureCrawlerRuntimeAvailable(reason: reason) else {
+            return
+        }
         do {
             let discovery = try await crawlerServiceClient.relayDiscovery()
             await MainActor.run {
@@ -1409,6 +1449,13 @@ final class CrawlerServerController {
     private let port: UInt16 = 3030
     private let fileManager = FileManager.default
     private var logTailTask: Task<Void, Never>?
+    #if os(macOS) || targetEnvironment(macCatalyst)
+    private var crawlProcess: Process?
+    #endif
+
+    init() {
+        startLogTail()
+    }
 
     var isAvailable: Bool {
         bridge.isAvailable
@@ -1417,35 +1464,43 @@ final class CrawlerServerController {
     func status() -> RelayProcessState {
         appTrace("CrawlerServerController.status")
         do {
-            return try bridge.crawlerRuntimeStatus() ?? RelayProcessState(
+            return try bridge.crawlerCrawlStatus() ?? RelayProcessState(
                 running: false,
-                message: "Crawler runtime status unavailable"
+                message: "Crawler crawl status unavailable"
             )
         } catch {
             return RelayProcessState(
                 running: false,
-                message: "Crawler runtime status failed: \(error.localizedDescription)"
+                message: "Crawler crawl status failed: \(error.localizedDescription)"
             )
         }
     }
 
     func start() async throws -> RelayProcessState {
         appTrace("CrawlerServerController.start")
-        guard let state = try bridge.startCrawlerRuntime(port: port) else {
+        guard let runtimeState = try bridge.startCrawlerRuntime(port: port) else {
             throw CocoaError(.coderInvalidValue)
         }
-        return state
+        guard let crawlState = try bridge.startCrawlerCrawl() else {
+            throw CocoaError(.coderInvalidValue)
+        }
+        appTrace("CrawlerServerController.start runtime=\(runtimeState.message) crawl=\(crawlState.message)")
+        return crawlState
     }
 
     func stop() throws -> RelayProcessState {
         appTrace("CrawlerServerController.stop")
+        guard let crawlState = try bridge.stopCrawlerCrawl() else {
+            throw CocoaError(.coderInvalidValue)
+        }
         guard let state = try bridge.stopCrawlerRuntime() else {
             throw CocoaError(.coderInvalidValue)
         }
-        return state
+        appTrace("CrawlerServerController.stop runtime=\(state.message) crawl=\(crawlState.message)")
+        return crawlState
     }
 
-    #if false
+    #if os(macOS) || targetEnvironment(macCatalyst)
     private func resolveCommand() throws -> CrawlerServerCommand {
         let workdir = repositoryRootURL()
         let arguments = ["crawler", "serve", "--port", String(port), "--detach"]
@@ -1501,6 +1556,56 @@ final class CrawlerServerController {
         return output
     }
 
+    private func startCrawlProcessIfNeeded() throws {
+        guard crawlProcess == nil else { return }
+
+        let command = try resolveCrawlCommand()
+        appTrace("CrawlerServerController.startCrawlProcessIfNeeded \(command.executableURL.path)")
+        let process = Process()
+        process.executableURL = command.executableURL
+        process.arguments = command.arguments
+        process.currentDirectoryURL = command.currentDirectoryURL
+        var environment = ProcessInfo.processInfo.environment
+        if environment["RUST_LOG"] == nil || environment["RUST_LOG"]?.isEmpty == true {
+            environment["RUST_LOG"] = "debug"
+        }
+        process.environment = environment
+        try process.run()
+        crawlProcess = process
+    }
+
+    private func resolveCrawlCommand() throws -> CrawlerServerCommand {
+        let workdir = repositoryRootURL()
+        let arguments = ["crawler", "crawl"]
+
+        if let binary = resolvedBinaryURL() {
+            return CrawlerServerCommand(
+                executableURL: binary,
+                arguments: arguments,
+                currentDirectoryURL: workdir
+            )
+        }
+
+        if fileManager.isExecutableFile(atPath: "/usr/bin/env") {
+            return CrawlerServerCommand(
+                executableURL: URL(fileURLWithPath: "/usr/bin/env"),
+                arguments: ["gnostr"] + arguments,
+                currentDirectoryURL: workdir
+            )
+        }
+
+        throw CocoaError(.fileNoSuchFile)
+    }
+
+    private func stopCrawlProcess() {
+        guard let process = crawlProcess else { return }
+        if process.isRunning {
+            process.terminate()
+        }
+        crawlProcess = nil
+    }
+    #endif
+
     private func startLogTail() {
         guard logTailTask == nil else { return }
         let logURL = crawlerLogFileURL()
@@ -1517,7 +1622,7 @@ final class CrawlerServerController {
                         if data.count > lastLength {
                             let chunk = data[lastLength...]
                             if let text = String(data: chunk, encoding: .utf8) {
-                                for line in text.split(whereSeparator: \.isNewline, omittingEmptySubsequences: false) {
+                                for line in text.split(omittingEmptySubsequences: false, whereSeparator: \.isNewline) {
                                     let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
                                     if !trimmed.isEmpty {
                                         print("[gnostr-crawler] \(trimmed)")
@@ -1540,7 +1645,7 @@ final class CrawlerServerController {
     }
 
     private func crawlerLogFileURL() -> URL {
-        FileManager.default.homeDirectoryForCurrentUser
+        URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true)
             .appendingPathComponent(".config/gnostr/gnostr.log", isDirectory: false)
     }
 
@@ -1635,7 +1740,6 @@ final class CrawlerServerController {
 
         return errno == EPERM
     }
-    #endif
 }
 
  #if os(macOS) || targetEnvironment(macCatalyst)
