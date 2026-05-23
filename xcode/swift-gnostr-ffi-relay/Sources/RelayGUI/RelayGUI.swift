@@ -109,18 +109,23 @@ public struct RelayDashboardView: View {
     }
 
     private func relayHeaderIcon() -> Image {
+        guard let url = Bundle.module.url(forResource: "Icon", withExtension: "png"),
+              let data = try? Data(contentsOf: url) else {
 #if canImport(UIKit)
-        if let image = UIImage(named: "Icon", in: .module, compatibleWith: nil) {
-            return Image(uiImage: image)
-        }
-        return Image(systemName: "antenna.radiowaves.left.and.right")
+            return Image(uiImage: UIImage())
 #elseif canImport(AppKit)
-        if let image = NSImage(named: NSImage.Name("Icon"), in: .module, compatibleWith: nil) {
-            return Image(nsImage: image)
-        }
-        return Image(systemName: "antenna.radiowaves.left.and.right")
+            return Image(nsImage: NSImage())
 #else
-        return Image(systemName: "antenna.radiowaves.left.and.right")
+            return Image(decorative: "")
+#endif
+        }
+
+#if canImport(UIKit)
+        return Image(uiImage: UIImage(data: data) ?? UIImage())
+#elseif canImport(AppKit)
+        return Image(nsImage: NSImage(data: data) ?? NSImage())
+#else
+        return Image(decorative: "")
 #endif
     }
 
