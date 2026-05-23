@@ -150,7 +150,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "set -eu\n\nCRATE_DIR=\"${PROJECT_DIR}/Rust/relay-ffi\"\nMANIFEST_PATH=\"${CRATE_DIR}/Cargo.toml\"\nexport CARGO_TARGET_DIR=\"${PROJECT_TEMP_DIR}/relay-ffi-target\"\nmkdir -p \"${CARGO_TARGET_DIR}\"\nCARGO_BIN=\"${CARGO:-${HOME}/.cargo/bin/cargo}\"\nif [ ! -x \"${CARGO_BIN}\" ]; then\n  CARGO_BIN=\"$(command -v cargo 2>/dev/null || true)\"\nfi\nif [ -z \"${CARGO_BIN}\" ] || [ ! -x \"${CARGO_BIN}\" ]; then\n  echo \"cargo not found\" >&2\n  exit 1\nfi\nif [ \"${CONFIGURATION}\" = \"Release\" ]; then\n  \"${CARGO_BIN}\" build --manifest-path \"${MANIFEST_PATH}\" --release\n  BUILD_DIR=\"${CARGO_TARGET_DIR}/release\"\nelse\n  \"${CARGO_BIN}\" build --manifest-path \"${MANIFEST_PATH}\"\n  BUILD_DIR=\"${CARGO_TARGET_DIR}/debug\"\nfi\nmkdir -p \"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}\"\ncp -f \"${BUILD_DIR}/librelay_ffi.dylib\" \"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/librelay_ffi.dylib\"\n";
+			shellScript = "set -eu\n\nCRATE_DIR=\"${PROJECT_DIR}/Rust/relay-ffi\"\nMANIFEST_PATH=\"${CRATE_DIR}/Cargo.toml\"\nexport CARGO_TARGET_DIR=\"${PROJECT_TEMP_DIR}/relay-ffi-target\"\nmkdir -p \"${CARGO_TARGET_DIR}\"\nCARGO_BIN=\"${CARGO:-${HOME}/.cargo/bin/cargo}\"\nif [ ! -x \"${CARGO_BIN}\" ]; then\n  CARGO_BIN=\"$(command -v cargo 2>/dev/null || true)\"\nfi\nif [ -z \"${CARGO_BIN}\" ] || [ ! -x \"${CARGO_BIN}\" ]; then\n  echo \"cargo not found\" >&2\n  exit 1\nfi\nif [ \"${CONFIGURATION}\" = \"Release\" ]; then\n  \"${CARGO_BIN}\" build --manifest-path \"${MANIFEST_PATH}\" --release\n  BUILD_DIR=\"${CARGO_TARGET_DIR}/release\"\nelse\n  \"${CARGO_BIN}\" build --manifest-path \"${MANIFEST_PATH}\"\n  BUILD_DIR=\"${CARGO_TARGET_DIR}/debug\"\nfi\nmkdir -p \"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}\"\ncp -f \"${BUILD_DIR}/librelay_ffi.dylib\" \"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/librelay_ffi.dylib\"\nif [ -n \"${EXPANDED_CODE_SIGN_IDENTITY:-}\" ]; then\n  /usr/bin/codesign --force --sign \"${EXPANDED_CODE_SIGN_IDENTITY}\" --timestamp=none --preserve-metadata=identifier,entitlements,flags \"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/librelay_ffi.dylib\"\nfi\n";
 		};
 		FFRELAY000000000000000022 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -210,8 +210,9 @@
 				PRODUCT_BUNDLE_IDENTIFIER = org.gnostr.GnostrRelay;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
-				SUPPORTED_PLATFORMS = "appletvos appletvsimulator driverkit iphoneos iphonesimulator watchos watchsimulator xros xrsimulator";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = YES;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -244,8 +245,9 @@
 				PRODUCT_BUNDLE_IDENTIFIER = org.gnostr.GnostrRelay;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
-				SUPPORTED_PLATFORMS = "appletvos appletvsimulator driverkit iphoneos iphonesimulator watchos watchsimulator xros xrsimulator";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = YES;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
