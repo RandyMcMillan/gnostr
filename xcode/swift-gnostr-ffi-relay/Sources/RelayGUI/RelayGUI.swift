@@ -184,13 +184,13 @@ public struct RelayDashboardView: View {
     }
 
     public var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: model.isConfigEditorVisible ? 12 : 20) {
             header
             controls
-            card(title: "Rust defaults", content: configurationContent)
-            card(title: "Listen endpoint", content: endpointContent)
-            card(title: "Status", content: statusContent)
-            card(title: "Log console", content: consoleContent)
+            card(title: "Rust defaults", compact: false, content: configurationContent)
+            card(title: "Listen endpoint", compact: model.isConfigEditorVisible, content: endpointContent)
+            card(title: "Status", compact: model.isConfigEditorVisible, content: statusContent)
+            card(title: "Log console", compact: model.isConfigEditorVisible, content: consoleContent)
         }
         .padding()
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -308,7 +308,7 @@ public struct RelayDashboardView: View {
     }
 
     private var endpointContent: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: model.isConfigEditorVisible ? 6 : 12) {
             HStack {
                 TextField("Host", text: Binding(
                     get: { model.host },
@@ -334,7 +334,7 @@ public struct RelayDashboardView: View {
     }
 
     private var statusContent: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: model.isConfigEditorVisible ? 6 : 12) {
             Text(model.statusMessage)
             row(label: "Running", value: model.isRunning ? "yes" : "no")
             Text("This package exposes models and defaults from `./relay` via FFI, then renders them in SwiftUI.")
@@ -355,7 +355,7 @@ public struct RelayDashboardView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(maxHeight: model.isConfigEditorVisible ? 96 : 220, alignment: .topLeading)
+        .frame(maxHeight: model.isConfigEditorVisible ? 60 : 220, alignment: .topLeading)
     }
 
     private func row(label: String, value: String) -> some View {
@@ -368,13 +368,13 @@ public struct RelayDashboardView: View {
         }
     }
 
-    private func card(title: String, content: some View) -> some View {
+    private func card(title: String, compact: Bool, content: some View) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(title)
-                .font(.headline)
+                .font(compact ? .subheadline.weight(.semibold) : .headline)
             content
         }
-        .padding()
+        .padding(compact ? 10 : 16)
         .background(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .fill(Color.secondary.opacity(0.12))
