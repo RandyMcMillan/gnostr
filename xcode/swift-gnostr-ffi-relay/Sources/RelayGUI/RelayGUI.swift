@@ -207,7 +207,7 @@ public struct RelayDashboardView: View {
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: model.isConfigEditorVisible ? 12 : 20) {
                     controls
-                    card(title: "Rust defaults", compact: false, content: configurationContent)
+                    card(title: "", compact: false, content: configurationContent)
                     card(title: "Log console", compact: model.isConfigEditorVisible, content: consoleContent)
                 }
                 .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -226,7 +226,7 @@ public struct RelayDashboardView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Gnostr Relay")
                     .font(.largeTitle.bold())
-                Text("FFI-only relay tools backed by the Rust relay crate.")
+                Text("todo")
                     .foregroundColor(.secondary)
             }
             Spacer()
@@ -258,9 +258,9 @@ public struct RelayDashboardView: View {
     private var configurationContent: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Listen endpoint")
-                    .font(.subheadline.weight(.semibold))
-                Spacer()
+                //Text("Listen endpoint")
+                //  .font(.subheadline.weight(.semibold))
+                //Spacer()
                 Text(model.listenEndpoint)
                     .font(.system(.body, design: .monospaced))
                 Spacer()
