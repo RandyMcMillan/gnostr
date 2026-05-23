@@ -361,7 +361,7 @@ private func publishLiveGitNoteEvent(relays: [URL]) async throws -> LiveRelayPub
 }
 
 private func crawlerRelayList(client: CrawlerClient) async throws -> [URL] {
-    for attempt in 0..<10 {
+    for attempt in 0..<30 {
         do {
             let relays = try await client.relaysTXT()
                 .split(whereSeparator: { $0.isWhitespace })
@@ -370,12 +370,12 @@ private func crawlerRelayList(client: CrawlerClient) async throws -> [URL] {
                 return relays
             }
         } catch {
-            if attempt < 9 {
+            if attempt < 29 {
                 try await Task.sleep(nanoseconds: 1_000_000_000)
             }
             continue
         }
-        if attempt < 9 {
+        if attempt < 29 {
             try await Task.sleep(nanoseconds: 1_000_000_000)
         }
     }
