@@ -355,7 +355,7 @@ public struct RelayDashboardView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(maxHeight: 220, alignment: .topLeading)
+        .frame(maxHeight: model.isConfigEditorVisible ? 96 : 220, alignment: .topLeading)
     }
 
     private func row(label: String, value: String) -> some View {
