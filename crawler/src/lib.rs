@@ -127,7 +127,8 @@ pub unsafe extern "C" fn crawler_set_log_callback(callback: LogCallback) {
 
 pub fn init_tracing() -> Result<(), Box<dyn std::error::Error>> {
     let _ = tracing_log::LogTracer::init();
-    let _ = tracing_subscriber::fmt()
+    eprintln!("crawler tracing: installing subscriber");
+    let result = tracing_subscriber::fmt()
         .with_ansi(false)
         .with_writer(CrawlerLogWriter)
         .without_time()
@@ -142,5 +143,10 @@ pub fn init_tracing() -> Result<(), Box<dyn std::error::Error>> {
                 .add_directive("nostr_relay_pool::relay::inner=off".parse()?),
         )
         .try_init();
+    if let Err(error) = result {
+        eprintln!("crawler tracing: subscriber init failed: {}", error);
+    } else {
+        eprintln!("crawler tracing: subscriber installed");
+    }
     Ok(())
 }
