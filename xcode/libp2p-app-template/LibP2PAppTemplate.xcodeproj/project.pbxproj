@@ -41,7 +41,7 @@
 			children = (
 				4002ABCD0000000000000001 /* main.swift */,
 			);
-			path = Sources/App;
+			path = LibP2PAppTemplateBuild;
 			sourceTree = "<group>";
 		};
 		4007ABCD0000000000000001 /* Products */ = {
