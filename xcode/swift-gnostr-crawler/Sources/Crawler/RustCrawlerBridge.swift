@@ -301,7 +301,7 @@ public final class RustCrawlerBridge: @unchecked Sendable {
             NSLog("Crawler FFI: explicit library=%@", explicit)
             candidates.append(explicit)
         } else {
-            let cached = FileManager.default.homeDirectoryForCurrentUser
+            let cached = Self.homeDirectoryURL()
                 .appendingPathComponent(".cache/cargo/debug/deps/libcrawler_ffi.dylib")
                 .path
             candidates.append(contentsOf: [
@@ -330,6 +330,10 @@ public final class RustCrawlerBridge: @unchecked Sendable {
         }
 
         return nil
+    }
+
+    private static func homeDirectoryURL() -> URL {
+        URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true)
     }
 
     private static func loadSymbol<T>(_ name: String, from handle: UnsafeMutableRawPointer) -> T? {
