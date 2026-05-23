@@ -269,6 +269,7 @@ public final class CrawlerLogStore: ObservableObject {
     @Published public private(set) var lines: [String]
 
     private let maxLines: Int
+    private let sink = CrawlerLogSink()
 
     public init(maxLines: Int = 500, bindImmediately: Bool = true) {
         self.lines = []
@@ -279,10 +280,9 @@ public final class CrawlerLogStore: ObservableObject {
     }
 
     public func bind() {
-        RustCrawlerBridge.shared.onLogLine = { [weak self] line in
-            Task { [weak self] in
-                await self?.append(line)
-            }
+        self.sink.store = self
+        RustCrawlerBridge.shared.onLogLine = { [sink] line in
+            sink.handle(line)
         }
     }
 
@@ -290,11 +290,20 @@ public final class CrawlerLogStore: ObservableObject {
         self.lines.removeAll()
     }
 
-    @MainActor
-    private func append(_ line: String) {
+    fileprivate func append(_ line: String) {
         self.lines.insert(line, at: 0)
         if self.lines.count > self.maxLines {
             self.lines.removeLast(self.lines.count - self.maxLines)
+        }
+    }
+}
+
+private final class CrawlerLogSink: @unchecked Sendable {
+    weak var store: CrawlerLogStore?
+
+    func handle(_ line: String) {
+        DispatchQueue.main.async { [weak store] in
+            store?.append(line)
         }
     }
 }
