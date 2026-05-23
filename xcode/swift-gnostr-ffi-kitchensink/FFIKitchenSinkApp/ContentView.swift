@@ -1752,6 +1752,20 @@ final class RelayServerController {
         return RelayProcessState(running: false, pid: pid, message: "Relay server stopped")
     }
 
+    func discoveryEntries() -> [RelayDiscoveryEntry] {
+        appTrace("RelayServerController.discoveryEntries")
+        return [
+            RelayDiscoveryEntry(
+                url: "ws://127.0.0.1:8080",
+                description: "Local relay backend",
+                name: "Local Relay",
+                software: "gnostr",
+                version: "local",
+                supportedNips: [1, 11, 22, 33, 40, 50]
+            )
+        ]
+    }
+
     private func resolveCommand() throws -> CrawlerServerCommand {
         appTrace("RelayServerController.resolveCommand")
         let workdir = repositoryRootURL()
@@ -1919,6 +1933,19 @@ final class RelayServerController {
 
     func stop() throws -> RelayProcessState {
         status()
+    }
+
+    func discoveryEntries() -> [RelayDiscoveryEntry] {
+        [
+            RelayDiscoveryEntry(
+                url: "ws://127.0.0.1:8080",
+                description: "Local relay backend",
+                name: "Local Relay",
+                software: "gnostr",
+                version: "local",
+                supportedNips: [1, 11, 22, 33, 40, 50]
+            )
+        ]
     }
 }
 #endif
