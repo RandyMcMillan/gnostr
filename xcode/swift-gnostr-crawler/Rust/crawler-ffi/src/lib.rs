@@ -186,16 +186,16 @@ async fn publish_text_note(request: PublishTextNoteRequest) -> Result<PublishedT
 
     let mut accepted_relays = Vec::new();
     for relay_url in request.relays {
-        eprintln!("crawler publish: trying relay {relay_url}");
+        eprintln!("========> crawler publish: trying relay {relay_url}");
         let mut client = Client::new(&keys, Options::new());
         client.add_relays(vec![relay_url.clone()]).await.map_err(|error| error.to_string())?;
         match client.send_event(event.clone()).await {
             Ok(_) => {
-                eprintln!("crawler publish: relay accepted {relay_url}");
+                eprintln!("======> crawler publish: relay accepted {relay_url}");
                 accepted_relays.push(relay_url);
             }
             Err(error) => {
-                eprintln!("crawler publish: relay failed {relay_url}: {error}");
+                eprintln!("========> crawler publish: relay failed {relay_url}: {error}");
             }
         }
     }
@@ -222,16 +222,16 @@ async fn publish_git_note(request: PublishGitNoteRequest) -> Result<PublishedGit
 
     let mut accepted_relays = Vec::new();
     for relay_url in request.relays {
-        eprintln!("crawler publish: trying relay {relay_url}");
+        eprintln!("=========> crawler publish: trying relay {relay_url}");
         let mut client = Client::new(&keys, Options::new());
         client.add_relays(vec![relay_url.clone()]).await.map_err(|error| error.to_string())?;
         match client.send_event(event.clone()).await {
             Ok(_) => {
-                eprintln!("crawler publish: relay accepted {relay_url}");
+                eprintln!("===========> crawler publish: relay accepted {relay_url}");
                 accepted_relays.push(relay_url);
             }
             Err(error) => {
-                eprintln!("crawler publish: relay failed {relay_url}: {error}");
+                eprintln!("=======> crawler publish: relay failed {relay_url}: {error}");
             }
         }
     }
