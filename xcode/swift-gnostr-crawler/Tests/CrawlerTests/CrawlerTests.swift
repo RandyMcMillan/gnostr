@@ -140,7 +140,7 @@ private enum LiveRelayTestError: Error {
 
     let client = CrawlerClient(baseURL: URL(string: "http://127.0.0.1:\(port)")!)
     try await Task.sleep(nanoseconds: 1_000_000_000)
-    let crawlerRelays = try await crawlerRelayList(client: client, nip: 34)
+    let crawlerRelays = try await crawlerRelayList(client: client, nip: 1)
     let relay = try await publishLiveGitNoteEvent(relays: Array(crawlerRelays.prefix(10)))
     let event = relay.event
 
@@ -153,9 +153,9 @@ private enum LiveRelayTestError: Error {
                     CrawlerQueryParameters(
                         relay: relayURL.absoluteString,
                         ids: event.id.hex,
-                        limit: 1
+                        limit: 100
                     ),
-                    nip: 34
+                    nip: 1
                 )
             } catch {
                 if attempt < 4 {
@@ -178,6 +178,49 @@ private enum LiveRelayTestError: Error {
     guard matched else { return }
     #expect(crawlerResult.contains(event.id.hex))
     #expect(crawlerResult.contains(event.content))
+}
+
+@Test func crawlerServeRelaysFilesFromLiveRuntime() async throws {
+    guard RustCrawlerBridge.shared.isAvailable else { return }
+
+    let port = try pickFreePort()
+    let bridge = RustCrawlerBridge.shared
+    guard let state = bridge.startCrawlerRuntime(port: port), state.running else {
+        throw LiveRelayTestError.runtimeStartFailed(bridge.crawlerRuntimeStatus()?.message)
+    }
+    defer {
+        _ = bridge.stopCrawlerRuntime()
+    }
+
+    let client = CrawlerClient(baseURL: URL(string: "http://127.0.0.1:\(port)")!)
+    try await Task.sleep(nanoseconds: 1_000_000_000)
+
+    //
+    //let relays_34 = try await crawlerRelayList(client: client, nip: 34)
+    //let firstRelay_34 = relays_34[0].absoluteString
+    //// add tests for other kinds - start with 0,1 etc...
+    //let txt_34 = try await client.relaysTXT(nip: 34)
+    //let json_34 = try await client.relaysJSON(nip: 34)
+    //let yaml_34 = try await client.relaysYAML(nip: 34)
+    //
+    //#expect(txt_34.contains(firstRelay_34))
+    //#expect(json_34.contains(firstRelay_34))
+    //#expect(yaml_34.contains(firstRelay_34))
+    
+    //
+    let relays_1 = try await crawlerRelayList(client: client, nip: 1)
+    let firstRelay_1 = relays_1[0].absoluteString
+    // add tests for other kinds - start with 0,1 etc...
+    let txt_1 = try await client.relaysTXT(nip: 1)
+    let json_1 = try await client.relaysJSON(nip: 1)
+    let yaml_1 = try await client.relaysYAML(nip: 1)
+
+    #expect(txt_1.contains(firstRelay_1))
+    #expect(json_1.contains(firstRelay_1))
+    #expect(yaml_1.contains(firstRelay_1))
+    
+    
+    
 }
 
 @Test func relayProcessStateEncodesAndDecodesSnakeCase() throws {
@@ -220,9 +263,9 @@ private enum LiveRelayTestError: Error {
 
     let store = CrawlerLogStore(maxLines: 1_000)
     store.clear()
-    RustCrawlerBridge.shared.onLogLine?("crawler log line")
-    try await Task.sleep(nanoseconds: 200_000_000)
-    #expect(store.lines.contains("crawler log line"))
+    RustCrawlerBridge.shared.onLogLine?("write_relays_")
+    try await Task.sleep(nanoseconds: 500_000_000)
+    #expect(store.lines.contains("write_relays_"))
 }
 
 @Test func crawlerQueryParametersMakeFilterMatchesWireShape() throws {
