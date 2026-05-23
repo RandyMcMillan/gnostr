@@ -7,6 +7,12 @@ import UIKit
 import AppKit
 #endif
 
+enum RelayStatusIndicatorState: String, Sendable {
+    case green
+    case yellow
+    case red
+}
+
 @MainActor
 public final class RelayDashboardViewModel: ObservableObject {
     @Published public var host: String
@@ -120,6 +126,17 @@ public final class RelayDashboardViewModel: ObservableObject {
     public func toggleConfigEditorVisibility() {
         isConfigEditorVisible.toggle()
         appendLog(isConfigEditorVisible ? "Config editor shown" : "Config editor hidden")
+    }
+
+    var statusIndicatorState: RelayStatusIndicatorState {
+        Self.statusIndicatorState(for: statusMessage, isRunning: isRunning)
+    }
+
+    static func statusIndicatorState(for statusMessage: String, isRunning: Bool) -> RelayStatusIndicatorState {
+        if statusMessage.localizedCaseInsensitiveContains("unavailable") {
+            return .red
+        }
+        return isRunning ? .green : .yellow
     }
 
     private func appendLog(_ message: String) {
@@ -349,22 +366,22 @@ public struct RelayDashboardView: View {
     }
 
     private var trafficLightIndicator: some View {
-        HStack(spacing: 8) {
-            Circle()
-                .fill(Color.green)
-                .frame(width: 12, height: 12)
-            Circle()
-                .fill(Color.yellow)
-                .frame(width: 12, height: 12)
-            Circle()
-                .fill(Color.red)
-                .frame(width: 12, height: 12)
-        }
+        Circle()
+            .fill(statusIndicatorColor)
+            .frame(width: 14, height: 14)
         .padding(8)
         .background(
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(Color.secondary.opacity(0.12))
         )
+    }
+
+    private var statusIndicatorColor: Color {
+        switch model.statusIndicatorState {
+        case .green: return .green
+        case .yellow: return .yellow
+        case .red: return .red
+        }
     }
 
     private func row(label: String, value: String) -> some View {
