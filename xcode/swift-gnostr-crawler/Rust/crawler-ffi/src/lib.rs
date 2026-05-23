@@ -105,11 +105,13 @@ async fn run_crawl_worker() -> Result<(), String> {
     let app_keys = Keys::new(app_secret_key);
     let processor = Processor::new();
     let mut relay_manager = RelayManager::new(app_keys, processor).await;
-    let bootstrap_relays: Vec<&str> = BOOTSTRAP_RELAYS.iter().map(|s| s.as_str()).collect();
-    relay_manager
-        .run(bootstrap_relays)
-        .await
-        .map_err(|error| error.to_string())
+    let live_relays = relay_manager.relays.get_all();
+    let relay_refs: Vec<&str> = if live_relays.is_empty() {
+        BOOTSTRAP_RELAYS.iter().map(|s| s.as_str()).collect()
+    } else {
+        live_relays.iter().map(|s| s.as_str()).collect()
+    };
+    relay_manager.run(relay_refs).await.map_err(|error| error.to_string())
 }
 
 #[derive(Debug, Deserialize)]
