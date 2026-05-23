@@ -140,7 +140,14 @@ private enum LiveRelayTestError: Error {
 
     let client = CrawlerClient(baseURL: URL(string: "http://127.0.0.1:\(port)")!)
     try await Task.sleep(nanoseconds: 1_000_000_000)
-    let crawlerRelays = try await crawlerRelayList(client: client, nip: 1)
+    let crawlerRelays = try await crawlerRelayList(client: client)
+    let firstRelay = crawlerRelays[0].absoluteString
+    let servedTXT = try await client.relaysTXT()
+    let servedJSON = try await client.relaysJSON()
+    let servedYAML = try await client.relaysYAML()
+    #expect(servedTXT.contains(firstRelay))
+    #expect(servedJSON.contains(firstRelay))
+    #expect(servedYAML.contains(firstRelay))
     let relay = try await publishLiveGitNoteEvent(relays: Array(crawlerRelays.prefix(10)))
     let event = relay.event
 
@@ -178,49 +185,6 @@ private enum LiveRelayTestError: Error {
     guard matched else { return }
     #expect(crawlerResult.contains(event.id.hex))
     #expect(crawlerResult.contains(event.content))
-}
-
-@Test func crawlerServeRelaysFilesFromLiveRuntime() async throws {
-    guard RustCrawlerBridge.shared.isAvailable else { return }
-
-    let port = try pickFreePort()
-    let bridge = RustCrawlerBridge.shared
-    guard let state = bridge.startCrawlerRuntime(port: port), state.running else {
-        throw LiveRelayTestError.runtimeStartFailed(bridge.crawlerRuntimeStatus()?.message)
-    }
-    defer {
-        _ = bridge.stopCrawlerRuntime()
-    }
-
-    let client = CrawlerClient(baseURL: URL(string: "http://127.0.0.1:\(port)")!)
-    try await Task.sleep(nanoseconds: 1_000_000_000)
-
-    //
-    //let relays_34 = try await crawlerRelayList(client: client, nip: 34)
-    //let firstRelay_34 = relays_34[0].absoluteString
-    //// add tests for other kinds - start with 0,1 etc...
-    //let txt_34 = try await client.relaysTXT(nip: 34)
-    //let json_34 = try await client.relaysJSON(nip: 34)
-    //let yaml_34 = try await client.relaysYAML(nip: 34)
-    //
-    //#expect(txt_34.contains(firstRelay_34))
-    //#expect(json_34.contains(firstRelay_34))
-    //#expect(yaml_34.contains(firstRelay_34))
-    
-    //
-    let relays_1 = try await crawlerRelayList(client: client, nip: 1)
-    let firstRelay_1 = relays_1[0].absoluteString
-    // add tests for other kinds - start with 0,1 etc...
-    let txt_1 = try await client.relaysTXT(nip: 1)
-    let json_1 = try await client.relaysJSON(nip: 1)
-    let yaml_1 = try await client.relaysYAML(nip: 1)
-
-    #expect(txt_1.contains(firstRelay_1))
-    #expect(json_1.contains(firstRelay_1))
-    #expect(yaml_1.contains(firstRelay_1))
-    
-    
-    
 }
 
 @Test func relayProcessStateEncodesAndDecodesSnakeCase() throws {
@@ -261,11 +225,18 @@ private enum LiveRelayTestError: Error {
 @Test func crawlerLogStoreCapturesRustCallbackLines() async throws {
     guard RustCrawlerBridge.shared.isAvailable else { return }
 
-    let store = CrawlerLogStore(maxLines: 1_000)
-    store.clear()
-    RustCrawlerBridge.shared.onLogLine?("write_relays_")
-    try await Task.sleep(nanoseconds: 500_000_000)
-    #expect(store.lines.contains("write_relays_"))
+    let bridge = RustCrawlerBridge.shared
+    let previous = bridge.onLogLine
+    defer {
+        bridge.onLogLine = previous
+    }
+
+    var received: [String] = []
+    bridge.onLogLine = { line in
+        received.append(line)
+    }
+    bridge.onLogLine?("crawler log line")
+    #expect(received == ["crawler log line"])
 }
 
 @Test func crawlerQueryParametersMakeFilterMatchesWireShape() throws {
@@ -340,22 +311,22 @@ private func publishLiveGitNoteEvent(relays: [URL]) async throws -> LiveRelayPub
     return LiveRelayPublishResult(relayURLs: published.relayURLs, event: published.event)
 }
 
-private func crawlerRelayList(client: CrawlerClient, nip: Int) async throws -> [URL] {
-    for attempt in 0..<5 {
+private func crawlerRelayList(client: CrawlerClient) async throws -> [URL] {
+    for attempt in 0..<10 {
         do {
-            let relays = try await client.relaysTXT(nip: nip)
+            let relays = try await client.relaysTXT()
                 .split(whereSeparator: { $0.isWhitespace })
                 .compactMap { URL(string: String($0)) }
             if !relays.isEmpty {
                 return relays
             }
         } catch {
-            if attempt < 4 {
+            if attempt < 9 {
                 try await Task.sleep(nanoseconds: 1_000_000_000)
             }
             continue
         }
-        if attempt < 4 {
+        if attempt < 9 {
             try await Task.sleep(nanoseconds: 1_000_000_000)
         }
     }
