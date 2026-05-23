@@ -208,10 +208,10 @@ async fn send_to_relay(
     };
     let (mut write, mut read) = ws_stream.split();
     debug!("send_to_relay: connected {}", relay);
-    println!("query relay connected: {relay}");
+    debug!("query relay connected: {relay}");
     write.send(Message::Text(query_string.into())).await?;
     debug!("send_to_relay: sent request {}", relay);
-    println!("query relay sent request: {relay}");
+    debug!("query relay sent request: {relay}");
     let mut vec_result: Vec<String> = vec![];
     let limit = limit.unwrap_or(i32::MAX);
 
@@ -230,7 +230,7 @@ async fn send_to_relay(
 
         let data = message?;
         if let Message::Text(text) = data {
-            println!("query relay frame from {relay}: {text}");
+            debug!("query relay frame from {relay}: {text}");
             match serde_json::from_str::<RelayMessage>(&text) {
                 Ok(RelayMessage::Event(_, _)) => {
                     vec_result.push(text.to_string());
