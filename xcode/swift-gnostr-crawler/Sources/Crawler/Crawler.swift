@@ -280,8 +280,8 @@ public final class CrawlerLogStore: ObservableObject {
 
     public func bind() {
         RustCrawlerBridge.shared.onLogLine = { [weak self] line in
-            DispatchQueue.main.async { [weak self] in
-                self?.append(line)
+            Task { [weak self] in
+                await self?.append(line)
             }
         }
     }
@@ -290,6 +290,7 @@ public final class CrawlerLogStore: ObservableObject {
         self.lines.removeAll()
     }
 
+    @MainActor
     private func append(_ line: String) {
         self.lines.insert(line, at: 0)
         if self.lines.count > self.maxLines {
