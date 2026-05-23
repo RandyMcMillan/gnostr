@@ -207,6 +207,35 @@ private enum LiveRelayTestError: Error {
     #expect(html.contains("gnostr crawler"))
 }
 
+@Test func crawlerPrintsRealRelayMetadataToConsole() async throws {
+    guard RustCrawlerBridge.shared.isAvailable else { return }
+
+    let port = try pickFreePort()
+    let bridge = RustCrawlerBridge.shared
+    guard let state = bridge.startCrawlerRuntime(port: port), state.running else {
+        throw LiveRelayTestError.runtimeStartFailed(bridge.crawlerRuntimeStatus()?.message)
+    }
+    defer {
+        _ = bridge.stopCrawlerRuntime()
+    }
+
+    let client = CrawlerClient(baseURL: URL(string: "http://127.0.0.1:\(port)")!)
+    try await Task.sleep(nanoseconds: 1_000_000_000)
+
+    let candidates = [1, 11, 34, 50]
+    var metadata: RelayMetadata?
+    for nip in candidates {
+        if let relayURL = try? await firstServedRelayURL(client: client, nip: nip),
+           let fetched = try? await fetchRelayMetadata(baseURL: client.baseURL, nip: nip, relayURL: relayURL) {
+            metadata = fetched
+            break
+        }
+    }
+    guard let metadata else { throw LiveRelayTestError.invalidResponse }
+    print("gnostr crawler relay metadata:\n\(metadata)")
+    #expect(metadata.name != nil || metadata.description != nil || metadata.contact != nil)
+}
+
 @Test func relayProcessStateEncodesAndDecodesSnakeCase() throws {
     let state = RelayProcessState(running: true, pid: 42, message: "ok", diskUsageBytes: 99)
     let encoder = JSONEncoder()
@@ -351,6 +380,33 @@ private func crawlerRelayList(client: CrawlerClient) async throws -> [URL] {
         }
     }
     throw LiveRelayTestError.invalidResponse
+}
+
+private func firstServedRelayURL(client: CrawlerClient, nip: Int) async throws -> URL {
+    let relays = try await client.relaysTXT(nip: nip)
+        .split(whereSeparator: { $0.isWhitespace })
+        .compactMap { URL(string: String($0)) }
+    guard let relay = relays.first else {
+        throw LiveRelayTestError.invalidResponse
+    }
+    return relay
+}
+
+private func fetchRelayMetadata(baseURL: URL, nip: Int, relayURL: URL) async throws -> RelayMetadata {
+    guard let host = relayURL.host else {
+        throw LiveRelayTestError.invalidResponse
+    }
+
+    let metadataURL = baseURL.appending(path: "\(nip)/\(host).json")
+    let (data, response) = try await URLSession.shared.data(from: metadataURL)
+    if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
+        throw NSError(
+            domain: "CrawlerClient",
+            code: http.statusCode,
+            userInfo: [NSLocalizedDescriptionKey: "crawler request failed for \(metadataURL.absoluteString) with status \(http.statusCode)"]
+        )
+    }
+    return try JSONDecoder().decode(RelayMetadata.self, from: data)
 }
 
 private func send(socket: URLSessionWebSocketTask, message: ClientMessage) async throws {
