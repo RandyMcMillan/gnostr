@@ -43,13 +43,13 @@ public struct RelayConfiguration: Codable, Hashable, Sendable {
 public extension RelayConfiguration {
     static func resolvedConfigFilePath(
         _ configFilePath: String,
-        currentDirectoryPath: String = FileManager.default.currentDirectoryPath
+        relativeTo baseDirectoryPath: String = FileManager.default.currentDirectoryPath
     ) -> String {
         let expandedPath = (configFilePath as NSString).expandingTildeInPath
         if expandedPath.hasPrefix("/") {
             return (expandedPath as NSString).standardizingPath
         }
-        return ((currentDirectoryPath as NSString).appendingPathComponent(expandedPath) as NSString).standardizingPath
+        return ((baseDirectoryPath as NSString).appendingPathComponent(expandedPath) as NSString).standardizingPath
     }
 
     var resolvedConfigFilePath: String {

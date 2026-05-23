@@ -15,7 +15,7 @@ import Testing
 @Test func relayConfigurationResolvesRelativeConfigPaths() {
     let resolved = RelayConfiguration.resolvedConfigFilePath(
         ".gnostr/relay.toml",
-        currentDirectoryPath: "/Users/me/project"
+        relativeTo: "/Users/me/project"
     )
     #expect(resolved == "/Users/me/project/.gnostr/relay.toml")
 }
@@ -23,7 +23,7 @@ import Testing
 @Test func relayConfigurationPreservesAbsoluteConfigPaths() {
     let resolved = RelayConfiguration.resolvedConfigFilePath(
         "/var/db/relay.toml",
-        currentDirectoryPath: "/Users/me/project"
+        relativeTo: "/Users/me/project"
     )
     #expect(resolved == "/var/db/relay.toml")
 }

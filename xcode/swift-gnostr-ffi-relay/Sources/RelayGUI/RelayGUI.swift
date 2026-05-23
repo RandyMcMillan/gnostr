@@ -13,23 +13,24 @@ public final class RelayDashboardViewModel: ObservableObject {
     @Published public var port: String
     @Published public var defaultConfiguration: RelayConfiguration
     @Published public var configFileContents: String
+    @Published public var isConfigEditorVisible = false
     @Published public private(set) var listenEndpoint: String
     @Published public private(set) var statusMessage: String
     @Published public private(set) var configFileStatus: String
     @Published public private(set) var isRunning = false
     @Published public private(set) var logLines: [String] = []
 
-    private let currentDirectoryPath: String
+    private let configBaseDirectoryPath: String
 
     public init(
         host: String = "127.0.0.1",
         port: String = "8080",
         autoStart: Bool = true,
-        currentDirectoryPath: String = FileManager.default.currentDirectoryPath
+        configBaseDirectoryPath: String? = nil
     ) {
         self.host = host
         self.port = port
-        self.currentDirectoryPath = currentDirectoryPath
+        self.configBaseDirectoryPath = configBaseDirectoryPath ?? Self.defaultConfigBaseDirectoryPath()
         self.defaultConfiguration = RelayConfiguration.rustDefault() ?? RelayConfiguration()
         self.listenEndpoint = RelayEndpoints.listenEndpoint(host: host, port: UInt16(port) ?? 8080)
         self.statusMessage = RustRelayBridge.shared.isAvailable ? "Relay FFI available" : "Relay FFI unavailable"
@@ -60,13 +61,18 @@ public final class RelayDashboardViewModel: ObservableObject {
         defaultConfiguration.configFilePath = value
         loadConfigFileContents()
         appendLog("Config file updated to \(value)")
-        appendLog("System path: \(defaultConfiguration.resolvedConfigFilePath)")
+        appendLog("System path: \(resolvedConfigFilePath)")
     }
 
     public func loadConfigFileContents() {
         do {
-            configFileContents = try readConfigFile()
-            configFileStatus = "Loaded \(defaultConfiguration.resolvedConfigFilePath)"
+            if let contents = try readConfigFile() {
+                configFileContents = contents
+                configFileStatus = "Loaded \(resolvedConfigFilePath)"
+            } else {
+                configFileContents = Self.defaultConfigTemplate()
+                configFileStatus = "Loaded template for \(resolvedConfigFilePath)"
+            }
             appendLog(configFileStatus)
         } catch {
             configFileStatus = "Load failed: \(error.localizedDescription)"
@@ -77,7 +83,7 @@ public final class RelayDashboardViewModel: ObservableObject {
     public func saveConfigFileContents() {
         do {
             try writeConfigFile(configFileContents)
-            configFileStatus = "Saved \(defaultConfiguration.resolvedConfigFilePath)"
+            configFileStatus = "Saved \(resolvedConfigFilePath)"
             appendLog(configFileStatus)
         } catch {
             configFileStatus = "Save failed: \(error.localizedDescription)"
@@ -111,14 +117,19 @@ public final class RelayDashboardViewModel: ObservableObject {
         appendLog("Console cleared")
     }
 
+    public func toggleConfigEditorVisibility() {
+        isConfigEditorVisible.toggle()
+        appendLog(isConfigEditorVisible ? "Config editor shown" : "Config editor hidden")
+    }
+
     private func appendLog(_ message: String) {
         logLines.insert("[\(Self.timestamp())] \(message)", at: 0)
     }
 
-    private func readConfigFile() throws -> String {
+    private func readConfigFile() throws -> String? {
         let url = configFileURL
         guard FileManager.default.fileExists(atPath: url.path) else {
-            return ""
+            return nil
         }
         return try String(contentsOf: url, encoding: .utf8)
     }
@@ -133,10 +144,29 @@ public final class RelayDashboardViewModel: ObservableObject {
     }
 
     private var configFileURL: URL {
-        URL(fileURLWithPath: RelayConfiguration.resolvedConfigFilePath(
+        URL(fileURLWithPath: resolvedConfigFilePath)
+    }
+
+    var resolvedConfigFilePath: String {
+        RelayConfiguration.resolvedConfigFilePath(
             defaultConfiguration.configFilePath,
-            currentDirectoryPath: currentDirectoryPath
-        ))
+            relativeTo: configBaseDirectoryPath
+        )
+    }
+
+    private static func defaultConfigBaseDirectoryPath() -> String {
+        let bundleID = Bundle.main.bundleIdentifier ?? "gnostr"
+        let supportURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? FileManager.default.temporaryDirectory
+        return supportURL.appendingPathComponent(bundleID, isDirectory: true).path
+    }
+
+    private static func defaultConfigTemplate() -> String {
+        guard let url = Bundle.module.url(forResource: "relay", withExtension: "toml"),
+              let contents = try? String(contentsOf: url, encoding: .utf8) else {
+            return ""
+        }
+        return contents
     }
 
     private static func timestamp() -> String {
@@ -204,24 +234,39 @@ public struct RelayDashboardView: View {
 
     private var configurationContent: some View {
         VStack(alignment: .leading, spacing: 12) {
-            TextField("Logging", text: Binding(
-                get: { model.defaultConfiguration.logging },
-                set: { model.updateLogging($0) }
-            ))
-            .textFieldStyle(.roundedBorder)
-            TextField("Config file", text: Binding(
-                get: { model.defaultConfiguration.configFilePath },
-                set: { model.updateConfigFilePath($0) }
-            ))
-            .textFieldStyle(.roundedBorder)
-            row(label: "System path", value: model.defaultConfiguration.resolvedConfigFilePath)
-            configEditor
-            row(label: "File status", value: model.configFileStatus)
             HStack {
-                Button("Refresh defaults") { model.refresh() }
-                Button("Load file") { model.loadConfigFileContents() }
-                Button("Save file") { model.saveConfigFileContents() }
-                Button("Clear console") { model.clearLog() }
+                Text("Config editor")
+                    .font(.subheadline.weight(.semibold))
+                Spacer()
+                Button(action: { model.toggleConfigEditorVisibility() }) {
+                    Image(systemName: model.isConfigEditorVisible ? "gearshape.fill" : "gearshape")
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(model.isConfigEditorVisible ? "Hide config editor" : "Show config editor")
+            }
+            if model.isConfigEditorVisible {
+                TextField("Logging", text: Binding(
+                    get: { model.defaultConfiguration.logging },
+                    set: { model.updateLogging($0) }
+                ))
+                .textFieldStyle(.roundedBorder)
+                TextField("Config file", text: Binding(
+                    get: { model.defaultConfiguration.configFilePath },
+                    set: { model.updateConfigFilePath($0) }
+                ))
+                .textFieldStyle(.roundedBorder)
+                row(label: "System path", value: model.resolvedConfigFilePath)
+                configEditor
+                row(label: "File status", value: model.configFileStatus)
+                HStack {
+                    Button("Refresh defaults") { model.refresh() }
+                    Button("Load file") { model.loadConfigFileContents() }
+                    Button("Save file") { model.saveConfigFileContents() }
+                    Button("Clear console") { model.clearLog() }
+                }
+            } else {
+                Text("Click the gear to edit the relay config file.")
+                    .foregroundColor(.secondary)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)

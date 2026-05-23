@@ -18,6 +18,14 @@ import Testing
 }
 
 @MainActor
+@Test func relayDashboardViewModelTogglesConfigEditor() {
+    let model = RelayDashboardViewModel(autoStart: false)
+    #expect(model.isConfigEditorVisible == false)
+    model.toggleConfigEditorVisibility()
+    #expect(model.isConfigEditorVisible == true)
+}
+
+@MainActor
 @Test func relayDashboardViewModelLoadsConfigFileContents() throws {
     let fileManager = FileManager.default
     let root = fileManager.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
@@ -25,16 +33,27 @@ import Testing
     try fileManager.createDirectory(at: configURL.deletingLastPathComponent(), withIntermediateDirectories: true)
     try "logging = \"trace\"\n".write(to: configURL, atomically: true, encoding: .utf8)
 
-    let model = RelayDashboardViewModel(autoStart: false, currentDirectoryPath: root.path)
+    let model = RelayDashboardViewModel(autoStart: false, configBaseDirectoryPath: root.path)
     #expect(model.configFileContents.contains("logging = \"trace\""))
     #expect(model.configFileStatus.hasPrefix("Loaded"))
+}
+
+@MainActor
+@Test func relayDashboardViewModelLoadsTemplateWhenConfigFileIsMissing() {
+    let fileManager = FileManager.default
+    let root = fileManager.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+
+    let model = RelayDashboardViewModel(autoStart: false, configBaseDirectoryPath: root.path)
+    #expect(model.configFileContents.contains("# [network]"))
+    #expect(model.configFileContents.contains("# max_message_length = 524288"))
+    #expect(model.configFileStatus.contains("template"))
 }
 
 @MainActor
 @Test func relayDashboardViewModelSavesConfigFileContents() throws {
     let fileManager = FileManager.default
     let root = fileManager.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
-    let model = RelayDashboardViewModel(autoStart: false, currentDirectoryPath: root.path)
+    let model = RelayDashboardViewModel(autoStart: false, configBaseDirectoryPath: root.path)
 
     model.configFileContents = "logging = \"debug\"\n"
     model.saveConfigFileContents()
