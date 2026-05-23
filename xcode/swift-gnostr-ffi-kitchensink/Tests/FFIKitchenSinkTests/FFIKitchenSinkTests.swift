@@ -23,3 +23,9 @@ import Testing
     _ = FFIKitchenSink.gnostrTypesBridge
     _ = FFIKitchenSink.relayBridge
 }
+
+@Test func crawlerClientFactoryPreservesBaseURL() {
+    let baseURL = URL(string: "https://crawler.example/api")!
+    let client = FFIKitchenSink.crawlerClient(baseURL: baseURL)
+    #expect(client.baseURL == baseURL)
+}
