@@ -6,15 +6,17 @@
 	objectVersion = 60;
 	objects = {
 
-/* Begin PBXBuildFile section */
+	/* Begin PBXBuildFile section */
 		4BE8318D2FC14F5300E7EF76 /* Icon.png in Resources */ = {isa = PBXBuildFile; fileRef = 4BE8318C2FC14F5300E7EF76 /* Icon.png */; };
+		4BE831A02FC14F6300E7EF76 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 4BE831A12FC14F6300E7EF76 /* Assets.xcassets */; };
 		FFRELAY000000000000000001 /* FFRelayApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFRELAY000000000000000011 /* FFRelayApp.swift */; };
 		FFRELAY000000000000000002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFRELAY000000000000000012 /* ContentView.swift */; };
 		FFRELAY000000000000000003 /* RelayGUI in Frameworks */ = {isa = PBXBuildFile; productRef = FFRELAY000000000000000060 /* RelayGUI */; };
 /* End PBXBuildFile section */
 
-/* Begin PBXFileReference section */
+	/* Begin PBXFileReference section */
 		4BE8318C2FC14F5300E7EF76 /* Icon.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = Icon.png; path = Sources/RelayGUI/Resources/Icon.png; sourceTree = "<group>"; };
+		4BE831A12FC14F6300E7EF76 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = FFRelayApp/Assets.xcassets; sourceTree = "<group>"; };
 		4BE8318E2FC14F6300E7EF76 /* 1024x1024.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = 1024x1024.png; sourceTree = "<group>"; };
 		4BE8318F2FC14F6300E7EF76 /* background.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = background.png; sourceTree = "<group>"; };
 		4BE831902FC14F6300E7EF76 /* Contents.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Contents.json; sourceTree = "<group>"; };
@@ -49,6 +51,7 @@
 		FFRELAY000000000000000030 = {
 			isa = PBXGroup;
 			children = (
+				4BE831A12FC14F6300E7EF76 /* Assets.xcassets */,
 				4BE831912FC14F6300E7EF76 /* Icon.imageset */,
 				4BE8318C2FC14F5300E7EF76 /* Icon.png */,
 				FFRELAY000000000000000031 /* FFRelayApp */,
@@ -139,6 +142,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4BE831A02FC14F6300E7EF76 /* Assets.xcassets in Resources */,
 				4BE8318D2FC14F5300E7EF76 /* Icon.png in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
