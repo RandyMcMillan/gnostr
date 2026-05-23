@@ -14,6 +14,7 @@ import FoundationNetworking
 private enum LiveRelayTestError: Error {
     case timeout
     case invalidResponse
+    case runtimeStartFailed(String?)
 }
 
 @Test func relayDiscoveryDecodes() throws {
@@ -133,8 +134,8 @@ private enum LiveRelayTestError: Error {
     let port = try pickFreePort()
     let bridge = RustCrawlerBridge.shared
     guard bridge.isAvailable else { return }
-    guard bridge.startCrawlerRuntime(port: port)?.running == true else {
-        throw CocoaError(.coderInvalidValue)
+    guard let state = bridge.startCrawlerRuntime(port: port), state.running else {
+        throw LiveRelayTestError.runtimeStartFailed(bridge.crawlerRuntimeStatus()?.message)
     }
     defer {
         _ = bridge.stopCrawlerRuntime()
