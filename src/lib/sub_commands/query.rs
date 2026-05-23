@@ -499,6 +499,27 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_relays_alias_and_append() -> anyhow::Result<()> {
+        setup_rustls();
+        let args = create_query_subcommand(&[
+            "--relays",
+            "wss://relay.example,wss://relay2.example",
+            "-r",
+            "wss://relay3.example",
+        ]);
+
+        assert_eq!(
+            args.relay,
+            vec![
+                "wss://relay.example".to_string(),
+                "wss://relay2.example".to_string(),
+                "wss://relay3.example".to_string(),
+            ]
+        );
+        Ok(())
+    }
+
+    #[test]
     fn test_build_filter_map_default_limit() -> anyhow::Result<()> {
         let args = create_query_subcommand(&[]);
         let (filt, limit_check) = build_filter_map(&args)?;
