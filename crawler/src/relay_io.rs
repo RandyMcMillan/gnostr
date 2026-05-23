@@ -1,5 +1,5 @@
 use crate::processor::BOOTSTRAP_RELAYS;
-use log::{debug, warn};
+use log::{debug, trace, warn};
 use nostr_sdk::prelude::Url;
 use std::collections::HashSet;
 use std::fs as sync_fs;
@@ -90,7 +90,7 @@ pub fn load_file(filename: impl AsRef<Path>) -> io::Result<Vec<String>> {
                 match Url::parse(&final_line) {
                     Ok(url) => Some(url.to_string()),
                     Err(_) => {
-                        warn!(
+                        trace!(
                             "Skipping invalid WEBSOCKET URL in {}: {}",
                             filename.as_ref().display(),
                             final_line
@@ -99,14 +99,14 @@ pub fn load_file(filename: impl AsRef<Path>) -> io::Result<Vec<String>> {
                     }
                 }
             } else if final_line.contains("://") {
-                warn!(
+                trace!(
                     "Skipping non-websocket URL scheme in {}: {}",
                     filename.as_ref().display(),
                     final_line
                 );
                 None
             } else {
-                debug!(
+                trace!(
                     "Silently skipping non-URL line in {}: {}",
                     filename.as_ref().display(),
                     final_line
