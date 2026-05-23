@@ -347,6 +347,10 @@ public final class CrawlerClient: @unchecked Sendable {
         try await self.getText(path(for: nip, suffix: "relays.txt"))
     }
 
+    public func indexHTML() async throws -> String {
+        try await self.getText("")
+    }
+
     public func primeBuckets() async throws -> CrawlerBucketRefreshState {
         try await self.postJSON("api/relays/prime")
     }

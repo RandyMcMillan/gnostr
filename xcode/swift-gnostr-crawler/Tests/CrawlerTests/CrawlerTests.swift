@@ -187,6 +187,26 @@ private enum LiveRelayTestError: Error {
     #expect(crawlerResult.contains(event.content))
 }
 
+@Test func crawlerServeRootHtmlPrintsToConsole() async throws {
+    guard RustCrawlerBridge.shared.isAvailable else { return }
+
+    let port = try pickFreePort()
+    let bridge = RustCrawlerBridge.shared
+    guard let state = bridge.startCrawlerRuntime(port: port), state.running else {
+        throw LiveRelayTestError.runtimeStartFailed(bridge.crawlerRuntimeStatus()?.message)
+    }
+    defer {
+        _ = bridge.stopCrawlerRuntime()
+    }
+
+    let client = CrawlerClient(baseURL: URL(string: "http://127.0.0.1:\(port)")!)
+    try await Task.sleep(nanoseconds: 1_000_000_000)
+
+    let html = try await client.indexHTML()
+    print("gnostr crawler serve html:\n\(html)")
+    #expect(html.contains("gnostr crawler"))
+}
+
 @Test func relayProcessStateEncodesAndDecodesSnakeCase() throws {
     let state = RelayProcessState(running: true, pid: 42, message: "ok", diskUsageBytes: 99)
     let encoder = JSONEncoder()
