@@ -24,3 +24,8 @@ pub fn p2p_network_status() -> String {
 pub fn p2p_network_stop() -> String {
     gnostr_p2p::embedded_network::stop()
 }
+
+#[uniffi::export]
+pub fn p2p_network_logs() -> String {
+    gnostr_p2p::embedded_network::logs()
+}
