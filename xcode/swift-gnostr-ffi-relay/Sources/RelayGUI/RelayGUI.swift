@@ -204,13 +204,19 @@ public struct RelayDashboardView: View {
         VStack(alignment: .leading, spacing: 0) {
             header
                 .padding(.bottom, 8)
-            controls
-                .padding(.bottom, 8)
-            card(title: "Rust defaults", compact: false, content: configurationContent)
-                .padding(.bottom, 8)
-            card(title: "Log console", compact: model.isConfigEditorVisible, content: consoleContent)
-                .frame(maxHeight: .infinity, alignment: .topLeading)
-                .layoutPriority(1)
+                .background(headerBackground)
+                .zIndex(1)
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: model.isConfigEditorVisible ? 12 : 20) {
+                    controls
+                    card(title: "Rust defaults", compact: false, content: configurationContent)
+                    card(title: "Log console", compact: model.isConfigEditorVisible, content: consoleContent)
+                        .frame(maxHeight: model.isConfigEditorVisible ? 60 : 220, alignment: .topLeading)
+                        .layoutPriority(1)
+                }
+                .frame(maxWidth: .infinity, alignment: .topLeading)
+            }
+            .frame(maxHeight: .infinity, alignment: .topLeading)
         }
         .padding(.horizontal)
         .padding(.bottom)
@@ -375,6 +381,21 @@ public struct RelayDashboardView: View {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(Color.secondary.opacity(0.12))
         )
+    }
+
+    @ViewBuilder
+    private var headerBackground: some View {
+        #if canImport(AppKit)
+        Color(nsColor: .windowBackgroundColor)
+        #elseif canImport(UIKit)
+        if #available(iOS 15.0, *) {
+            Color(uiColor: .systemBackground)
+        } else {
+            Color(white: 1.0)
+        }
+        #else
+        Color.clear
+        #endif
     }
 
     private var statusIndicatorColor: Color {
