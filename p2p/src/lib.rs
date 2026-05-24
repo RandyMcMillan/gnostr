@@ -26,6 +26,7 @@ use sha2::{Digest, Sha256};
 pub mod args;
 pub mod cli;
 pub mod behaviour;
+pub mod embedded_network;
 pub mod command_handler;
 pub mod event_handler;
 pub mod git_integration;
