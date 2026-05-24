@@ -24,7 +24,13 @@ for target in "${targets[@]}"; do
 # step 2 - create xcframework
 mkdir -p "${NEW_HEADER_DIR}"
 cp "${HEADERPATH}" "${NEW_HEADER_DIR}/"
-cp "out/${MY_CRATE}FFI.modulemap" "${NEW_HEADER_DIR}/module.modulemap"
+cat > "${NEW_HEADER_DIR}/module.modulemap" <<EOF
+module ${MY_CRATE}FFI {
+    header "${MY_CRATE}FFI.h"
+    export *
+    link "${MY_CRATE}"
+}
+EOF
 
 rm -rf "${OUTDIR}/${MY_CRATE}_framework.xcframework"
 
