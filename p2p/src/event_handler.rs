@@ -140,6 +140,29 @@ pub async fn handle_swarm_event(
             result,
             ..
         })) => match result {
+            kad::QueryResult::GetProviders(Ok(kad::GetProvidersOk::FoundProviders {
+                providers,
+                ..
+            })) => {
+                for provider in providers {
+                    crate::embedded_network::log_line(format!(
+                        "discovery provider found: {provider}"
+                    ));
+                    info!("Discovery provider found: {provider}");
+                    if let Err(error) = swarm.dial(provider) {
+                        crate::embedded_network::log_line(format!(
+                            "failed to dial discovery provider {provider}: {error:?}"
+                        ));
+                        warn!("Failed to dial discovery provider {provider}: {error:?}");
+                    }
+                }
+            }
+            kad::QueryResult::GetProviders(Ok(kad::GetProvidersOk::FinishedWithNoAdditionalRecord {
+                ..
+            })) => {}
+            kad::QueryResult::GetProviders(Err(err)) => {
+                warn!("Failed to get providers: {err:?}");
+            }
             kad::QueryResult::GetRecord(Ok(kad::GetRecordOk::FoundRecord(kad::PeerRecord {
                 record,
                 ..
