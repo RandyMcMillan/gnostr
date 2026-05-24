@@ -8,6 +8,11 @@
 #ifndef ToolX_h
 #define ToolX_h
 
-void ToolXRun(int argc, const char *argv[]);
+#import <TargetConditionals.h>
+
+static inline void ToolXRun(int argc, const char *argv[]) {
+    (void)argc;
+    (void)argv;
+}
 
 #endif /* ToolX_h */

@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 54;
+	objectVersion = 50;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -11,7 +11,7 @@
 		4B3549F32A14822E00F4FF5A /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 4B542C5329F88D22000A03AF /* main.m */; };
 		4B354A272A14835A00F4FF5A /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 4B542C8929F88E6B000A03AF /* main.m */; };
 		4B354A7C2A1492A200F4FF5A /* template.sh in Copy to Shared Support */ = {isa = PBXBuildFile; fileRef = 4B354A762A14929200F4FF5A /* template.sh */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
-		4B354A8F2A17A00100F4FF5A /* libToolX.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4B542C8729F88E6B000A03AF /* libToolX.a */; platformFilter = ios; };
+		4B354A8F2A17A00100F4FF5A /* libToolX.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4B542C8729F88E6B000A03AF /* libToolX.a */; };
 		4B542C4929F88D1F000A03AF /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 4B542C4829F88D1F000A03AF /* AppDelegate.m */; };
 		4B542C4C29F88D1F000A03AF /* ViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 4B542C4B29F88D1F000A03AF /* ViewController.m */; };
 		4B542C4E29F88D22000A03AF /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 4B542C4D29F88D22000A03AF /* Assets.xcassets */; };
@@ -478,7 +478,6 @@
 /* Begin PBXTargetDependency section */
 		4B3549FF2A14826600F4FF5A /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			platformFilter = ios;
 			target = 4B542C8629F88E6B000A03AF /* ToolX */;
 			targetProxy = 4B3549FE2A14826600F4FF5A /* PBXContainerItemProxy */;
 		};
@@ -565,7 +564,7 @@
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
-				SDKROOT = macosx;
+				SDKROOT = iphoneos;
 			};
 			name = Debug;
 		};
@@ -621,7 +620,7 @@
 				MACOSX_DEPLOYMENT_TARGET = 14.6;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
-				SDKROOT = macosx;
+				SDKROOT = iphoneos;
 			};
 			name = Release;
 		};
@@ -672,10 +671,11 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = org.gnostr.AppWithTool;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = NO;
 				STRIP_INSTALLED_PRODUCT = NO;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
-				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
@@ -727,10 +727,11 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = org.gnostr.AppWithTool;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = NO;
 				STRIP_INSTALLED_PRODUCT = NO;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
-				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
@@ -857,7 +858,7 @@
 				STRIP_INSTALLED_PRODUCT = NO;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
-				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
@@ -882,7 +883,7 @@
 				STRIP_INSTALLED_PRODUCT = NO;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
-				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
