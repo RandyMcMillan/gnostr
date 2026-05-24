@@ -9,3 +9,18 @@ fn rust_hello() -> String {
 pub fn rust_add(a: u32, b: u32) -> u32 {
     a + b
 }
+
+#[uniffi::export]
+pub fn p2p_network_start() -> String {
+    gnostr_p2p::embedded_network::start()
+}
+
+#[uniffi::export]
+pub fn p2p_network_status() -> String {
+    gnostr_p2p::embedded_network::status()
+}
+
+#[uniffi::export]
+pub fn p2p_network_stop() -> String {
+    gnostr_p2p::embedded_network::stop()
+}
