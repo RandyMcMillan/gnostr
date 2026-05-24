@@ -74,9 +74,8 @@ crossterm = "0.28.1"
 derive_more = { workspace = true }
 directories = { workspace = true }
 dirs = "5.0.1"
-easy-cast = "0.5"
-etcetera = "0.10.0"
-expectrl = "0.8.0"
+    easy-cast = "0.5"
+    etcetera = "0.10.0"
 figment = { version = "0.10.19", features = ["toml"] }
 flate2 = "1"
 futures = "0.3"
