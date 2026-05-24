@@ -479,7 +479,6 @@ public struct RelayDashboardView: View {
             .aspectRatio(contentMode: .fit)
             .frame(maxWidth: 520)
             .opacity(0.06)
-            .rotationEffect(.degrees(-12))
             .blur(radius: 0.4)
             .allowsHitTesting(false)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
