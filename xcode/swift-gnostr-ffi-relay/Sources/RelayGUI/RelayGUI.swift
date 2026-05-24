@@ -102,6 +102,7 @@ public final class RelayDashboardViewModel: ObservableObject {
         do {
             try writeConfigFile(configFileContents)
             configFileStatus = "Saved \(resolvedConfigFilePath)"
+            isConfigFileEditable = false
             appendLog(configFileStatus)
         } catch {
             configFileStatus = "Save failed: \(error.localizedDescription)"
