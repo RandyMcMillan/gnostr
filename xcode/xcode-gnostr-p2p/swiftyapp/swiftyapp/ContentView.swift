@@ -12,8 +12,42 @@ import RustyLib
 struct ContentView: View {
     @State private var networkStatus = p2pNetworkStatus()
     @State private var networkLogs = p2pNetworkLogs()
+    @State private var showingNetworkPanel = false
+    @State private var didAutoStartNetwork = false
 
     var body: some View {
+        ZStack(alignment: .topTrailing) {
+            Color.clear
+                .ignoresSafeArea()
+
+            Button {
+                showingNetworkPanel = true
+            } label: {
+                Image(systemName: "gearshape.fill")
+                    .font(.title3.weight(.semibold))
+                    .padding(10)
+                    .background(.thinMaterial, in: Circle())
+                    .shadow(radius: 2)
+            }
+            .padding()
+            .accessibilityLabel("P2P settings")
+            .popover(isPresented: $showingNetworkPanel, arrowEdge: .top) {
+                networkPanel
+            }
+        }
+        .onAppear {
+            if !didAutoStartNetwork {
+                didAutoStartNetwork = true
+                refreshNetworkState(p2pNetworkStart())
+            }
+        }
+        .onReceive(Timer.publish(every: 1.0, on: .main, in: .common).autoconnect()) { _ in
+            networkStatus = p2pNetworkStatus()
+            networkLogs = p2pNetworkLogs()
+        }
+    }
+
+    private var networkPanel: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("P2P Network").font(.headline)
             Text(networkStatus)
@@ -36,15 +70,7 @@ struct ContentView: View {
             Text(String(rustAdd(a: 10, b: 32)))
         }
         .padding()
-        .onAppear {
-            if networkStatus == "not running" {
-                refreshNetworkState(p2pNetworkStart())
-            }
-        }
-        .onReceive(Timer.publish(every: 1.0, on: .main, in: .common).autoconnect()) { _ in
-            networkStatus = p2pNetworkStatus()
-            networkLogs = p2pNetworkLogs()
-        }
+        .frame(minWidth: 360, minHeight: 420)
     }
 
     private func refreshNetworkState(_ status: String) {
