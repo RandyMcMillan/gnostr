@@ -240,7 +240,6 @@ public struct RelayDashboardView: View {
                 StickyFooter(
                     label: "Log console",
                     isExpanded: $model.isConsoleExpanded,
-                    expandedMaxHeight: 180,
                     expandedContent: {
                         consoleContent
                     },
@@ -513,7 +512,7 @@ public struct StickyFooter<ExpandedContent: View, TrailingActions: View>: View {
                     expandedContent
                         .frame(maxWidth: .infinity, alignment: .topLeading)
                 }
-                .frame(maxHeight: expandedMaxHeight ?? 180, alignment: .topLeading)
+                .frame(maxHeight: expandedMaxHeight ?? .infinity, alignment: .topLeading)
                 .padding(.bottom, 8)
                 Divider()
             }
