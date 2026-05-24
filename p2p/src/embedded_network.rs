@@ -111,7 +111,7 @@ fn discovery_topic() -> IdentTopic {
 }
 
 fn discovery_key() -> KadKey {
-    KadKey::new(DISCOVERY_KEY)
+    KadKey::new(&DISCOVERY_KEY)
 }
 
 fn timestamp_secs() -> u64 {
