@@ -94,11 +94,30 @@ struct ContentView: View {
                     Button("Stop") { stopNetwork() }
                     Button("Refresh Logs") { refreshNetworkSnapshot() }
                 }
-                ScrollView {
-                    Text(networkLogs.isEmpty ? "No P2P logs yet." : networkLogs)
-                        .font(.system(.footnote, design: .monospaced))
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: 4) {
+                            if networkLogLines.isEmpty {
+                                Text("No P2P logs yet.")
+                                    .font(.system(.footnote, design: .monospaced))
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            } else {
+                                ForEach(Array(networkLogLines.enumerated()), id: \.offset) { index, line in
+                                    Text(line)
+                                        .font(.system(.footnote, design: .monospaced))
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .id(index)
+                                }
+                            }
+                        }
                         .textSelection(.enabled)
+                    }
+                    .onAppear {
+                        scrollToLatestLog(using: proxy)
+                    }
+                    .onChange(of: networkLogs) { _ in
+                        scrollToLatestLog(using: proxy)
+                    }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 Divider()
@@ -110,6 +129,10 @@ struct ContentView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(.background)
+    }
+
+    private var networkLogLines: [String] {
+        networkLogs.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
     }
 
     private func startNetwork() {
@@ -142,6 +165,13 @@ struct ContentView: View {
                 networkStatus = status
                 networkLogs = logs
             }
+        }
+    }
+
+    private func scrollToLatestLog(using proxy: ScrollViewProxy) {
+        guard let lastIndex = networkLogLines.indices.last else { return }
+        DispatchQueue.main.async {
+            proxy.scrollTo(lastIndex, anchor: .bottom)
         }
     }
 }
