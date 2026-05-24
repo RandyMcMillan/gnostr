@@ -1,7 +1,7 @@
 use std::{
     ffi::{CStr, CString},
     os::raw::c_char,
-    path::{Path, PathBuf},
+    path::PathBuf,
     sync::{Mutex, OnceLock},
 };
 

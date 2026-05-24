@@ -248,6 +248,10 @@ public final class RustRelayBridge: @unchecked Sendable {
 
             paths.append(Bundle.main.bundleURL.appendingPathComponent("Frameworks/librelay_ffi.dylib").path)
             paths.append(Bundle.main.bundleURL.appendingPathComponent("Contents/Frameworks/librelay_ffi.dylib").path)
+            let cargoCache = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true)
+                .appendingPathComponent(".cache/cargo", isDirectory: true)
+            paths.append(cargoCache.appendingPathComponent("debug/librelay_ffi.dylib").path)
+            paths.append(cargoCache.appendingPathComponent("debug/deps/librelay_ffi.dylib").path)
             paths.append("Rust/relay-ffi/target/debug/librelay_ffi.dylib")
             paths.append("Rust/relay-ffi/target/release/librelay_ffi.dylib")
             return paths
