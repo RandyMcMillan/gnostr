@@ -512,21 +512,7 @@ public struct RelayDashboardView: View {
 
     @ViewBuilder
     private var headerBackground: some View {
-        #if canImport(AppKit)
-        if #available(macOS 12.0, *) {
-            Color(nsColor: .windowBackgroundColor)
-        } else {
-            Color.white
-        }
-        #elseif canImport(UIKit)
-        if #available(iOS 15.0, *) {
-            Color(uiColor: .systemBackground)
-        } else {
-            Color(white: 1.0)
-        }
-        #else
-        Color.clear
-        #endif
+        Color.white.opacity(0.98)
     }
 
     private var watermarkBackground: some View {
