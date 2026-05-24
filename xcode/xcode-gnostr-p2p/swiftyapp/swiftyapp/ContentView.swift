@@ -15,6 +15,7 @@ struct ContentView: View {
     @State private var networkLogs = p2pNetworkLogs()
     @State private var showingNetworkPanel = false
     @State private var didAutoStartNetwork = false
+    @State private var logFontSize: CGFloat = 12
 
     var body: some View {
         VStack(spacing: 0) {
@@ -93,18 +94,35 @@ struct ContentView: View {
                     Button("Start") { startNetwork() }
                     Button("Stop") { stopNetwork() }
                     Button("Refresh Logs") { refreshNetworkSnapshot() }
+                    Spacer()
+                    Button {
+                        adjustLogFontSize(by: -1)
+                    } label: {
+                        Image(systemName: "minus")
+                    }
+                    .accessibilityLabel("Smaller logger text")
+                    Text("\(Int(logFontSize))")
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                        .frame(minWidth: 28)
+                    Button {
+                        adjustLogFontSize(by: 1)
+                    } label: {
+                        Image(systemName: "plus")
+                    }
+                    .accessibilityLabel("Larger logger text")
                 }
                 ScrollViewReader { proxy in
                     ScrollView {
                         LazyVStack(alignment: .leading, spacing: 4) {
                             if networkLogLines.isEmpty {
                                 Text("No P2P logs yet.")
-                                    .font(.system(.footnote, design: .monospaced))
+                                    .font(logFont)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                             } else {
                                 ForEach(Array(networkLogLines.enumerated()), id: \.offset) { index, line in
                                     Text(line)
-                                        .font(.system(.footnote, design: .monospaced))
+                                        .font(logFont)
                                         .frame(maxWidth: .infinity, alignment: .leading)
                                         .id(index)
                                 }
@@ -133,6 +151,10 @@ struct ContentView: View {
 
     private var networkLogLines: [String] {
         networkLogs.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
+    }
+
+    private var logFont: Font {
+        .system(size: logFontSize, weight: .regular, design: .monospaced)
     }
 
     private func startNetwork() {
@@ -173,6 +195,10 @@ struct ContentView: View {
         DispatchQueue.main.async {
             proxy.scrollTo(lastIndex, anchor: .bottom)
         }
+    }
+
+    private func adjustLogFontSize(by delta: CGFloat) {
+        logFontSize = min(24, max(10, logFontSize + delta))
     }
 }
 
