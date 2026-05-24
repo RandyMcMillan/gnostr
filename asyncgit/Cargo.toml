@@ -23,7 +23,7 @@ path = "src/lib/mod.rs"
 default = ["trace-libgit", "vendor-openssl"]
 trace-libgit = []
 gnostr_web = []
-tui = []
+tui = ["dep:crossterm", "dep:ratatui", "dep:tui-prompts"]
 speedy = []
 nostr = []
 long_tests = []
@@ -70,7 +70,7 @@ const-hex = "1.12"
 const_format = "0.2"
 constant_time_eq = { workspace = true }
 crossbeam-channel = "0.5"
-crossterm = "0.28.1"
+ crossterm = { version = "0.28.1", optional = true }
 derive_more = { workspace = true }
 directories = { workspace = true }
 dirs = "5.0.1"
@@ -130,7 +130,7 @@ pbkdf2 = { workspace = true }
 pretty_env_logger = { workspace = true }
 rand = "0.8.5"
 rand_core = { workspace = true }
-ratatui = { version = "0.29", features = ["serde"] }
+ ratatui = { version = "0.29", features = ["serde"], optional = true }
 rayon = "1.10"
 rayon-core = "1.12"
 regex = "1.11.1"
@@ -182,7 +182,7 @@ tracing-subscriber = { version = "0.3", default-features = false, features = [
 tree-sitter = "0.23.2" # check version
 tree-sitter-highlight = "0.23" ##check version
 tree-sitter-json = { workspace = true }
-tui-prompts = "0.5.2"
+ tui-prompts = { version = "0.5.2", optional = true }
 
 unicode-normalization = { workspace = true }
 unicode-segmentation = { workspace = true }
