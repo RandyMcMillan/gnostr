@@ -229,7 +229,18 @@ public struct RelayDashboardView: View {
                 .frame(maxWidth: .infinity, alignment: .topLeading)
             }
             .frame(maxHeight: .infinity, alignment: .topLeading)
-            consoleFooter
+            StickyFooter(
+                label: "Log console",
+                isExpanded: $model.isConsoleExpanded,
+                expandedMaxHeight: model.isConfigEditorVisible ? 60 : 180,
+                expandedContent: {
+                    consoleContent
+                },
+                trailingActions: {
+                    Button("Clear") { model.clearLog() }
+                        .buttonStyle(.borderless)
+                }
+            )
         }
         .padding(.horizontal)
         .padding(.bottom)
@@ -327,11 +338,10 @@ public struct RelayDashboardView: View {
                 row(label: "File status", value: model.configFileStatus)
                 HStack {
                     Button("Refresh defaults") { model.refresh() }
-                    // the file should not be editable until load file pressed
-                    // gray out text to indicate not active
+                    /// the file should not be editable until load file pressed
+                    /// gray out text to indicate not active
                     Button("Load file") { model.loadConfigFileContents() }
                     Button("Save file") { model.saveConfigFileContents() }
-                    // this belongs some where else Button("Clear console") { model.clearLog() }
                 }
             } else {
                 Text("Click the gear to edit the relay config file.")
@@ -383,37 +393,6 @@ public struct RelayDashboardView: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-        }
-    }
-
-    private var consoleFooter: some View {
-        VStack(spacing: 0) {
-            if model.isConsoleExpanded {
-                consoleContent
-                    .frame(maxHeight: 180, alignment: .topLeading)
-                    .padding(.bottom, 8)
-            }
-            HStack {
-                Text("Log console")
-                    .font(.subheadline.weight(.semibold))
-                Spacer()
-                Button(action: { model.toggleConsoleVisibility() }) {
-                    if #available(macOS 11.0, iOS 14.0, *) {
-                        Image(systemName: model.isConsoleExpanded ? "chevron.down" : "chevron.up")
-                    } else {
-                        Text(model.isConsoleExpanded ? "⌄" : "⌃")
-                    }
-                }
-                .buttonStyle(.plain)
-                Button("Clear") { model.clearLog() }
-                    .buttonStyle(.borderless)
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .background(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(Color.secondary.opacity(0.12))
-            )
         }
     }
 
@@ -478,5 +457,57 @@ public struct RelayDashboardView: View {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .fill(Color.secondary.opacity(0.12))
         )
+    }
+}
+
+public struct StickyFooter<ExpandedContent: View, TrailingActions: View>: View {
+    @Binding private var isExpanded: Bool
+    private let label: String
+    private let expandedMaxHeight: CGFloat
+    private let expandedContent: ExpandedContent
+    private let trailingActions: TrailingActions
+
+    public init(
+        label: String,
+        isExpanded: Binding<Bool>,
+        expandedMaxHeight: CGFloat = 180,
+        @ViewBuilder expandedContent: () -> ExpandedContent,
+        @ViewBuilder trailingActions: () -> TrailingActions
+    ) {
+        self.label = label
+        self._isExpanded = isExpanded
+        self.expandedMaxHeight = expandedMaxHeight
+        self.expandedContent = expandedContent()
+        self.trailingActions = trailingActions()
+    }
+
+    public var body: some View {
+        VStack(spacing: 0) {
+            if isExpanded {
+                expandedContent
+                    .frame(maxHeight: expandedMaxHeight, alignment: .topLeading)
+                    .padding(.bottom, 8)
+            }
+            HStack {
+                Text(label)
+                    .font(.subheadline.weight(.semibold))
+                Spacer()
+                Button(action: { isExpanded.toggle() }) {
+                    if #available(macOS 11.0, iOS 14.0, *) {
+                        Image(systemName: isExpanded ? "chevron.down" : "chevron.up")
+                    } else {
+                        Text(isExpanded ? "⌄" : "⌃")
+                    }
+                }
+                .buttonStyle(.plain)
+                trailingActions
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(Color.secondary.opacity(0.12))
+            )
+        }
     }
 }
