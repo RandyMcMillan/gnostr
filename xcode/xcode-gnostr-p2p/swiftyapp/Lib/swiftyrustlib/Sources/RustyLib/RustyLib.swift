@@ -432,6 +432,12 @@ private struct FfiConverterString: FfiConverter {
     }
 }
 
+public func p2pNetworkLogs() -> String {
+    return try! FfiConverterString.lift(try! rustCall {
+        uniffi_rustylib_fn_func_p2p_network_logs($0)
+    })
+}
+
 public func p2pNetworkStart() -> String {
     return try! FfiConverterString.lift(try! rustCall {
         uniffi_rustylib_fn_func_p2p_network_start($0)
@@ -480,6 +486,9 @@ private var initializationResult: InitializationResult = {
     let scaffolding_contract_version = ffi_rustylib_uniffi_contract_version()
     if bindings_contract_version != scaffolding_contract_version {
         return InitializationResult.contractVersionMismatch
+    }
+    if uniffi_rustylib_checksum_func_p2p_network_logs() != 9870 {
+        return InitializationResult.apiChecksumMismatch
     }
     if uniffi_rustylib_checksum_func_p2p_network_start() != 17127 {
         return InitializationResult.apiChecksumMismatch
