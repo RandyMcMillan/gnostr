@@ -26,6 +26,14 @@ import Testing
 }
 
 @MainActor
+@Test func relayDashboardViewModelTogglesConfigEditorExpansion() {
+    let model = RelayDashboardViewModel(autoStart: false)
+    #expect(model.isConfigEditorExpanded == true)
+    model.toggleConfigEditorExpansion()
+    #expect(model.isConfigEditorExpanded == false)
+}
+
+@MainActor
 @Test func relayDashboardViewModelTogglesConsoleVisibility() {
     let model = RelayDashboardViewModel(autoStart: false)
     #expect(model.isConsoleExpanded == false)
@@ -51,6 +59,14 @@ import Testing
     let model = RelayDashboardViewModel(autoStart: false, configBaseDirectoryPath: root.path)
     #expect(model.configFileContents.contains("logging = \"trace\""))
     #expect(model.configFileStatus.hasPrefix("Loaded"))
+}
+
+@MainActor
+@Test func relayDashboardViewModelKeepsEditorLockedUntilLoadPressed() {
+    let model = RelayDashboardViewModel(autoStart: false)
+    #expect(model.isConfigFileEditable == false)
+    model.loadConfigFileContents()
+    #expect(model.isConfigFileEditable == true)
 }
 
 @MainActor
