@@ -14,7 +14,7 @@ STATIC_LIB_NAME="lib${MY_CRATE}.a"
 NEW_HEADER_DIR="out/include"
 TARGETDIR="$(cargo metadata --no-deps --format-version 1 | python3 -c 'import json, sys; print(json.load(sys.stdin)["target_directory"])')"
 
-targets=("aarch64-apple-ios" "x86_64-apple-ios" "aarch64-apple-darwin")
+targets=("aarch64-apple-ios" "aarch64-apple-ios-sim" "x86_64-apple-ios" "aarch64-apple-darwin")
 
 for target in "${targets[@]}"; do
     rustup target add ${target}
@@ -36,6 +36,7 @@ rm -rf "${OUTDIR}/${MY_CRATE}_framework.xcframework"
 
 xcodebuild -create-xcframework \
     -library "${TARGETDIR}/aarch64-apple-ios/${RELDIR}/${STATIC_LIB_NAME}" -headers "${NEW_HEADER_DIR}" \
+    -library "${TARGETDIR}/aarch64-apple-ios-sim/${RELDIR}/${STATIC_LIB_NAME}" -headers "${NEW_HEADER_DIR}" \
     -library "${TARGETDIR}/x86_64-apple-ios/${RELDIR}/${STATIC_LIB_NAME}" -headers "${NEW_HEADER_DIR}" \
     -library "${TARGETDIR}/aarch64-apple-darwin/${RELDIR}/${STATIC_LIB_NAME}" -headers "${NEW_HEADER_DIR}" \
     -output "${OUTDIR}/${MY_CRATE}_framework.xcframework"
