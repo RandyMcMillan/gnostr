@@ -38,6 +38,8 @@ import Testing
     #expect(RelayDashboardViewModel.statusIndicatorState(for: "Relay FFI unavailable", isRunning: false) == .red)
     #expect(RelayDashboardViewModel.statusIndicatorState(for: "Relay FFI available", isRunning: false) == .yellow)
     #expect(RelayDashboardViewModel.statusIndicatorState(for: "Relay FFI available", isRunning: true) == .green)
+    #expect(RelayDashboardViewModel.statusIndicatorState(for: "Relay stop requested", isRunning: false) == .red)
+    #expect(RelayDashboardViewModel.statusIndicatorState(for: "Relay restart requested", isRunning: false) == .yellow)
 }
 
 @MainActor
