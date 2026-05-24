@@ -109,8 +109,8 @@ cargo-build: 	## 	cargo build
 	@RUST_BACKTRACE=all bash ./scripts/with-system-rocksdb.sh cargo b -j \$(NPROC) \$(QUIET)
 cargo-install: 	###         cargo install --path . \$(FORCE)
 	@. \$(HOME)/.cargo/env
-	@cargo install -j \$(NPROC) --path ./bins \$(FORCE)
-	@cargo install -j \$(NPROC) --path . \$(FORCE)
+	@cargo install -j \$(NPROC) --locked --path ./bins \$(FORCE)
+	@cargo install -j \$(NPROC) --locked --path . \$(FORCE)
 
 cargo-sort: 	cargo-sort
 	for cargo_toml in \$(shell ls */Cargo.toml); do cargo sort -n \$(cargo_toml);done
