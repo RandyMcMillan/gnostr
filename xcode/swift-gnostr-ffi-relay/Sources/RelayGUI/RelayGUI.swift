@@ -537,27 +537,13 @@ public struct StickyFooter<ExpandedContent: View, TrailingActions: View>: View {
     }
 
     public var body: some View {
-        VStack(spacing: 0) {
+        ZStack(alignment: .bottom) {
             if isExpanded {
                 expandedContent
-                    .frame(maxHeight: expandedMaxHeight ?? .infinity, alignment: .topLeading)
-                    .padding(.bottom, 8)
-                Divider()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .padding(.bottom, footerBarHeight + 12)
             }
-            HStack {
-                Text(label)
-                    .font(.subheadline.weight(.semibold))
-                Spacer()
-                Button(action: { isExpanded.toggle() }) {
-                    if #available(macOS 11.0, iOS 14.0, *) {
-                        Image(systemName: isExpanded ? "chevron.down" : "chevron.up")
-                    } else {
-                        Text(isExpanded ? "⌄" : "⌃")
-                    }
-                }
-                .buttonStyle(.plain)
-                trailingActions
-            }
+            footerBar
         }
         .padding(12)
         .background(
@@ -568,5 +554,25 @@ public struct StickyFooter<ExpandedContent: View, TrailingActions: View>: View {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .stroke(Color.secondary.opacity(0.25))
         )
+    }
+
+    private var footerBarHeight: CGFloat { 44 }
+
+    private var footerBar: some View {
+        HStack {
+            Text(label)
+                .font(.subheadline.weight(.semibold))
+            Spacer()
+            Button(action: { isExpanded.toggle() }) {
+                if #available(macOS 11.0, iOS 14.0, *) {
+                    Image(systemName: isExpanded ? "chevron.down" : "chevron.up")
+                } else {
+                    Text(isExpanded ? "⌄" : "⌃")
+                }
+            }
+            .buttonStyle(.plain)
+            trailingActions
+        }
+        .frame(height: footerBarHeight)
     }
 }
