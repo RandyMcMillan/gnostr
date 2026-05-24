@@ -1,13 +1,27 @@
 use std::{
+    collections::HashSet,
     sync::{Arc, Mutex, OnceLock},
     thread,
+    time::{SystemTime, UNIX_EPOCH},
 };
 
 use futures::StreamExt;
-use libp2p::{kad, swarm::SwarmEvent};
+use libp2p::{
+    gossipsub::IdentTopic,
+    kad::{self, record::Key as KadKey},
+    swarm::SwarmEvent,
+    Multiaddr, PeerId,
+};
+use serde::{Deserialize, Serialize};
 use tokio::{runtime::Builder, sync::oneshot};
 
-use crate::{cli, event_handler, keypair_from_seed, swarm_builder};
+use crate::{
+    cli,
+    event_handler,
+    keypair_from_seed,
+    swarm_builder,
+    utils::multiaddr_with_peer_id,
+};
 
 struct EmbeddedNetwork {
     status: Arc<Mutex<String>>,
@@ -81,6 +95,155 @@ pub fn clear_logs() {
         .clear();
 }
 
+pub const DISCOVERY_TOPIC: &str = "gnostr/p2p/presence";
+const DISCOVERY_KEY: &[u8] = b"gnostr/p2p/presence";
+const DISCOVERY_REFRESH_SECS: u64 = 20;
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct PeerPresence {
+    pub peer_id: String,
+    pub addresses: Vec<String>,
+    pub timestamp_secs: u64,
+}
+
+fn discovery_topic() -> IdentTopic {
+    IdentTopic::new(DISCOVERY_TOPIC)
+}
+
+fn discovery_key() -> KadKey {
+    KadKey::new(DISCOVERY_KEY)
+}
+
+fn timestamp_secs() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_secs())
+        .unwrap_or_default()
+}
+
+fn advertised_addresses(swarm: &libp2p::Swarm<crate::behaviour::Behaviour>) -> Vec<String> {
+    let mut seen = HashSet::new();
+    let mut addresses = Vec::new();
+
+    for addr in swarm.external_addresses() {
+        let addr = addr.to_string();
+        if seen.insert(addr.clone()) {
+            addresses.push(addr);
+        }
+    }
+
+    addresses
+}
+
+pub fn publish_presence(
+    swarm: &mut libp2p::Swarm<crate::behaviour::Behaviour>,
+    peer_id: PeerId,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let addresses = advertised_addresses(swarm);
+    if addresses.is_empty() {
+        push_log("skipping presence publish: no external addresses yet");
+        return Ok(());
+    }
+
+    let presence = PeerPresence {
+        peer_id: peer_id.to_string(),
+        addresses,
+        timestamp_secs: timestamp_secs(),
+    };
+    let payload = serde_json::to_vec(&presence)?;
+    swarm
+        .behaviour_mut()
+        .gossipsub
+        .publish(discovery_topic(), payload)?;
+    push_log(format!("published presence for peer={peer_id}"));
+    Ok(())
+}
+
+pub fn bootstrap_public_dht(
+    swarm: &mut libp2p::Swarm<crate::behaviour::Behaviour>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    for (addr, peer_id) in crate::network_config::Network::Ipfs.bootnodes() {
+        let address_with_peer = multiaddr_with_peer_id(&addr, &peer_id);
+        swarm
+            .behaviour_mut()
+            .kademlia
+            .add_address(&peer_id, address_with_peer.clone());
+        swarm
+            .behaviour_mut()
+            .autonat
+            .add_server(peer_id, Some(address_with_peer.clone()));
+        if let Err(error) = swarm.dial(address_with_peer) {
+            push_log(format!("failed to dial bootstrap peer {peer_id}: {error}"));
+        }
+    }
+
+    if let Err(error) = swarm.behaviour_mut().kademlia.start_providing(discovery_key()) {
+        push_log(format!("failed to start providing discovery key: {error}"));
+    }
+
+    match swarm.behaviour_mut().kademlia.bootstrap() {
+        Ok(_) => push_log("started kademlia bootstrap"),
+        Err(error) => push_log(format!("kademlia bootstrap deferred: {error}")),
+    }
+
+    Ok(())
+}
+
+pub fn refresh_wide_area_discovery(
+    swarm: &mut libp2p::Swarm<crate::behaviour::Behaviour>,
+    peer_id: PeerId,
+) -> Result<(), Box<dyn std::error::Error>> {
+    bootstrap_public_dht(swarm)?;
+    publish_presence(swarm, peer_id)?;
+    Ok(())
+}
+
+pub fn handle_presence_message(
+    swarm: &mut libp2p::Swarm<crate::behaviour::Behaviour>,
+    payload: &[u8],
+) -> Result<(), Box<dyn std::error::Error>> {
+    let presence: PeerPresence = serde_json::from_slice(payload)?;
+    let local_peer_id = swarm.local_peer_id().clone();
+    let remote_peer_id: PeerId = presence.peer_id.parse()?;
+
+    if remote_peer_id == local_peer_id {
+        return Ok(());
+    }
+
+    let mut announced = 0usize;
+    for addr in presence.addresses {
+        let Ok(addr) = addr.parse::<Multiaddr>() else {
+            continue;
+        };
+
+        let addr_with_peer = multiaddr_with_peer_id(&addr, &remote_peer_id);
+        swarm
+            .behaviour_mut()
+            .kademlia
+            .add_address(&remote_peer_id, addr_with_peer.clone());
+        swarm
+            .behaviour_mut()
+            .autonat
+            .add_server(remote_peer_id, Some(addr_with_peer.clone()));
+
+        if let Err(error) = swarm.dial(addr_with_peer.clone()) {
+            push_log(format!(
+                "failed to dial presence peer {remote_peer_id} at {addr_with_peer}: {error}"
+            ));
+        } else {
+            announced += 1;
+        }
+    }
+
+    if announced > 0 {
+        push_log(format!(
+            "presence discovery announced peer={remote_peer_id} addrs={announced}"
+        ));
+    }
+
+    Ok(())
+}
+
 pub fn start() -> String {
     let mut guard = network_slot().lock().unwrap_or_else(|poisoned| poisoned.into_inner());
     if let Some(state) = guard.as_ref() {
@@ -141,6 +304,10 @@ pub fn start() -> String {
                 return;
             }
 
+            if let Err(error) = refresh_wide_area_discovery(&mut swarm, peer_id) {
+                push_log(format!("wide-area discovery init failed: {error}"));
+            }
+
             {
                 let mut status = thread_status
                     .lock()
@@ -149,11 +316,20 @@ pub fn start() -> String {
             }
             push_log(format!("p2p network running peer={peer_id}"));
 
+            let mut discovery_tick =
+                tokio::time::interval(std::time::Duration::from_secs(DISCOVERY_REFRESH_SECS));
+            discovery_tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+
             loop {
                 tokio::select! {
                     _ = &mut shutdown_rx => {
                         push_log(format!("p2p network stopping peer={peer_id}"));
                         break;
+                    }
+                    _ = discovery_tick.tick() => {
+                        if let Err(error) = refresh_wide_area_discovery(&mut swarm, peer_id) {
+                            push_log(format!("wide-area discovery refresh failed: {error}"));
+                        }
                     }
                     event = swarm.select_next_some() => {
                         if let SwarmEvent::NewListenAddr { address, .. } = &event {
