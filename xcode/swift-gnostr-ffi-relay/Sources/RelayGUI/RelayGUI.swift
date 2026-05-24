@@ -13,6 +13,85 @@ enum RelayStatusIndicatorState: String, Sendable {
     case red
 }
 
+public struct RelayProcessState: Codable, Hashable, Sendable {
+    public let running: Bool
+    public let pid: UInt32?
+    public let message: String
+    public let diskUsageBytes: UInt64?
+
+    private enum CodingKeys: String, CodingKey {
+        case running
+        case pid
+        case message
+        case diskUsageBytes = "disk_usage_bytes"
+    }
+}
+
+public protocol RelayControlling: Sendable {
+    func status() async throws -> RelayProcessState
+    func start() async throws -> RelayProcessState
+    func stop() async throws -> RelayProcessState
+    func restart() async throws -> RelayProcessState
+}
+
+public final class RelayControlClient: RelayControlling, @unchecked Sendable {
+    private let baseURL: URL
+    private let session: URLSession
+    private let decoder = JSONDecoder()
+
+    public init(
+        baseURL: URL = URL(string: "http://127.0.0.1:3030")!,
+        session: URLSession = .shared
+    ) {
+        self.baseURL = baseURL
+        self.session = session
+    }
+
+    public func status() async throws -> RelayProcessState {
+        try await request(method: "GET", path: "api/relay/status")
+    }
+
+    public func start() async throws -> RelayProcessState {
+        try await request(method: "POST", path: "api/relay/start")
+    }
+
+    public func stop() async throws -> RelayProcessState {
+        try await request(method: "POST", path: "api/relay/stop")
+    }
+
+    public func restart() async throws -> RelayProcessState {
+        let current = try await status()
+        if current.running {
+            _ = try await stop()
+        }
+        return try await start()
+    }
+
+    private func request(method: String, path: String) async throws -> RelayProcessState {
+        let url = baseURL.appendingPathComponent(path)
+        var request = URLRequest(url: url)
+        request.httpMethod = method
+
+        let (data, response) = try await session.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NSError(domain: "RelayControlClient", code: -1, userInfo: [
+                NSLocalizedDescriptionKey: "relay control response was not HTTP"
+            ])
+        }
+
+        guard (200...299).contains(httpResponse.statusCode) else {
+            let body = String(data: data, encoding: .utf8) ?? ""
+            throw NSError(domain: "RelayControlClient", code: httpResponse.statusCode, userInfo: [
+                NSLocalizedDescriptionKey: body.isEmpty
+                    ? "relay control request failed with status \(httpResponse.statusCode)"
+                    : body
+            ])
+        }
+
+        return try decoder.decode(RelayProcessState.self, from: data)
+    }
+}
+
 @MainActor
 public final class RelayDashboardViewModel: ObservableObject {
     @Published public var host: String
@@ -29,16 +108,19 @@ public final class RelayDashboardViewModel: ObservableObject {
     @Published public private(set) var logLines: [String] = []
 
     private let configBaseDirectoryPath: String
+    private let relayControl: any RelayControlling
 
     public init(
         host: String = "127.0.0.1",
         port: String = "8080",
         autoStart: Bool = true,
-        configBaseDirectoryPath: String? = nil
+        configBaseDirectoryPath: String? = nil,
+        relayControl: any RelayControlling = RelayControlClient()
     ) {
         self.host = host
         self.port = port
         self.configBaseDirectoryPath = configBaseDirectoryPath ?? Self.defaultConfigBaseDirectoryPath()
+        self.relayControl = relayControl
         self.defaultConfiguration = RelayConfiguration.rustDefault() ?? RelayConfiguration()
         self.listenEndpoint = RelayEndpoints.listenEndpoint(host: host, port: UInt16(port) ?? 8080)
         self.statusMessage = RustRelayBridge.shared.isAvailable ? "Relay FFI available" : "Relay FFI unavailable"
@@ -48,15 +130,14 @@ public final class RelayDashboardViewModel: ObservableObject {
         appendLog("Relay dashboard ready")
         appendLog(statusMessage)
         if autoStart {
-            startRelay()
+            Task { await startRelay() }
         }
     }
 
     public func refresh() {
         defaultConfiguration = RelayConfiguration.rustDefault() ?? RelayConfiguration()
         listenEndpoint = RelayEndpoints.listenEndpoint(host: host, port: UInt16(port) ?? 8080)
-        statusMessage = "Relay restart requested"
-        appendLog("Relay restart requested")
+        appendLog("Refreshed relay defaults")
         appendLog("Listen endpoint: \(listenEndpoint)")
     }
 
@@ -111,20 +192,53 @@ public final class RelayDashboardViewModel: ObservableObject {
         appendLog("Endpoint updated to \(listenEndpoint)")
     }
 
-    public func startRelay() {
+    public func startRelay() async {
         isRunning = true
-        statusMessage = "Relay start requested"
+        statusMessage = "Relay starting..."
         appendLog("Start pressed")
         appendLog(statusMessage)
-        appendLog("FFI bridge does not expose relay process control yet.")
+        do {
+            let state = try await relayControl.start()
+            isRunning = state.running
+            statusMessage = state.message
+            appendLog(state.message)
+        } catch {
+            isRunning = false
+            statusMessage = "Relay start failed: \(error.localizedDescription)"
+            appendLog(statusMessage)
+        }
     }
 
-    public func stopRelay() {
+    public func stopRelay() async {
         isRunning = false
-        statusMessage = "Relay stop requested"
+        statusMessage = "Relay stopping..."
         appendLog("Stop pressed")
         appendLog(statusMessage)
-        appendLog("FFI bridge does not expose relay process control yet.")
+        do {
+            let state = try await relayControl.stop()
+            isRunning = state.running
+            statusMessage = state.message
+            appendLog(state.message)
+        } catch {
+            statusMessage = "Relay stop failed: \(error.localizedDescription)"
+            appendLog(statusMessage)
+        }
+    }
+
+    public func restartRelay() async {
+        statusMessage = "Relay restarting..."
+        appendLog("Restart pressed")
+        appendLog(statusMessage)
+        do {
+            let state = try await relayControl.restart()
+            isRunning = state.running
+            statusMessage = state.message
+            appendLog(state.message)
+        } catch {
+            isRunning = false
+            statusMessage = "Relay restart failed: \(error.localizedDescription)"
+            appendLog(statusMessage)
+        }
     }
 
     public func clearLog() {
@@ -150,11 +264,20 @@ public final class RelayDashboardViewModel: ObservableObject {
         if statusMessage.localizedCaseInsensitiveContains("unavailable") {
             return .red
         }
-        if statusMessage.localizedCaseInsensitiveContains("stop requested") {
+        if statusMessage.localizedCaseInsensitiveContains("stopping")
+            || statusMessage.localizedCaseInsensitiveContains("restarting")
+            || statusMessage.localizedCaseInsensitiveContains("starting")
+        {
+            return .yellow
+        }
+        if statusMessage.localizedCaseInsensitiveContains("stopped") {
             return .red
         }
-        if statusMessage.localizedCaseInsensitiveContains("restart requested") {
-            return .yellow
+        if statusMessage.localizedCaseInsensitiveContains("spawned detached relay")
+            || statusMessage.localizedCaseInsensitiveContains("already running")
+            || statusMessage.localizedCaseInsensitiveContains("running")
+        {
+            return .green
         }
         return isRunning ? .green : .yellow
     }
@@ -392,11 +515,11 @@ public struct RelayDashboardView: View {
 
     private var controls: some View {
         HStack(spacing: 8) {
-            Button("Start") { model.startRelay() }
+            Button("Start") { Task { await model.startRelay() } }
                 .disabled(model.isRunning)
-            Button("Stop") { model.stopRelay() }
+            Button("Stop") { Task { await model.stopRelay() } }
                 .disabled(!model.isRunning)
-            Button("Restart") { model.refresh() }
+            Button("Restart") { Task { await model.restartRelay() } }
         }
         .buttonStyle(.borderless)
     }
