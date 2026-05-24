@@ -20,7 +20,6 @@ public final class RelayDashboardViewModel: ObservableObject {
     @Published public var defaultConfiguration: RelayConfiguration
     @Published public var configFileContents: String
     @Published public var isConfigEditorVisible = false
-    @Published public var isConfigEditorExpanded = true
     @Published public private(set) var isConfigFileEditable = false
     @Published public private(set) var listenEndpoint: String
     @Published public private(set) var statusMessage: String
@@ -87,9 +86,6 @@ public final class RelayDashboardViewModel: ObservableObject {
                 configFileStatus = "Loaded template for \(resolvedConfigFilePath)"
             }
             isConfigFileEditable = allowEditing
-            if allowEditing {
-                isConfigEditorExpanded = true
-            }
             appendLog(configFileStatus)
         } catch {
             configFileStatus = "Load failed: \(error.localizedDescription)"
@@ -144,11 +140,6 @@ public final class RelayDashboardViewModel: ObservableObject {
     public func toggleConfigEditorVisibility() {
         isConfigEditorVisible.toggle()
         appendLog(isConfigEditorVisible ? "Config editor shown" : "Config editor hidden")
-    }
-
-    public func toggleConfigEditorExpansion() {
-        isConfigEditorExpanded.toggle()
-        appendLog(isConfigEditorExpanded ? "Config editor expanded" : "Config editor collapsed")
     }
 
     var statusIndicatorState: RelayStatusIndicatorState {
@@ -321,20 +312,12 @@ public struct RelayDashboardView: View {
                 .buttonStyle(.plain)
             }
             if model.isConfigEditorVisible {
-                HStack {
-                    Text("Config editor")
-                        .font(.subheadline.weight(.semibold))
-                    Spacer()
-                    Button(action: { model.toggleConfigEditorExpansion() }) {
-                        if #available(macOS 11.0, iOS 14.0, *) {
-                            Image(systemName: model.isConfigEditorExpanded ? "chevron.down" : "chevron.right")
-                        } else {
-                            Text(model.isConfigEditorExpanded ? "⌄" : "›")
-                        }
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        Text("Config editor")
+                            .font(.subheadline.weight(.semibold))
+                        Spacer()
                     }
-                    .buttonStyle(.plain)
-                }
-                if model.isConfigEditorExpanded {
                     VStack(alignment: .leading, spacing: 12) {
                         HStack {
                             TextField("Host", text: Binding(
@@ -383,9 +366,6 @@ public struct RelayDashboardView: View {
                                 .fill(Color.secondary.opacity(0.08))
                         )
                     }
-                } else {
-                    Text("Click the chevron to show the config editor.")
-                        .foregroundColor(.secondary)
                 }
             } else {
                 Text("Click the gear to edit the relay config file.")
