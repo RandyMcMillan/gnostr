@@ -5,6 +5,22 @@
    <BuildAction
       parallelizeBuildables = "YES"
       buildImplicitDependencies = "YES">
+      <BuildActionEntries>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "YES"
+            buildForProfiling = "YES"
+            buildForArchiving = "YES"
+            buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "4B542C4329F88D1E000A03AF"
+               BuildableName = "AppWithTool.app"
+               BlueprintName = "AppWithTool"
+               ReferencedContainer = "container:">
+            </BuildableReference>
+         </BuildActionEntry>
+      </BuildActionEntries>
    </BuildAction>
    <TestAction
       buildConfiguration = "Debug"
@@ -28,9 +44,9 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "4B542C8629F88E6B000A03AF"
-            BuildableName = "libToolX.a"
-            BlueprintName = "ToolX"
+            BlueprintIdentifier = "4B542C4329F88D1E000A03AF"
+            BuildableName = "AppWithTool.app"
+            BlueprintName = "AppWithTool"
             ReferencedContainer = "container:">
          </BuildableReference>
       </BuildableProductRunnable>
@@ -50,9 +66,9 @@
       <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "4B542C8629F88E6B000A03AF"
-            BuildableName = "libToolX.a"
-            BlueprintName = "ToolX"
+            BlueprintIdentifier = "4B542C4329F88D1E000A03AF"
+            BuildableName = "AppWithTool.app"
+            BlueprintName = "AppWithTool"
             ReferencedContainer = "container:">
          </BuildableReference>
       </MacroExpansion>
