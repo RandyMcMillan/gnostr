@@ -313,7 +313,6 @@ public struct RelayDashboardView: View {
                 .buttonStyle(.plain)
                 .font(.system(size: 20, weight: .regular))
                 .frame(width: 30, height: 30, alignment: .center)
-                Spacer() /// 
             }
             if model.isConfigEditorVisible {
                 VStack(alignment: .leading, spacing: 12) {
