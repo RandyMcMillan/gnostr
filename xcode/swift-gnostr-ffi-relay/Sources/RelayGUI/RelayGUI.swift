@@ -345,11 +345,11 @@ public struct RelayDashboardView: View {
                             .frame(width: 100)
                         }
                         VStack(alignment: .leading, spacing: 12) {
-                            TextField("Logging", text: Binding(
-                                get: { model.defaultConfiguration.logging },
-                                set: { model.updateLogging($0) }
-                            ))
-                            .textFieldStyle(.roundedBorder)
+                            //TextField("Logging", text: Binding(
+                            //    get: { model.defaultConfiguration.logging },
+                            //    set: { model.updateLogging($0) }
+                            //))
+                            //.textFieldStyle(.roundedBorder)
                             row(label: "File status", value: model.configFileStatus)
                             configEditor
                                 .disabled(!model.isConfigFileEditable)
