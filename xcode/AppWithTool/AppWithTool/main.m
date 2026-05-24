@@ -7,6 +7,10 @@
 
 //REF: https://developer.apple.com/forums/thread/106590
 
+#import "AppDelegate.h"
+#import <TargetConditionals.h>
+
+#if TARGET_OS_OSX && !TARGET_OS_IPHONE
 //main.h
 #import <Foundation/Foundation.h>
 #import <Cocoa/Cocoa.h>
@@ -92,9 +96,11 @@ void runScriptSharedSupport(NSString* scriptName)
     string = [[NSString alloc] initWithData: data encoding: NSUTF8StringEncoding];
     NSLog (@"script returned:\n%@", string);
 }
+#endif
 
 int main(int argc, char const *argv[]) {
     @autoreleasepool {
+#if TARGET_OS_OSX && !TARGET_OS_IPHONE
         NSLog (@"main");
         int *count=&argc;
         NSLog (@"logargc(count)");
@@ -115,7 +121,9 @@ int main(int argc, char const *argv[]) {
         
         runScriptSharedSupport(@"template.sh");
         runScriptSharedSupport(@"Script.sh");
-
+        return NSApplicationMain(argc, argv);
+#else
+        return UIApplicationMain(argc, argv, nil, NSStringFromClass([AppDelegate class]));
+#endif
     }
-    return NSApplicationMain(argc, argv);
 }

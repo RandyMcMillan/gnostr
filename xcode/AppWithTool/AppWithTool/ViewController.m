@@ -9,6 +9,7 @@
 
 @implementation ViewController
 
+#if TARGET_OS_OSX && !TARGET_OS_IPHONE
 - (void)viewDidLoad {
     [super viewDidLoad];
 
@@ -21,6 +22,11 @@
 
     // Update the view, if already loaded.
 }
+#else
+- (void)viewDidLoad {
+    [super viewDidLoad];
+}
+#endif
 
 
 @end

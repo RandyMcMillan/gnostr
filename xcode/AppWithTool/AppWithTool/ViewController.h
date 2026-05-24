@@ -5,19 +5,15 @@
 //  Created by git on 4/25/23.
 //
 
-#import <Foundation/Foundation.h>
-#import <Cocoa/Cocoa.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include "execv_bridge.h"
-#include "execcl_bridge.h"
-#include "async.h/async/async.h"
+#import <TargetConditionals.h>
 
+#if TARGET_OS_OSX && !TARGET_OS_IPHONE
 #import <Cocoa/Cocoa.h>
-
 @interface ViewController : NSViewController
+#else
+#import <UIKit/UIKit.h>
+@interface ViewController : UIViewController
+#endif
 
 
 @end
