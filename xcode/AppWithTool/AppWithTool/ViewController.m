@@ -15,15 +15,17 @@
 @property (strong, nonatomic) NSTextField *statusLabel;
 @property (strong, nonatomic) NSButton *refreshButton;
 @property (strong, nonatomic) NSButton *runButton;
-@property (strong, nonatomic) NSTextField *jobField;
+@property (strong, nonatomic) NSPopUpButton *jobMenu;
 @property (strong, nonatomic) NSTextView *logView;
 #else
 @property (strong, nonatomic) UILabel *statusLabel;
 @property (strong, nonatomic) UIButton *refreshButton;
 @property (strong, nonatomic) UIButton *runButton;
-@property (strong, nonatomic) UITextField *jobField;
+@property (strong, nonatomic) UIButton *jobMenu;
 @property (strong, nonatomic) UITextView *logView;
 #endif
+
+@property (copy, nonatomic) NSString *selectedJobName;
 
 @end
 
@@ -50,11 +52,17 @@
 
     self.refreshButton = [NSButton buttonWithTitle:@"Refresh ToolX" target:self action:@selector(refreshToolX:)];
     self.refreshButton.bezelStyle = NSBezelStyleRounded;
+
     self.runButton = [NSButton buttonWithTitle:@"Run Job" target:self action:@selector(runToolXJob:)];
     self.runButton.bezelStyle = NSBezelStyleRounded;
-    self.jobField = [[NSTextField alloc] initWithFrame:NSZeroRect];
-    self.jobField.placeholderString = @"ToolX job name";
-    self.jobField.stringValue = ToolXJobNames().firstObject ?: @"status";
+
+    self.jobMenu = [[NSPopUpButton alloc] initWithFrame:NSZeroRect pullsDown:NO];
+    [self.jobMenu addItemsWithTitles:ToolXJobNames()];
+    [self.jobMenu selectItemAtIndex:0];
+    self.jobMenu.target = self;
+    self.jobMenu.action = @selector(jobSelectionChanged:);
+    self.selectedJobName = self.jobMenu.selectedItem.title ?: @"status";
+
     self.logView = [[NSTextView alloc] initWithFrame:NSZeroRect];
     self.logView.editable = NO;
     self.logView.selectable = YES;
@@ -71,14 +79,31 @@
     [self.refreshButton setTitle:@"Refresh ToolX" forState:UIControlStateNormal];
     self.refreshButton.titleLabel.font = [UIFont systemFontOfSize:17 weight:UIFontWeightSemibold];
     [self.refreshButton addTarget:self action:@selector(refreshToolX:) forControlEvents:UIControlEventTouchUpInside];
+
     self.runButton = [UIButton buttonWithType:UIButtonTypeSystem];
     [self.runButton setTitle:@"Run Job" forState:UIControlStateNormal];
     self.runButton.titleLabel.font = [UIFont systemFontOfSize:17 weight:UIFontWeightSemibold];
     [self.runButton addTarget:self action:@selector(runToolXJob:) forControlEvents:UIControlEventTouchUpInside];
-    self.jobField = [[UITextField alloc] initWithFrame:CGRectZero];
-    self.jobField.borderStyle = UITextBorderStyleRoundedRect;
-    self.jobField.placeholder = @"status, app-home, documents, library, tmp";
-    self.jobField.text = @"app-home";
+
+    self.jobMenu = [UIButton buttonWithType:UIButtonTypeSystem];
+    self.jobMenu.titleLabel.font = [UIFont systemFontOfSize:17 weight:UIFontWeightSemibold];
+    self.jobMenu.showsMenuAsPrimaryAction = YES;
+    self.jobMenu.changesSelectionAsPrimaryAction = NO;
+    self.selectedJobName = ToolXJobNames().firstObject ?: @"status";
+    [self.jobMenu setTitle:self.selectedJobName forState:UIControlStateNormal];
+
+    NSMutableArray<UIAction *> *actions = [NSMutableArray array];
+    __weak typeof(self) weakSelf = self;
+    for (NSString *jobName in ToolXJobNames()) {
+        UIAction *action = [UIAction actionWithTitle:jobName image:nil identifier:nil handler:^(__kindof UIAction * _Nonnull action) {
+            __strong typeof(weakSelf) strongSelf = weakSelf;
+            strongSelf.selectedJobName = jobName;
+            [strongSelf.jobMenu setTitle:jobName forState:UIControlStateNormal];
+        }];
+        [actions addObject:action];
+    }
+    self.jobMenu.menu = [UIMenu menuWithTitle:@"ToolX Jobs" children:actions];
+
     self.logView = [[UITextView alloc] initWithFrame:CGRectZero];
     self.logView.editable = NO;
     self.logView.selectable = YES;
@@ -92,10 +117,11 @@
 #else
     self.view.backgroundColor = [self backgroundColor];
 #endif
+
     [self.view addSubview:self.statusLabel];
     [self.view addSubview:self.refreshButton];
     [self.view addSubview:self.runButton];
-    [self.view addSubview:self.jobField];
+    [self.view addSubview:self.jobMenu];
     [self.view addSubview:self.logView];
 
     [self installConstraints];
@@ -120,6 +146,12 @@
     [self appendLogLine:[NSString stringWithFormat:@"[%@] job %@\n%@", [self currentTimestamp], jobName, result]];
 }
 
+- (void)jobSelectionChanged:(id)sender {
+#if TARGET_OS_OSX && !TARGET_OS_IPHONE
+    self.selectedJobName = self.jobMenu.selectedItem.title ?: @"status";
+#endif
+}
+
 #if TARGET_OS_OSX && !TARGET_OS_IPHONE
 - (NSColor *)backgroundColor {
     return NSColor.windowBackgroundColor;
@@ -134,19 +166,19 @@
     self.statusLabel.translatesAutoresizingMaskIntoConstraints = NO;
     self.refreshButton.translatesAutoresizingMaskIntoConstraints = NO;
     self.runButton.translatesAutoresizingMaskIntoConstraints = NO;
-    self.jobField.translatesAutoresizingMaskIntoConstraints = NO;
+    self.jobMenu.translatesAutoresizingMaskIntoConstraints = NO;
     self.logView.translatesAutoresizingMaskIntoConstraints = NO;
 
     [NSLayoutConstraint activateConstraints:@[
         [self.statusLabel.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:24],
         [self.statusLabel.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-24],
         [self.statusLabel.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor constant:24],
-        [self.jobField.topAnchor constraintEqualToAnchor:self.statusLabel.bottomAnchor constant:24],
-        [self.jobField.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:24],
-        [self.jobField.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-24],
-        [self.refreshButton.topAnchor constraintEqualToAnchor:self.jobField.bottomAnchor constant:16],
+        [self.jobMenu.topAnchor constraintEqualToAnchor:self.statusLabel.bottomAnchor constant:24],
+        [self.jobMenu.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:24],
+        [self.jobMenu.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-24],
+        [self.refreshButton.topAnchor constraintEqualToAnchor:self.jobMenu.bottomAnchor constant:16],
         [self.refreshButton.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:24],
-        [self.runButton.topAnchor constraintEqualToAnchor:self.jobField.bottomAnchor constant:16],
+        [self.runButton.topAnchor constraintEqualToAnchor:self.jobMenu.bottomAnchor constant:16],
         [self.runButton.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-24],
         [self.logView.topAnchor constraintEqualToAnchor:self.refreshButton.bottomAnchor constant:24],
         [self.logView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:24],
@@ -169,8 +201,7 @@
         existing = [existing stringByAppendingString:@"\n"];
     }
     self.logView.text = [existing stringByAppendingString:line];
-    NSRange range = NSMakeRange(self.logView.text.length, 0);
-    [self.logView scrollRangeToVisible:range];
+    [self.logView scrollRangeToVisible:NSMakeRange(self.logView.text.length, 0)];
 #endif
 }
 
@@ -182,11 +213,7 @@
 }
 
 - (NSString *)currentJobName {
-#if TARGET_OS_OSX && !TARGET_OS_IPHONE
-    return self.jobField.stringValue.length > 0 ? self.jobField.stringValue : (ToolXJobNames().firstObject ?: @"status");
-#else
-    return self.jobField.text.length > 0 ? self.jobField.text : (ToolXJobNames().firstObject ?: @"status");
-#endif
+    return self.selectedJobName.length > 0 ? self.selectedJobName : (ToolXJobNames().firstObject ?: @"status");
 }
 
 @end
