@@ -16,24 +16,12 @@ struct ContentView: View {
     @State private var didAutoStartNetwork = false
 
     var body: some View {
-        ZStack(alignment: .topTrailing) {
-            Color.clear
-                .ignoresSafeArea()
+        VStack(spacing: 0) {
+            headerBar
 
-            Button {
-                showingNetworkPanel = true
-            } label: {
-                Image(systemName: "gearshape.fill")
-                    .font(.title3.weight(.semibold))
-                    .padding(10)
-                    .background(.thinMaterial, in: Circle())
-                    .shadow(radius: 2)
-            }
-            .padding()
-            .accessibilityLabel("P2P settings")
-            .popover(isPresented: $showingNetworkPanel, arrowEdge: .top) {
-                networkPanel
-            }
+            Color.clear
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .ignoresSafeArea()
         }
         .onAppear {
             if !didAutoStartNetwork {
@@ -45,6 +33,38 @@ struct ContentView: View {
             networkStatus = p2pNetworkStatus()
             networkLogs = p2pNetworkLogs()
         }
+    }
+
+    private var headerBar: some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("P2P Network")
+                    .font(.headline)
+                Text(networkStatus)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+
+            Spacer()
+
+            Button {
+                showingNetworkPanel = true
+            } label: {
+                Image(systemName: "gearshape.fill")
+                    .font(.title3.weight(.semibold))
+                    .padding(10)
+                    .background(.thinMaterial, in: Circle())
+                    .shadow(radius: 2)
+            }
+            .accessibilityLabel("P2P settings")
+            .popover(isPresented: $showingNetworkPanel, arrowEdge: .top) {
+                networkPanel
+            }
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 12)
+        .background(.regularMaterial)
     }
 
     private var networkPanel: some View {
