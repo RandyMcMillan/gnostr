@@ -55,8 +55,8 @@ public final class RelayDashboardViewModel: ObservableObject {
     public func refresh() {
         defaultConfiguration = RelayConfiguration.rustDefault() ?? RelayConfiguration()
         listenEndpoint = RelayEndpoints.listenEndpoint(host: host, port: UInt16(port) ?? 8080)
-        statusMessage = RustRelayBridge.shared.isAvailable ? "Relay FFI available" : "Relay FFI unavailable"
-        appendLog("Refreshed relay defaults")
+        statusMessage = "Relay restart requested"
+        appendLog("Relay restart requested")
         appendLog("Listen endpoint: \(listenEndpoint)")
     }
 
@@ -149,6 +149,12 @@ public final class RelayDashboardViewModel: ObservableObject {
     static func statusIndicatorState(for statusMessage: String, isRunning: Bool) -> RelayStatusIndicatorState {
         if statusMessage.localizedCaseInsensitiveContains("unavailable") {
             return .red
+        }
+        if statusMessage.localizedCaseInsensitiveContains("stop requested") {
+            return .red
+        }
+        if statusMessage.localizedCaseInsensitiveContains("restart requested") {
+            return .yellow
         }
         return isRunning ? .green : .yellow
     }
