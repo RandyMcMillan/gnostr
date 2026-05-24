@@ -3,41 +3,34 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 50;
+	objectVersion = 54;
 	objects = {
 
 /* Begin PBXBuildFile section */
 		4B1D26B62A1A880B00C79D93 /* async.h in Headers */ = {isa = PBXBuildFile; fileRef = 4BC67A5C2A17181B004F106C /* async.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		4B3549F32A14822E00F4FF5A /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 4B542C5329F88D22000A03AF /* main.m */; };
-		4B354A182A1482B100F4FF5A /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4B354A132A1482B100F4FF5A /* Foundation.framework */; };
-		4B354A1A2A14830000F4FF5A /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4B354A192A14830000F4FF5A /* Cocoa.framework */; };
-		4B354A8F2A17A00100F4FF5A /* ToolX in Frameworks */ = {isa = PBXBuildFile; fileRef = 4B542C8729F88E6B000A03AF /* libToolX.a */; };
 		4B354A272A14835A00F4FF5A /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 4B542C8929F88E6B000A03AF /* main.m */; };
-		4B354A382A14841200F4FF5A /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4B354A132A1482B100F4FF5A /* Foundation.framework */; };
-		4B354A392A14841800F4FF5A /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4B354A192A14830000F4FF5A /* Cocoa.framework */; };
 		4B354A7C2A1492A200F4FF5A /* template.sh in Copy to Shared Support */ = {isa = PBXBuildFile; fileRef = 4B354A762A14929200F4FF5A /* template.sh */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		4B354A8F2A17A00100F4FF5A /* libToolX.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4B542C8729F88E6B000A03AF /* libToolX.a */; platformFilter = ios; };
 		4B542C4929F88D1F000A03AF /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 4B542C4829F88D1F000A03AF /* AppDelegate.m */; };
 		4B542C4C29F88D1F000A03AF /* ViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 4B542C4B29F88D1F000A03AF /* ViewController.m */; };
 		4B542C4E29F88D22000A03AF /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 4B542C4D29F88D22000A03AF /* Assets.xcassets */; };
 		4B542C5F29F88D23000A03AF /* AppWithToolTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 4B542C5E29F88D23000A03AF /* AppWithToolTests.m */; };
 		4B542C6A29F88D23000A03AF /* AppWithToolUITests.m in Sources */ = {isa = PBXBuildFile; fileRef = 4B542C6929F88D23000A03AF /* AppWithToolUITests.m */; };
-		4B542CBE29F89419000A03AF /* ToolX in Embed Helper Tools */ = {isa = PBXBuildFile; fileRef = 4B542C8729F88E6B000A03AF /* libToolX.a */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		4B5C4C052A1FBD8400D7ADAC /* SanJuanGoddess.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 4B5C4C032A1FBD8400D7ADAC /* SanJuanGoddess.jpg */; };
 		4B5C4C062A1FBD8400D7ADAC /* SanJuanGoddess.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 4B5C4C032A1FBD8400D7ADAC /* SanJuanGoddess.jpg */; };
 		4B5C4C0B2A1FBDA400D7ADAC /* SanJuanGoddess.jpg in Copy to Shared Support */ = {isa = PBXBuildFile; fileRef = 4B5C4C032A1FBD8400D7ADAC /* SanJuanGoddess.jpg */; };
-		4B726E692A1662D2002502E4 /* execv_bridge.c in Sources */ = {isa = PBXBuildFile; fileRef = 4B726E682A1662D2002502E4 /* execv_bridge.c */; };
-		4B726E6A2A1662D2002502E4 /* execv_bridge.c in Sources */ = {isa = PBXBuildFile; fileRef = 4B726E682A1662D2002502E4 /* execv_bridge.c */; };
-		4B726E732A166908002502E4 /* logargv.c in Sources */ = {isa = PBXBuildFile; fileRef = 4B726E722A166908002502E4 /* logargv.c */; };
-		4B726E742A166908002502E4 /* logargv.c in Sources */ = {isa = PBXBuildFile; fileRef = 4B726E722A166908002502E4 /* logargv.c */; };
-		4B726E772A166D88002502E4 /* logargc.c in Sources */ = {isa = PBXBuildFile; fileRef = 4B726E762A166D88002502E4 /* logargc.c */; };
-		4B726E782A166D88002502E4 /* logargc.c in Sources */ = {isa = PBXBuildFile; fileRef = 4B726E762A166D88002502E4 /* logargc.c */; };
+		4B726E6A2A1662D2002502E4 /* AppWithTool/execv_bridge.c in Sources */ = {isa = PBXBuildFile; fileRef = 4B726E682A1662D2002502E4 /* AppWithTool/execv_bridge.c */; };
+		4B726E742A166908002502E4 /* AppWithTool/logargv.c in Sources */ = {isa = PBXBuildFile; fileRef = 4B726E722A166908002502E4 /* AppWithTool/logargv.c */; };
+		4B726E772A166D88002502E4 /* AppWithTool/logargc.c in Sources */ = {isa = PBXBuildFile; fileRef = 4B726E762A166D88002502E4 /* AppWithTool/logargc.c */; };
+		4B726E782A166D88002502E4 /* AppWithTool/logargc.c in Sources */ = {isa = PBXBuildFile; fileRef = 4B726E762A166D88002502E4 /* AppWithTool/logargc.c */; };
 		4B726E7B2A169178002502E4 /* test.c in Sources */ = {isa = PBXBuildFile; fileRef = 4B726E7A2A169178002502E4 /* test.c */; };
-		4BC67A362A1707CA004F106C /* execcl_bridge.c in Sources */ = {isa = PBXBuildFile; fileRef = 4BC67A342A1707CA004F106C /* execcl_bridge.c */; };
-		4BC67A432A170874004F106C /* execcl_bridge.c in Sources */ = {isa = PBXBuildFile; fileRef = 4BC67A342A1707CA004F106C /* execcl_bridge.c */; };
+		4BC67A362A1707CA004F106C /* AppWithTool/execcl_bridge.c in Sources */ = {isa = PBXBuildFile; fileRef = 4BC67A342A1707CA004F106C /* AppWithTool/execcl_bridge.c */; };
+		4BC67A432A170874004F106C /* AppWithTool/execcl_bridge.c in Sources */ = {isa = PBXBuildFile; fileRef = 4BC67A342A1707CA004F106C /* AppWithTool/execcl_bridge.c */; };
 		4BD59FEF2A1444880041CB20 /* Script.sh in Copy to Shared Support */ = {isa = PBXBuildFile; fileRef = 4BD59FE82A1444420041CB20 /* Script.sh */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
-		4BD5A0142A1449D00041CB20 /* ToolX in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4B542C8729F88E6B000A03AF /* libToolX.a */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
-		4BD5A0252A144A6B0041CB20 /* ToolX in Copy to Shared Support */ = {isa = PBXBuildFile; fileRef = 4B542C8729F88E6B000A03AF /* libToolX.a */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
-		4BD5A0262A17A1010041CB20 /* ToolX in Headers */ = {isa = PBXBuildFile; fileRef = 4B542C8A29F88E6B000A03AF /* ToolX.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4BD5A0262A17A1010041CB20 /* ToolX.h in Headers */ = {isa = PBXBuildFile; fileRef = 4B542C8A29F88E6B000A03AF /* ToolX.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4BE63F612FC3212800FB44B8 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4B354A192A14830000F4FF5A /* Cocoa.framework */; };
+		4BE63F642FC3212A00FB44B8 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4B354A132A1482B100F4FF5A /* Foundation.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -65,27 +58,6 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		4B542C8529F88E6B000A03AF /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 12;
-			dstPath = "";
-			dstSubfolderSpec = 16;
-			files = (
-				4BD5A0142A1449D00041CB20 /* ToolX in CopyFiles */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		4B542CB529F89373000A03AF /* Embed Helper Tools */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 6;
-			files = (
-				4B542CBE29F89419000A03AF /* ToolX in Embed Helper Tools */,
-			);
-			name = "Embed Helper Tools";
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		4BD59FEE2A1444690041CB20 /* Copy to Shared Support */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -124,20 +96,16 @@
 		4B542C6929F88D23000A03AF /* AppWithToolUITests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AppWithToolUITests.m; sourceTree = "<group>"; };
 		4B542C6B29F88D23000A03AF /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		4B542C8729F88E6B000A03AF /* libToolX.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libToolX.a; sourceTree = BUILT_PRODUCTS_DIR; };
-		4B542C8A29F88E6B000A03AF /* ToolX.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ToolX.h; sourceTree = "<group>"; };
 		4B542C8929F88E6B000A03AF /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
+		4B542C8A29F88E6B000A03AF /* ToolX.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ToolX.h; sourceTree = "<group>"; };
 		4B542CA629F891A0000A03AF /* ToolX.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ToolX.entitlements; sourceTree = "<group>"; };
 		4B5C4C032A1FBD8400D7ADAC /* SanJuanGoddess.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = SanJuanGoddess.jpg; sourceTree = "<group>"; };
-		4B726E672A1662D2002502E4 /* execv_bridge.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppWithTool/execv_bridge.h; sourceTree = "<group>"; };
-		4B726E682A1662D2002502E4 /* execv_bridge.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = AppWithTool/execv_bridge.c; sourceTree = "<group>"; };
-		4B726E712A166908002502E4 /* logargv.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppWithTool/logargv.h; sourceTree = "<group>"; };
-		4B726E722A166908002502E4 /* logargv.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = AppWithTool/logargv.c; sourceTree = "<group>"; };
-		4B726E752A166D88002502E4 /* logargc.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppWithTool/logargc.h; sourceTree = "<group>"; };
-		4B726E762A166D88002502E4 /* logargc.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = AppWithTool/logargc.c; sourceTree = "<group>"; };
+		4B726E682A1662D2002502E4 /* AppWithTool/execv_bridge.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = AppWithTool/execv_bridge.c; sourceTree = "<group>"; };
+		4B726E722A166908002502E4 /* AppWithTool/logargv.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = AppWithTool/logargv.c; sourceTree = "<group>"; };
+		4B726E762A166D88002502E4 /* AppWithTool/logargc.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = AppWithTool/logargc.c; sourceTree = "<group>"; };
 		4B726E792A169178002502E4 /* test.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = test.h; sourceTree = "<group>"; };
 		4B726E7A2A169178002502E4 /* test.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = test.c; sourceTree = "<group>"; };
-		4BC67A242A170789004F106C /* execcl_bridge.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AppWithTool/execcl_bridge.h; sourceTree = "<group>"; };
-		4BC67A342A1707CA004F106C /* execcl_bridge.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = AppWithTool/execcl_bridge.c; sourceTree = "<group>"; };
+		4BC67A342A1707CA004F106C /* AppWithTool/execcl_bridge.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = AppWithTool/execcl_bridge.c; sourceTree = "<group>"; };
 		4BC67A5C2A17181B004F106C /* async.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = folder; path = async.h; sourceTree = SOURCE_ROOT; };
 		4BD59FE82A1444420041CB20 /* Script.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = Script.sh; path = AppWithTool/Script.sh; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -147,8 +115,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				4B354A382A14841200F4FF5A /* Foundation.framework in Frameworks */,
-				4B354A8F2A17A00100F4FF5A /* ToolX in Frameworks */,
+				4B354A8F2A17A00100F4FF5A /* libToolX.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -170,8 +137,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				4B354A1A2A14830000F4FF5A /* Cocoa.framework in Frameworks */,
-				4B354A182A1482B100F4FF5A /* Foundation.framework in Frameworks */,
+				4BE63F612FC3212800FB44B8 /* Cocoa.framework in Frameworks */,
+				4BE63F642FC3212A00FB44B8 /* Foundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -199,6 +166,7 @@
 				4B542C8829F88E6B000A03AF /* ToolX */,
 				4B542C4529F88D1F000A03AF /* Products */,
 				4B354A122A1482B000F4FF5A /* Frameworks */,
+				4BE63F602FC31E2700FB44B8 /* Recovered References */,
 			);
 			sourceTree = "<group>";
 		};
@@ -262,6 +230,17 @@
 			path = ToolX;
 			sourceTree = "<group>";
 		};
+		4BE63F602FC31E2700FB44B8 /* Recovered References */ = {
+			isa = PBXGroup;
+			children = (
+				4BC67A342A1707CA004F106C /* AppWithTool/execcl_bridge.c */,
+				4B726E762A166D88002502E4 /* AppWithTool/logargc.c */,
+				4B726E682A1662D2002502E4 /* AppWithTool/execv_bridge.c */,
+				4B726E722A166908002502E4 /* AppWithTool/logargv.c */,
+			);
+			name = "Recovered References";
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
@@ -277,7 +256,7 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				4BD5A0262A17A1010041CB20 /* ToolX in Headers */,
+				4BD5A0262A17A1010041CB20 /* ToolX.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -355,7 +334,7 @@
 			);
 			name = ToolX;
 			productName = ToolX;
-			productReference = 4B542C8729F88E6B000A03AF /* ToolX */;
+			productReference = 4B542C8729F88E6B000A03AF /* libToolX.a */;
 			productType = "com.apple.product-type.library.static";
 		};
 /* End PBXNativeTarget section */
@@ -457,9 +436,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				4BC67A432A170874004F106C /* execcl_bridge.c in Sources */,
+				4BC67A432A170874004F106C /* AppWithTool/execcl_bridge.c in Sources */,
 				4B3549F32A14822E00F4FF5A /* main.m in Sources */,
-				4B726E772A166D88002502E4 /* logargc.c in Sources */,
+				4B726E772A166D88002502E4 /* AppWithTool/logargc.c in Sources */,
 				4B542C4C29F88D1F000A03AF /* ViewController.m in Sources */,
 				4B542C4929F88D1F000A03AF /* AppDelegate.m in Sources */,
 			);
@@ -486,11 +465,11 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				4B726E6A2A1662D2002502E4 /* execv_bridge.c in Sources */,
-				4B726E782A166D88002502E4 /* logargc.c in Sources */,
-				4B726E742A166908002502E4 /* logargv.c in Sources */,
+				4B726E6A2A1662D2002502E4 /* AppWithTool/execv_bridge.c in Sources */,
+				4B726E782A166D88002502E4 /* AppWithTool/logargc.c in Sources */,
+				4B726E742A166908002502E4 /* AppWithTool/logargv.c in Sources */,
 				4B354A272A14835A00F4FF5A /* main.m in Sources */,
-				4BC67A362A1707CA004F106C /* execcl_bridge.c in Sources */,
+				4BC67A362A1707CA004F106C /* AppWithTool/execcl_bridge.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -499,6 +478,7 @@
 /* Begin PBXTargetDependency section */
 		4B3549FF2A14826600F4FF5A /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
+			platformFilter = ios;
 			target = 4B542C8629F88E6B000A03AF /* ToolX */;
 			targetProxy = 4B3549FE2A14826600F4FF5A /* PBXContainerItemProxy */;
 		};
@@ -581,7 +561,7 @@
 					"$(SRCROOT)",
 					"$(SRCROOT)/AppWithTool",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 10.13;
+				MACOSX_DEPLOYMENT_TARGET = 14.6;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -638,7 +618,7 @@
 					"$(SRCROOT)",
 					"$(SRCROOT)/AppWithTool",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 10.13;
+				MACOSX_DEPLOYMENT_TARGET = 14.6;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = macosx;
@@ -648,6 +628,7 @@
 		4B542C6F29F88D23000A03AF /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ALLOW_TARGET_PLATFORM_SPECIALIZATION = NO;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = AppWithTool/AppWithToolDebug.entitlements;
@@ -659,42 +640,42 @@
 				DEVELOPMENT_TEAM = M684FYCYG6;
 				ENABLE_HARDENED_RUNTIME = YES;
 				INFOPLIST_FILE = AppWithTool/Info.plist;
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					"-framework",
-					"Foundation",
-				);
-				"OTHER_LDFLAGS[sdk=iphoneos*]" = (
-					"$(inherited)",
-					"-framework",
-					"UIKit",
-				);
-				"OTHER_LDFLAGS[sdk=iphonesimulator*]" = (
-					"$(inherited)",
-					"-framework",
-					"UIKit",
-				);
-				"OTHER_LDFLAGS[sdk=macosx*][variant=Mac Catalyst]" = (
-					"$(inherited)",
-					"-framework",
-					"UIKit",
-				);
-				"OTHER_LDFLAGS[sdk=macosx*][variant=normal]" = (
-					"$(inherited)",
-					"-framework",
-					"Cocoa",
-				);
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 10.13;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-framework",
+					Foundation,
+				);
+				"OTHER_LDFLAGS[sdk=iphoneos*]" = (
+					"$(inherited)",
+					"-framework",
+					UIKit,
+				);
+				"OTHER_LDFLAGS[sdk=iphonesimulator*]" = (
+					"$(inherited)",
+					"-framework",
+					UIKit,
+				);
+				"OTHER_LDFLAGS[sdk=macosx*][variant=Mac Catalyst]" = (
+					"$(inherited)",
+					"-framework",
+					UIKit,
+				);
+				"OTHER_LDFLAGS[sdk=macosx*][variant=normal]" = (
+					"$(inherited)",
+					"-framework",
+					Cocoa,
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = org.gnostr.AppWithTool;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRIP_INSTALLED_PRODUCT = NO;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
-				SUPPORTS_MACCATALYST = YES;
-				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
@@ -702,6 +683,7 @@
 		4B542C7029F88D23000A03AF /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ALLOW_TARGET_PLATFORM_SPECIALIZATION = NO;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = AppWithTool/AppWithTool.entitlements;
@@ -713,42 +695,42 @@
 				DEVELOPMENT_TEAM = M684FYCYG6;
 				ENABLE_HARDENED_RUNTIME = YES;
 				INFOPLIST_FILE = AppWithTool/Info.plist;
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					"-framework",
-					"Foundation",
-				);
-				"OTHER_LDFLAGS[sdk=iphoneos*]" = (
-					"$(inherited)",
-					"-framework",
-					"UIKit",
-				);
-				"OTHER_LDFLAGS[sdk=iphonesimulator*]" = (
-					"$(inherited)",
-					"-framework",
-					"UIKit",
-				);
-				"OTHER_LDFLAGS[sdk=macosx*][variant=Mac Catalyst]" = (
-					"$(inherited)",
-					"-framework",
-					"UIKit",
-				);
-				"OTHER_LDFLAGS[sdk=macosx*][variant=normal]" = (
-					"$(inherited)",
-					"-framework",
-					"Cocoa",
-				);
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 10.13;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-framework",
+					Foundation,
+				);
+				"OTHER_LDFLAGS[sdk=iphoneos*]" = (
+					"$(inherited)",
+					"-framework",
+					UIKit,
+				);
+				"OTHER_LDFLAGS[sdk=iphonesimulator*]" = (
+					"$(inherited)",
+					"-framework",
+					UIKit,
+				);
+				"OTHER_LDFLAGS[sdk=macosx*][variant=Mac Catalyst]" = (
+					"$(inherited)",
+					"-framework",
+					UIKit,
+				);
+				"OTHER_LDFLAGS[sdk=macosx*][variant=normal]" = (
+					"$(inherited)",
+					"-framework",
+					Cocoa,
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = org.gnostr.AppWithTool;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRIP_INSTALLED_PRODUCT = NO;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
-				SUPPORTS_MACCATALYST = YES;
-				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
@@ -756,6 +738,7 @@
 		4B542C7229F88D23000A03AF /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ALLOW_TARGET_PLATFORM_SPECIALIZATION = YES;
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_IDENTITY = "-";
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
@@ -768,9 +751,12 @@
 					"@executable_path/../Frameworks",
 					"@loader_path/../Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 10.13;
 				PRODUCT_BUNDLE_IDENTIFIER = "org.gnostr.app-with-tool.AppWithToolTests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/AppWithTool.app/Contents/MacOS/AppWithTool";
 			};
 			name = Debug;
@@ -778,6 +764,7 @@
 		4B542C7329F88D23000A03AF /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ALLOW_TARGET_PLATFORM_SPECIALIZATION = YES;
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_IDENTITY = "-";
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
@@ -790,9 +777,12 @@
 					"@executable_path/../Frameworks",
 					"@loader_path/../Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 10.13;
 				PRODUCT_BUNDLE_IDENTIFIER = "org.gnostr.app-with-tool.AppWithToolTests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/AppWithTool.app/Contents/MacOS/AppWithTool";
 			};
 			name = Release;
@@ -800,6 +790,7 @@
 		4B542C7529F88D23000A03AF /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ALLOW_TARGET_PLATFORM_SPECIALIZATION = YES;
 				CODE_SIGN_IDENTITY = "-";
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
@@ -813,6 +804,10 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = "org.gnostr.app-with-tool.AppWithToolUITests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_TARGET_NAME = AppWithTool;
 			};
 			name = Debug;
@@ -820,6 +815,7 @@
 		4B542C7629F88D23000A03AF /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ALLOW_TARGET_PLATFORM_SPECIALIZATION = YES;
 				CODE_SIGN_IDENTITY = "-";
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
@@ -833,6 +829,10 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = "org.gnostr.app-with-tool.AppWithToolUITests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_TARGET_NAME = AppWithTool;
 			};
 			name = Release;
@@ -840,6 +840,7 @@
 		4B542C8C29F88E6B000A03AF /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ALLOW_TARGET_PLATFORM_SPECIALIZATION = YES;
 				CODE_SIGN_ENTITLEMENTS = ToolX/ToolXDebug.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_INJECT_BASE_ENTITLEMENTS = YES;
@@ -854,9 +855,9 @@
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SKIP_INSTALL = NO;
 				STRIP_INSTALLED_PRODUCT = NO;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
-				SUPPORTS_MACCATALYST = YES;
-				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
@@ -864,6 +865,7 @@
 		4B542C8D29F88E6B000A03AF /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ALLOW_TARGET_PLATFORM_SPECIALIZATION = YES;
 				CODE_SIGN_ENTITLEMENTS = ToolX/ToolX.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_INJECT_BASE_ENTITLEMENTS = YES;
@@ -878,9 +880,9 @@
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SKIP_INSTALL = NO;
 				STRIP_INSTALLED_PRODUCT = NO;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
-				SUPPORTS_MACCATALYST = YES;
-				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
