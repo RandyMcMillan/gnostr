@@ -8,7 +8,7 @@ use std::{
 use futures::StreamExt;
 use libp2p::{
     gossipsub::IdentTopic,
-    kad::{self, record::Key as KadKey},
+    kad::{self, RecordKey as KadKey},
     swarm::SwarmEvent,
     Multiaddr, PeerId,
 };
