@@ -111,6 +111,13 @@
 #endif
     ToolXLogStatus();
     [self appendLogLine:[NSString stringWithFormat:@"[%@] %@", [self currentTimestamp], status]];
+    [self appendLogLine:[NSString stringWithFormat:@"jobs: %@", [ToolXJobNames() componentsJoinedByString:@", "]]];
+}
+
+- (void)runToolXJob:(id)sender {
+    NSString *jobName = [self currentJobName];
+    NSString *result = ToolXRunJob(jobName);
+    [self appendLogLine:[NSString stringWithFormat:@"[%@] job %@\n%@", [self currentTimestamp], jobName, result]];
 }
 
 #if TARGET_OS_OSX && !TARGET_OS_IPHONE
@@ -172,6 +179,14 @@
     formatter.locale = [NSLocale localeWithLocaleIdentifier:@"en_US_POSIX"];
     formatter.dateFormat = @"yyyy-MM-dd HH:mm:ss";
     return [formatter stringFromDate:[NSDate date]];
+}
+
+- (NSString *)currentJobName {
+#if TARGET_OS_OSX && !TARGET_OS_IPHONE
+    return self.jobField.stringValue.length > 0 ? self.jobField.stringValue : (ToolXJobNames().firstObject ?: @"status");
+#else
+    return self.jobField.text.length > 0 ? self.jobField.text : (ToolXJobNames().firstObject ?: @"status");
+#endif
 }
 
 @end
