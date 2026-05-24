@@ -86,10 +86,12 @@ import Testing
     let root = fileManager.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
     let model = RelayDashboardViewModel(autoStart: false, configBaseDirectoryPath: root.path)
 
+    model.loadConfigFileContents()
     model.configFileContents = "logging = \"debug\"\n"
     model.saveConfigFileContents()
 
     let saved = try String(contentsOf: root.appendingPathComponent(".gnostr/relay.toml"), encoding: .utf8)
     #expect(saved.contains("logging = \"debug\""))
     #expect(model.configFileStatus.hasPrefix("Saved"))
+    #expect(model.isConfigFileEditable == false)
 }
