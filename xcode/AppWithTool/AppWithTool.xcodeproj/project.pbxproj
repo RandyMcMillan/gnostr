@@ -29,7 +29,6 @@
 		4BC67A432A170874004F106C /* AppWithTool/execcl_bridge.c in Sources */ = {isa = PBXBuildFile; fileRef = 4BC67A342A1707CA004F106C /* AppWithTool/execcl_bridge.c */; };
 		4BD59FEF2A1444880041CB20 /* Script.sh in Copy to Shared Support */ = {isa = PBXBuildFile; fileRef = 4BD59FE82A1444420041CB20 /* Script.sh */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		4BD5A0262A17A1010041CB20 /* ToolX.h in Headers */ = {isa = PBXBuildFile; fileRef = 4B542C8A29F88E6B000A03AF /* ToolX.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		4BE63F612FC3212800FB44B8 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4B354A192A14830000F4FF5A /* Cocoa.framework */; };
 		4BE63F642FC3212A00FB44B8 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4B354A132A1482B100F4FF5A /* Foundation.framework */; };
 /* End PBXBuildFile section */
 
@@ -77,7 +76,6 @@
 		4B248FCD2A1FB16700D11F9E /* AppWithToolDebug.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = AppWithToolDebug.entitlements; sourceTree = "<group>"; };
 		4B248FD22A1FB1BC00D11F9E /* ToolXDebug.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ToolXDebug.entitlements; sourceTree = "<group>"; };
 		4B354A132A1482B100F4FF5A /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
-		4B354A192A14830000F4FF5A /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = System/Library/Frameworks/Cocoa.framework; sourceTree = SDKROOT; };
 		4B354A762A14929200F4FF5A /* template.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = template.sh; path = AppWithTool/template.sh; sourceTree = "<group>"; };
 		4B542C4429F88D1F000A03AF /* AppWithTool.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AppWithTool.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		4B542C4729F88D1F000A03AF /* AppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppDelegate.h; sourceTree = "<group>"; };
@@ -137,7 +135,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				4BE63F612FC3212800FB44B8 /* Cocoa.framework in Frameworks */,
 				4BE63F642FC3212A00FB44B8 /* Foundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -148,7 +145,6 @@
 		4B354A122A1482B000F4FF5A /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
-				4B354A192A14830000F4FF5A /* Cocoa.framework */,
 				4B354A132A1482B100F4FF5A /* Foundation.framework */,
 			);
 			name = Frameworks;
