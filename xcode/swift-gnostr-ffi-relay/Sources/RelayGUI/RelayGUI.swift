@@ -224,43 +224,46 @@ public struct RelayDashboardView: View {
     }
 
     public var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        ZStack {
+            watermarkBackground
+            VStack(alignment: .leading, spacing: 0) {
 #if os(macOS) || targetEnvironment(macCatalyst)
-            header
-                .padding(.top, 24)
-                .padding(.bottom, 8)
-                .background(headerBackground)
-                .zIndex(1)
+                header
+                    .padding(.top, 24)
+                    .padding(.bottom, 8)
+                    .background(headerBackground)
+                    .zIndex(1)
 #else
-            header
-                .padding(.top, 24)
-                .padding(.bottom, 8)
-                .background(headerBackground)
-                .zIndex(1)
+                header
+                    .padding(.top, 24)
+                    .padding(.bottom, 8)
+                    .background(headerBackground)
+                    .zIndex(1)
 #endif
-            ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: model.isConfigEditorVisible ? 12 : 20) {
-                    controls
-                    card(title: nil, compact: false, content: configurationContent)
+                ScrollView(showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: model.isConfigEditorVisible ? 12 : 20) {
+                        controls
+                        card(title: nil, compact: false, content: configurationContent)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
                 }
-                .frame(maxWidth: .infinity, alignment: .topLeading)
+                .frame(maxHeight: .infinity, alignment: .topLeading)
+                StickyFooter(
+                    label: "Log console",
+                    isExpanded: $model.isConsoleExpanded,
+                    expandedMaxHeight: model.isConfigEditorVisible ? 60 : 180,
+                    expandedContent: {
+                        consoleContent
+                    },
+                    trailingActions: {
+                        Button("Clear") { model.clearLog() }
+                            .buttonStyle(.borderless)
+                    }
+                )
             }
-            .frame(maxHeight: .infinity, alignment: .topLeading)
-            StickyFooter(
-                label: "Log console",
-                isExpanded: $model.isConsoleExpanded,
-                expandedMaxHeight: model.isConfigEditorVisible ? 60 : 180,
-                expandedContent: {
-                    consoleContent
-                },
-                trailingActions: {
-                    Button("Clear") { model.clearLog() }
-                        .buttonStyle(.borderless)
-                }
-            )
+            .padding(.horizontal)
+            .padding(.bottom)
         }
-        .padding(.horizontal)
-        .padding(.bottom)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
@@ -468,6 +471,18 @@ public struct RelayDashboardView: View {
         #else
         Color.clear
         #endif
+    }
+
+    private var watermarkBackground: some View {
+        relayHeaderIcon()
+            .resizable()
+            .aspectRatio(contentMode: .fit)
+            .frame(maxWidth: 520)
+            .opacity(0.06)
+            .rotationEffect(.degrees(-12))
+            .blur(radius: 0.4)
+            .allowsHitTesting(false)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
     }
 
     private var statusIndicatorColor: Color {
