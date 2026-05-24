@@ -209,7 +209,7 @@ public struct RelayDashboardView: View {
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: model.isConfigEditorVisible ? 12 : 20) {
                     controls
-                    card(title: "Rust defaults", compact: false, content: configurationContent)
+                    card(title: nil, compact: false, content: configurationContent)
                     card(title: "Log console", compact: model.isConfigEditorVisible, content: consoleContent)
                         .frame(maxHeight: model.isConfigEditorVisible ? 60 : 220, alignment: .topLeading)
                         .layoutPriority(1)
@@ -232,8 +232,8 @@ public struct RelayDashboardView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Gnostr Relay")
                     .font(.largeTitle.bold())
-                Text("todo")
-                    .foregroundColor(.secondary)
+                //Text("todo")
+                  //  .foregroundColor(.secondary)
             }
             Spacer()
             trafficLightIndicator
@@ -309,14 +309,16 @@ public struct RelayDashboardView: View {
                     set: { model.updateConfigFilePath($0) }
                 ))
                 .textFieldStyle(.roundedBorder)
-                row(label: "System path", value: model.resolvedConfigFilePath)
+                //row(label: "System path", value: model.resolvedConfigFilePath)
                 configEditor
                 row(label: "File status", value: model.configFileStatus)
                 HStack {
                     Button("Refresh defaults") { model.refresh() }
+                    //the file should not be editable until load file pressed
+                    //gray out text to indicate not active
                     Button("Load file") { model.loadConfigFileContents() }
                     Button("Save file") { model.saveConfigFileContents() }
-                    Button("Clear console") { model.clearLog() }
+                    //this belongs some where else Button("Clear console") { model.clearLog() }
                 }
             } else {
                 Text("Click the gear to edit the relay config file.")
@@ -420,10 +422,12 @@ public struct RelayDashboardView: View {
         }
     }
 
-    private func card(title: String, compact: Bool, content: some View) -> some View {
+    private func card(title: String?, compact: Bool, content: some View) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(title)
-                .font(compact ? .subheadline.weight(.semibold) : .headline)
+            if let title {
+                Text(title)
+                    .font(compact ? .subheadline.weight(.semibold) : .headline)
+            }
             content
         }
         .padding(compact ? 10 : 16)
