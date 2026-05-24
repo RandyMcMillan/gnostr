@@ -21,6 +21,15 @@ for target in "${targets[@]}"; do
             cargo build --target "${target}" --release -j8
             cargo run --bin uniffi-bindgen -- generate --library "${TARGETDIR}/${target}/release/librustylib.a" --language swift --out-dir out
         done
+
+SIM_DIR="${TARGETDIR}/ios-simulator"
+SIM_LIB="${SIM_DIR}/${RELDIR}/${STATIC_LIB_NAME}"
+mkdir -p "${SIM_DIR}/${RELDIR}"
+lipo -create \
+    "${TARGETDIR}/aarch64-apple-ios-sim/${RELDIR}/${STATIC_LIB_NAME}" \
+    "${TARGETDIR}/x86_64-apple-ios/${RELDIR}/${STATIC_LIB_NAME}" \
+    -output "${SIM_LIB}"
+
 # step 2 - create xcframework
 mkdir -p "${NEW_HEADER_DIR}"
 cp "${HEADERPATH}" "${NEW_HEADER_DIR}/"
@@ -36,8 +45,7 @@ rm -rf "${OUTDIR}/${MY_CRATE}_framework.xcframework"
 
 xcodebuild -create-xcframework \
     -library "${TARGETDIR}/aarch64-apple-ios/${RELDIR}/${STATIC_LIB_NAME}" -headers "${NEW_HEADER_DIR}" \
-    -library "${TARGETDIR}/aarch64-apple-ios-sim/${RELDIR}/${STATIC_LIB_NAME}" -headers "${NEW_HEADER_DIR}" \
-    -library "${TARGETDIR}/x86_64-apple-ios/${RELDIR}/${STATIC_LIB_NAME}" -headers "${NEW_HEADER_DIR}" \
+    -library "${SIM_LIB}" -headers "${NEW_HEADER_DIR}" \
     -library "${TARGETDIR}/aarch64-apple-darwin/${RELDIR}/${STATIC_LIB_NAME}" -headers "${NEW_HEADER_DIR}" \
     -output "${OUTDIR}/${MY_CRATE}_framework.xcframework"
 
