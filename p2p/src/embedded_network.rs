@@ -146,9 +146,10 @@ pub fn stop() -> String {
         let _ = join.join();
     }
 
-    state
+    let status = state
         .status
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner())
-        .clone()
+        .clone();
+    status
 }
