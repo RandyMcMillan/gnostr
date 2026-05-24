@@ -202,10 +202,18 @@ public struct RelayDashboardView: View {
 
     public var body: some View {
         VStack(alignment: .leading, spacing: 0) {
+#if os(macOS)
+            header
+                .padding(.top, 12)
+                .padding(.bottom, 8)
+                .background(headerBackground)
+                .zIndex(1)
+#else
             header
                 .padding(.bottom, 8)
                 .background(headerBackground)
                 .zIndex(1)
+#endif
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: model.isConfigEditorVisible ? 12 : 20) {
                     controls
@@ -314,11 +322,11 @@ public struct RelayDashboardView: View {
                 row(label: "File status", value: model.configFileStatus)
                 HStack {
                     Button("Refresh defaults") { model.refresh() }
-                    //the file should not be editable until load file pressed
-                    //gray out text to indicate not active
+                    // the file should not be editable until load file pressed
+                    // gray out text to indicate not active
                     Button("Load file") { model.loadConfigFileContents() }
                     Button("Save file") { model.saveConfigFileContents() }
-                    //this belongs some where else Button("Clear console") { model.clearLog() }
+                    // this belongs some where else Button("Clear console") { model.clearLog() }
                 }
             } else {
                 Text("Click the gear to edit the relay config file.")
