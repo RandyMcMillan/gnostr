@@ -145,7 +145,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				4B354A392A14841800F4FF5A /* Cocoa.framework in Frameworks */,
 				4B354A382A14841200F4FF5A /* Foundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -651,6 +650,31 @@
 				DEVELOPMENT_TEAM = M684FYCYG6;
 				ENABLE_HARDENED_RUNTIME = YES;
 				INFOPLIST_FILE = AppWithTool/Info.plist;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-framework",
+					"Foundation",
+				);
+				"OTHER_LDFLAGS[sdk=iphoneos*]" = (
+					"$(inherited)",
+					"-framework",
+					"UIKit",
+				);
+				"OTHER_LDFLAGS[sdk=iphonesimulator*]" = (
+					"$(inherited)",
+					"-framework",
+					"UIKit",
+				);
+				"OTHER_LDFLAGS[sdk=macosx*][variant=Mac Catalyst]" = (
+					"$(inherited)",
+					"-framework",
+					"UIKit",
+				);
+				"OTHER_LDFLAGS[sdk=macosx*][variant=normal]" = (
+					"$(inherited)",
+					"-framework",
+					"Cocoa",
+				);
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -680,6 +704,31 @@
 				DEVELOPMENT_TEAM = M684FYCYG6;
 				ENABLE_HARDENED_RUNTIME = YES;
 				INFOPLIST_FILE = AppWithTool/Info.plist;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-framework",
+					"Foundation",
+				);
+				"OTHER_LDFLAGS[sdk=iphoneos*]" = (
+					"$(inherited)",
+					"-framework",
+					"UIKit",
+				);
+				"OTHER_LDFLAGS[sdk=iphonesimulator*]" = (
+					"$(inherited)",
+					"-framework",
+					"UIKit",
+				);
+				"OTHER_LDFLAGS[sdk=macosx*][variant=Mac Catalyst]" = (
+					"$(inherited)",
+					"-framework",
+					"UIKit",
+				);
+				"OTHER_LDFLAGS[sdk=macosx*][variant=normal]" = (
+					"$(inherited)",
+					"-framework",
+					"Cocoa",
+				);
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
