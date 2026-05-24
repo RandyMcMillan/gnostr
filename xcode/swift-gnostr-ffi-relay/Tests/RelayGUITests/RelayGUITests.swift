@@ -26,6 +26,14 @@ import Testing
 }
 
 @MainActor
+@Test func relayDashboardViewModelTogglesConsoleVisibility() {
+    let model = RelayDashboardViewModel(autoStart: false)
+    #expect(model.isConsoleExpanded == false)
+    model.toggleConsoleVisibility()
+    #expect(model.isConsoleExpanded == true)
+}
+
+@MainActor
 @Test func relayDashboardViewModelMapsStatusIndicatorState() {
     #expect(RelayDashboardViewModel.statusIndicatorState(for: "Relay FFI unavailable", isRunning: false) == .red)
     #expect(RelayDashboardViewModel.statusIndicatorState(for: "Relay FFI available", isRunning: false) == .yellow)
