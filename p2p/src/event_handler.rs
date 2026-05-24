@@ -65,6 +65,23 @@ pub async fn handle_swarm_event(
                 debug!("AutoNAT event: {other:?}");
             }
         },
+        SwarmEvent::Behaviour(BehaviourEvent::Ping(event)) => match event.result {
+            Ok(rtt) => {
+                crate::embedded_network::log_line(format!(
+                    "ping peer={} rtt_ms={}",
+                    event.peer,
+                    rtt.as_millis()
+                ));
+                info!("Ping peer={} rtt={rtt:?}", event.peer);
+            }
+            Err(error) => {
+                crate::embedded_network::log_line(format!(
+                    "ping failed peer={} error={error}",
+                    event.peer
+                ));
+                warn!("Ping failed peer={} error={error}", event.peer);
+            }
+        },
         SwarmEvent::Behaviour(BehaviourEvent::Dcutr(event)) => {
             debug!("DCUtR event: {event:?}");
         }

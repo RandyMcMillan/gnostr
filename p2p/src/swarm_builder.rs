@@ -104,7 +104,7 @@ pub async fn build_swarm(keypair: identity::Keypair) -> Result<Swarm<Behaviour>,
                 rendezvous_client,
                 rendezvous: rendezvous_server,
                 ping: ping::Behaviour::new(
-                    ping::Config::new().with_interval(Duration::from_secs(60)),
+                    ping::Config::new().with_interval(Duration::from_secs(5)),
                 ),
                 mdns: mdns::tokio::Behaviour::new(mdns::Config::default(), local_peer_id)?,
             })
