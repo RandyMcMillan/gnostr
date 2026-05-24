@@ -21,6 +21,32 @@ private typealias RustStringFn = @convention(c) (UnsafePointer<CChar>) -> Unsafe
 private typealias RustRelayEndpointFn = @convention(c) (UnsafePointer<CChar>, UInt16) -> UnsafeMutablePointer<CChar>?
 private typealias RustFreeFn = @convention(c) (UnsafeMutablePointer<CChar>) -> Void
 
+public struct RelayProcessState: Codable, Hashable, Sendable {
+    public let running: Bool
+    public let pid: UInt32?
+    public let message: String
+    public let diskUsageBytes: UInt64?
+
+    public init(
+        running: Bool,
+        pid: UInt32?,
+        message: String,
+        diskUsageBytes: UInt64?
+    ) {
+        self.running = running
+        self.pid = pid
+        self.message = message
+        self.diskUsageBytes = diskUsageBytes
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case running
+        case pid
+        case message
+        case diskUsageBytes = "disk_usage_bytes"
+    }
+}
+
 public struct RelayConfiguration: Codable, Hashable, Sendable {
     public var logging: String
     public var configFilePath: String
@@ -58,7 +84,11 @@ public extension RelayConfiguration {
 }
 
 public final class RelayClient: @unchecked Sendable {
-    public init() {}
+    private let bridge: RustRelayBridge
+
+    public init(bridge: RustRelayBridge = .shared) {
+        self.bridge = bridge
+    }
 
     public func defaultConfiguration() -> RelayConfiguration? {
         RelayConfiguration.rustDefault()
@@ -66,6 +96,22 @@ public final class RelayClient: @unchecked Sendable {
 
     public func listenEndpoint(host: String, port: UInt16) -> String {
         RelayEndpoints.listenEndpoint(host: host, port: port)
+    }
+
+    public func relayStatus() throws -> RelayProcessState {
+        try bridge.relayStatus().unwrap("relay status unavailable")
+    }
+
+    public func relayStart() throws -> RelayProcessState {
+        try bridge.relayStart().unwrap("relay start unavailable")
+    }
+
+    public func relayStop() throws -> RelayProcessState {
+        try bridge.relayStop().unwrap("relay stop unavailable")
+    }
+
+    public func relayRestart() throws -> RelayProcessState {
+        try bridge.relayRestart().unwrap("relay restart unavailable")
     }
 }
 
@@ -84,6 +130,10 @@ public final class RustRelayBridge: @unchecked Sendable {
     private let handle: UnsafeMutableRawPointer?
     private let defaultConfigurationFn: RustStringFn?
     private let listenEndpointFn: RustRelayEndpointFn?
+    private let relayStatusFn: RustStringFn?
+    private let relayStartFn: RustStringFn?
+    private let relayStopFn: RustStringFn?
+    private let relayRestartFn: RustStringFn?
     private let freeFn: RustFreeFn?
 
     private init() {
@@ -91,16 +141,31 @@ public final class RustRelayBridge: @unchecked Sendable {
         if let handle {
             self.defaultConfigurationFn = Self.loadSymbol("relay_default_configuration_json", from: handle)
             self.listenEndpointFn = Self.loadSymbol("relay_listen_endpoint_json", from: handle)
+            self.relayStatusFn = Self.loadSymbol("relay_status_json", from: handle)
+            self.relayStartFn = Self.loadSymbol("relay_start_json", from: handle)
+            self.relayStopFn = Self.loadSymbol("relay_stop_json", from: handle)
+            self.relayRestartFn = Self.loadSymbol("relay_restart_json", from: handle)
             self.freeFn = Self.loadSymbol("relay_string_free", from: handle)
         } else {
             self.defaultConfigurationFn = nil
             self.listenEndpointFn = nil
+            self.relayStatusFn = nil
+            self.relayStartFn = nil
+            self.relayStopFn = nil
+            self.relayRestartFn = nil
             self.freeFn = nil
         }
     }
 
     public var isAvailable: Bool {
-        handle != nil && defaultConfigurationFn != nil && listenEndpointFn != nil && freeFn != nil
+        handle != nil
+            && defaultConfigurationFn != nil
+            && listenEndpointFn != nil
+            && relayStatusFn != nil
+            && relayStartFn != nil
+            && relayStopFn != nil
+            && relayRestartFn != nil
+            && freeFn != nil
     }
 
     public func defaultConfiguration() -> RelayConfiguration? {
@@ -123,6 +188,22 @@ public final class RustRelayBridge: @unchecked Sendable {
         }
     }
 
+    public func relayStatus() -> RelayProcessState? {
+        callRelayProcessState(relayStatusFn)
+    }
+
+    public func relayStart() -> RelayProcessState? {
+        callRelayProcessState(relayStartFn)
+    }
+
+    public func relayStop() -> RelayProcessState? {
+        callRelayProcessState(relayStopFn)
+    }
+
+    public func relayRestart() -> RelayProcessState? {
+        callRelayProcessState(relayRestartFn)
+    }
+
     private func callString(_ fn: RustStringFn?, input: String) -> String? {
         guard let fn else { return nil }
         let inputCString = input.cString(using: .utf8)!
@@ -139,6 +220,17 @@ public final class RustRelayBridge: @unchecked Sendable {
         guard let data = json.data(using: .utf8) else { return nil }
         let envelope = try? JSONDecoder().decode(RustEnvelope<String>.self, from: data)
         guard let envelope, envelope.ok, let value = envelope.data else { return nil }
+        return value
+    }
+
+    private func callRelayProcessState(_ fn: RustStringFn?) -> RelayProcessState? {
+        guard let json: String = callString(fn, input: "") else { return nil }
+        guard let data = json.data(using: .utf8),
+              let envelope = try? JSONDecoder().decode(RustEnvelope<RelayProcessState>.self, from: data),
+              envelope.ok,
+              let value = envelope.data else {
+            return nil
+        }
         return value
     }
 
@@ -173,5 +265,16 @@ public final class RustRelayBridge: @unchecked Sendable {
     private static func loadSymbol<T>(_ name: String, from handle: UnsafeMutableRawPointer) -> T? {
         guard let symbol = dlsym(handle, name) else { return nil }
         return unsafeBitCast(symbol, to: T.self)
+    }
+}
+
+private extension Optional where Wrapped == RelayProcessState {
+    func unwrap(_ message: String) throws -> RelayProcessState {
+        guard let value = self else {
+            throw NSError(domain: "FFRelay", code: -1, userInfo: [
+                NSLocalizedDescriptionKey: message
+            ])
+        }
+        return value
     }
 }

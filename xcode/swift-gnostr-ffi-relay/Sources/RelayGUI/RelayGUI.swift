@@ -13,20 +13,6 @@ enum RelayStatusIndicatorState: String, Sendable {
     case red
 }
 
-public struct RelayProcessState: Codable, Hashable, Sendable {
-    public let running: Bool
-    public let pid: UInt32?
-    public let message: String
-    public let diskUsageBytes: UInt64?
-
-    private enum CodingKeys: String, CodingKey {
-        case running
-        case pid
-        case message
-        case diskUsageBytes = "disk_usage_bytes"
-    }
-}
-
 public protocol RelayControlling: Sendable {
     func status() async throws -> RelayProcessState
     func start() async throws -> RelayProcessState
@@ -35,60 +21,35 @@ public protocol RelayControlling: Sendable {
 }
 
 public final class RelayControlClient: RelayControlling, @unchecked Sendable {
-    private let baseURL: URL
-    private let session: URLSession
-    private let decoder = JSONDecoder()
+    private let bridge: RustRelayBridge
 
-    public init(
-        baseURL: URL = URL(string: "http://127.0.0.1:3030")!,
-        session: URLSession = .shared
-    ) {
-        self.baseURL = baseURL
-        self.session = session
+    public init(bridge: RustRelayBridge = .shared) {
+        self.bridge = bridge
     }
 
     public func status() async throws -> RelayProcessState {
-        try await request(method: "GET", path: "api/relay/status")
+        try unwrap(bridge.relayStatus(), message: "relay status unavailable")
     }
 
     public func start() async throws -> RelayProcessState {
-        try await request(method: "POST", path: "api/relay/start")
+        try unwrap(bridge.relayStart(), message: "relay start unavailable")
     }
 
     public func stop() async throws -> RelayProcessState {
-        try await request(method: "POST", path: "api/relay/stop")
+        try unwrap(bridge.relayStop(), message: "relay stop unavailable")
     }
 
     public func restart() async throws -> RelayProcessState {
-        let current = try await status()
-        if current.running {
-            _ = try await stop()
-        }
-        return try await start()
+        try unwrap(bridge.relayRestart(), message: "relay restart unavailable")
     }
 
-    private func request(method: String, path: String) async throws -> RelayProcessState {
-        let url = baseURL.appendingPathComponent(path)
-        var request = URLRequest(url: url)
-        request.httpMethod = method
-
-        let (data, response) = try await session.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse else {
+    private func unwrap(_ state: RelayProcessState?, message: String) throws -> RelayProcessState {
+        guard let state else {
             throw NSError(domain: "RelayControlClient", code: -1, userInfo: [
-                NSLocalizedDescriptionKey: "relay control response was not HTTP"
+                NSLocalizedDescriptionKey: message
             ])
         }
-
-        guard (200...299).contains(httpResponse.statusCode) else {
-            let body = String(data: data, encoding: .utf8) ?? ""
-            throw NSError(domain: "RelayControlClient", code: httpResponse.statusCode, userInfo: [
-                NSLocalizedDescriptionKey: body.isEmpty
-                    ? "relay control request failed with status \(httpResponse.statusCode)"
-                    : body
-            ])
-        }
-
-        return try decoder.decode(RelayProcessState.self, from: data)
+        return state
     }
 }
 
@@ -265,13 +226,14 @@ public final class RelayDashboardViewModel: ObservableObject {
             return .red
         }
         if statusMessage.localizedCaseInsensitiveContains("stopping")
-            || statusMessage.localizedCaseInsensitiveContains("restarting")
+            || statusMessage.localizedCaseInsensitiveContains("stopped")
+        {
+            return .red
+        }
+        if statusMessage.localizedCaseInsensitiveContains("restarting")
             || statusMessage.localizedCaseInsensitiveContains("starting")
         {
             return .yellow
-        }
-        if statusMessage.localizedCaseInsensitiveContains("stopped") {
-            return .red
         }
         if statusMessage.localizedCaseInsensitiveContains("spawned detached relay")
             || statusMessage.localizedCaseInsensitiveContains("already running")
