@@ -237,21 +237,16 @@ public struct RelayDashboardView: View {
                 header
                     .padding(.top, 24)
                     .padding(.bottom, 8)
-                    .background(headerBackground)
-                    .zIndex(1)
+                .background(headerBackground)
+                .zIndex(1)
 #endif
-                ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: model.isConfigEditorVisible ? 12 : 20) {
-                        controls
-                        card(title: nil, compact: false, content: configurationContent)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .topLeading)
-                }
-                .frame(maxHeight: .infinity, alignment: .topLeading)
+                controls
+                    .padding(.bottom, 8)
+                card(title: nil, compact: false, content: configurationContent)
                 StickyFooter(
                     label: "Log console",
                     isExpanded: $model.isConsoleExpanded,
-                    expandedMaxHeight: model.isConfigEditorVisible ? 60 : 180,
+                    expandedMaxHeight: nil,
                     expandedContent: {
                         consoleContent
                     },
@@ -260,6 +255,8 @@ public struct RelayDashboardView: View {
                             .buttonStyle(.borderless)
                     }
                 )
+                .frame(maxHeight: .infinity, alignment: .bottom)
+                .layoutPriority(1)
             }
             .padding(.horizontal)
             .padding(.bottom)
@@ -521,14 +518,14 @@ public struct RelayDashboardView: View {
 public struct StickyFooter<ExpandedContent: View, TrailingActions: View>: View {
     @Binding private var isExpanded: Bool
     private let label: String
-    private let expandedMaxHeight: CGFloat
+    private let expandedMaxHeight: CGFloat?
     private let expandedContent: ExpandedContent
     private let trailingActions: TrailingActions
 
     public init(
         label: String,
         isExpanded: Binding<Bool>,
-        expandedMaxHeight: CGFloat = 180,
+        expandedMaxHeight: CGFloat? = nil,
         @ViewBuilder expandedContent: () -> ExpandedContent,
         @ViewBuilder trailingActions: () -> TrailingActions
     ) {
@@ -543,7 +540,7 @@ public struct StickyFooter<ExpandedContent: View, TrailingActions: View>: View {
         VStack(spacing: 0) {
             if isExpanded {
                 expandedContent
-                    .frame(maxHeight: expandedMaxHeight, alignment: .topLeading)
+                    .frame(maxHeight: expandedMaxHeight ?? .infinity, alignment: .topLeading)
                     .padding(.bottom, 8)
                 Divider()
             }
