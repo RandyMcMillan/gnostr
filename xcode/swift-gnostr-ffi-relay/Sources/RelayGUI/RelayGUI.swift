@@ -244,8 +244,8 @@ public struct RelayDashboardView: View {
                         consoleContent
                     },
                     trailingActions: {
-                        Button("Clear") { model.clearLog() }
-                            .buttonStyle(.borderless)
+                        //Button("Clear") { model.clearLog() }
+                        //  .buttonStyle(.borderless)
                     }
                 )
             }
