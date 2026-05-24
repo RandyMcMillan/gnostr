@@ -24,6 +24,7 @@ public final class RelayDashboardViewModel: ObservableObject {
     @Published public private(set) var statusMessage: String
     @Published public private(set) var configFileStatus: String
     @Published public private(set) var isRunning = false
+    @Published public var isConsoleExpanded = false
     @Published public private(set) var logLines: [String] = []
 
     private let configBaseDirectoryPath: String
@@ -123,6 +124,11 @@ public final class RelayDashboardViewModel: ObservableObject {
         appendLog("Console cleared")
     }
 
+    public func toggleConsoleVisibility() {
+        isConsoleExpanded.toggle()
+        appendLog(isConsoleExpanded ? "Console expanded" : "Console collapsed")
+    }
+
     public func toggleConfigEditorVisibility() {
         isConfigEditorVisible.toggle()
         appendLog(isConfigEditorVisible ? "Config editor shown" : "Config editor hidden")
@@ -219,13 +225,11 @@ public struct RelayDashboardView: View {
                 VStack(alignment: .leading, spacing: model.isConfigEditorVisible ? 12 : 20) {
                     controls
                     card(title: nil, compact: false, content: configurationContent)
-                    card(title: "Log console", compact: model.isConfigEditorVisible, content: consoleContent)
-                        .frame(maxHeight: model.isConfigEditorVisible ? 60 : 220, alignment: .topLeading)
-                        .layoutPriority(1)
                 }
                 .frame(maxWidth: .infinity, alignment: .topLeading)
             }
             .frame(maxHeight: .infinity, alignment: .topLeading)
+            consoleFooter
         }
         .padding(.horizontal)
         .padding(.bottom)
@@ -380,7 +384,37 @@ public struct RelayDashboardView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(maxHeight: model.isConfigEditorVisible ? 60 : 220, alignment: .topLeading)
+    }
+
+    private var consoleFooter: some View {
+        VStack(spacing: 0) {
+            if model.isConsoleExpanded {
+                consoleContent
+                    .frame(maxHeight: 180, alignment: .topLeading)
+                    .padding(.bottom, 8)
+            }
+            HStack {
+                Text("Log console")
+                    .font(.subheadline.weight(.semibold))
+                Spacer()
+                Button(action: { model.toggleConsoleVisibility() }) {
+                    if #available(macOS 11.0, iOS 14.0, *) {
+                        Image(systemName: model.isConsoleExpanded ? "chevron.down" : "chevron.up")
+                    } else {
+                        Text(model.isConsoleExpanded ? "⌄" : "⌃")
+                    }
+                }
+                .buttonStyle(.plain)
+                Button("Clear") { model.clearLog() }
+                    .buttonStyle(.borderless)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(Color.secondary.opacity(0.12))
+            )
+        }
     }
 
     private var trafficLightIndicator: some View {
