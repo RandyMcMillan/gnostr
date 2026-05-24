@@ -378,8 +378,11 @@ pub fn start() -> String {
 }
 
 pub fn stop() -> String {
-    let mut guard = network_slot().lock().unwrap_or_else(|poisoned| poisoned.into_inner());
-    let Some(mut state) = guard.take() else {
+    let state = {
+        let mut guard = network_slot().lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        guard.take()
+    };
+    let Some(mut state) = state else {
         return String::from("p2p network not running");
     };
 
