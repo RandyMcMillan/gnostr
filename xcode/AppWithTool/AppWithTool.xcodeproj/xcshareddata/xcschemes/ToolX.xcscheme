@@ -15,7 +15,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "4B542C8629F88E6B000A03AF"
-               BuildableName = "ToolX"
+               BuildableName = "libToolX.a"
                BlueprintName = "ToolX"
                ReferencedContainer = "container:AppWithTool.xcodeproj">
             </BuildableReference>
@@ -60,7 +60,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "4B542C8629F88E6B000A03AF"
-            BuildableName = "ToolX"
+            BuildableName = "libToolX.a"
             BlueprintName = "ToolX"
             ReferencedContainer = "container:AppWithTool.xcodeproj">
          </BuildableReference>
@@ -91,7 +91,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "4B542C8629F88E6B000A03AF"
-            BuildableName = "ToolX"
+            BuildableName = "libToolX.a"
             BlueprintName = "ToolX"
             ReferencedContainer = "container:AppWithTool.xcodeproj">
          </BuildableReference>

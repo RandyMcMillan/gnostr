@@ -11,6 +11,7 @@
 		4B3549F32A14822E00F4FF5A /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 4B542C5329F88D22000A03AF /* main.m */; };
 		4B354A182A1482B100F4FF5A /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4B354A132A1482B100F4FF5A /* Foundation.framework */; };
 		4B354A1A2A14830000F4FF5A /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4B354A192A14830000F4FF5A /* Cocoa.framework */; };
+		4B354A8F2A17A00100F4FF5A /* ToolX in Frameworks */ = {isa = PBXBuildFile; fileRef = 4B542C8729F88E6B000A03AF /* libToolX.a */; };
 		4B354A272A14835A00F4FF5A /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 4B542C8929F88E6B000A03AF /* main.m */; };
 		4B354A382A14841200F4FF5A /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4B354A132A1482B100F4FF5A /* Foundation.framework */; };
 		4B354A392A14841800F4FF5A /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4B354A192A14830000F4FF5A /* Cocoa.framework */; };
@@ -20,7 +21,7 @@
 		4B542C4E29F88D22000A03AF /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 4B542C4D29F88D22000A03AF /* Assets.xcassets */; };
 		4B542C5F29F88D23000A03AF /* AppWithToolTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 4B542C5E29F88D23000A03AF /* AppWithToolTests.m */; };
 		4B542C6A29F88D23000A03AF /* AppWithToolUITests.m in Sources */ = {isa = PBXBuildFile; fileRef = 4B542C6929F88D23000A03AF /* AppWithToolUITests.m */; };
-		4B542CBE29F89419000A03AF /* ToolX in Embed Helper Tools */ = {isa = PBXBuildFile; fileRef = 4B542C8729F88E6B000A03AF /* ToolX */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		4B542CBE29F89419000A03AF /* ToolX in Embed Helper Tools */ = {isa = PBXBuildFile; fileRef = 4B542C8729F88E6B000A03AF /* libToolX.a */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		4B5C4C052A1FBD8400D7ADAC /* SanJuanGoddess.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 4B5C4C032A1FBD8400D7ADAC /* SanJuanGoddess.jpg */; };
 		4B5C4C062A1FBD8400D7ADAC /* SanJuanGoddess.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 4B5C4C032A1FBD8400D7ADAC /* SanJuanGoddess.jpg */; };
 		4B5C4C0B2A1FBDA400D7ADAC /* SanJuanGoddess.jpg in Copy to Shared Support */ = {isa = PBXBuildFile; fileRef = 4B5C4C032A1FBD8400D7ADAC /* SanJuanGoddess.jpg */; };
@@ -34,8 +35,9 @@
 		4BC67A362A1707CA004F106C /* execcl_bridge.c in Sources */ = {isa = PBXBuildFile; fileRef = 4BC67A342A1707CA004F106C /* execcl_bridge.c */; };
 		4BC67A432A170874004F106C /* execcl_bridge.c in Sources */ = {isa = PBXBuildFile; fileRef = 4BC67A342A1707CA004F106C /* execcl_bridge.c */; };
 		4BD59FEF2A1444880041CB20 /* Script.sh in Copy to Shared Support */ = {isa = PBXBuildFile; fileRef = 4BD59FE82A1444420041CB20 /* Script.sh */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
-		4BD5A0142A1449D00041CB20 /* ToolX in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4B542C8729F88E6B000A03AF /* ToolX */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
-		4BD5A0252A144A6B0041CB20 /* ToolX in Copy to Shared Support */ = {isa = PBXBuildFile; fileRef = 4B542C8729F88E6B000A03AF /* ToolX */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		4BD5A0142A1449D00041CB20 /* ToolX in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4B542C8729F88E6B000A03AF /* libToolX.a */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		4BD5A0252A144A6B0041CB20 /* ToolX in Copy to Shared Support */ = {isa = PBXBuildFile; fileRef = 4B542C8729F88E6B000A03AF /* libToolX.a */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		4BD5A0262A17A1010041CB20 /* ToolX in Headers */ = {isa = PBXBuildFile; fileRef = 4B542C8A29F88E6B000A03AF /* ToolX.h */; settings = {ATTRIBUTES = (Public, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -92,7 +94,6 @@
 			files = (
 				4B5C4C0B2A1FBDA400D7ADAC /* SanJuanGoddess.jpg in Copy to Shared Support */,
 				4B354A7C2A1492A200F4FF5A /* template.sh in Copy to Shared Support */,
-				4BD5A0252A144A6B0041CB20 /* ToolX in Copy to Shared Support */,
 				4BD59FEF2A1444880041CB20 /* Script.sh in Copy to Shared Support */,
 			);
 			name = "Copy to Shared Support";
@@ -122,20 +123,21 @@
 		4B542C6529F88D23000A03AF /* AppWithToolUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AppWithToolUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		4B542C6929F88D23000A03AF /* AppWithToolUITests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AppWithToolUITests.m; sourceTree = "<group>"; };
 		4B542C6B29F88D23000A03AF /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		4B542C8729F88E6B000A03AF /* ToolX */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ToolX; sourceTree = BUILT_PRODUCTS_DIR; };
+		4B542C8729F88E6B000A03AF /* libToolX.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libToolX.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		4B542C8A29F88E6B000A03AF /* ToolX.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ToolX.h; sourceTree = "<group>"; };
 		4B542C8929F88E6B000A03AF /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
 		4B542CA629F891A0000A03AF /* ToolX.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ToolX.entitlements; sourceTree = "<group>"; };
 		4B5C4C032A1FBD8400D7ADAC /* SanJuanGoddess.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = SanJuanGoddess.jpg; sourceTree = "<group>"; };
-		4B726E672A1662D2002502E4 /* execv_bridge.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = execv_bridge.h; sourceTree = "<group>"; };
-		4B726E682A1662D2002502E4 /* execv_bridge.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = execv_bridge.c; sourceTree = "<group>"; };
-		4B726E712A166908002502E4 /* logargv.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = logargv.h; sourceTree = "<group>"; };
-		4B726E722A166908002502E4 /* logargv.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = logargv.c; sourceTree = "<group>"; };
-		4B726E752A166D88002502E4 /* logargc.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = logargc.h; sourceTree = "<group>"; };
-		4B726E762A166D88002502E4 /* logargc.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = logargc.c; sourceTree = "<group>"; };
+		4B726E672A1662D2002502E4 /* execv_bridge.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppWithTool/execv_bridge.h; sourceTree = "<group>"; };
+		4B726E682A1662D2002502E4 /* execv_bridge.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = AppWithTool/execv_bridge.c; sourceTree = "<group>"; };
+		4B726E712A166908002502E4 /* logargv.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppWithTool/logargv.h; sourceTree = "<group>"; };
+		4B726E722A166908002502E4 /* logargv.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = AppWithTool/logargv.c; sourceTree = "<group>"; };
+		4B726E752A166D88002502E4 /* logargc.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppWithTool/logargc.h; sourceTree = "<group>"; };
+		4B726E762A166D88002502E4 /* logargc.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = AppWithTool/logargc.c; sourceTree = "<group>"; };
 		4B726E792A169178002502E4 /* test.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = test.h; sourceTree = "<group>"; };
 		4B726E7A2A169178002502E4 /* test.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = test.c; sourceTree = "<group>"; };
-		4BC67A242A170789004F106C /* execcl_bridge.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = execcl_bridge.h; sourceTree = "<group>"; };
-		4BC67A342A1707CA004F106C /* execcl_bridge.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = execcl_bridge.c; sourceTree = "<group>"; };
+		4BC67A242A170789004F106C /* execcl_bridge.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AppWithTool/execcl_bridge.h; sourceTree = "<group>"; };
+		4BC67A342A1707CA004F106C /* execcl_bridge.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = AppWithTool/execcl_bridge.c; sourceTree = "<group>"; };
 		4BC67A5C2A17181B004F106C /* async.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = folder; path = async.h; sourceTree = SOURCE_ROOT; };
 		4BD59FE82A1444420041CB20 /* Script.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = Script.sh; path = AppWithTool/Script.sh; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -146,6 +148,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				4B354A382A14841200F4FF5A /* Foundation.framework in Frameworks */,
+				4B354A8F2A17A00100F4FF5A /* ToolX in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -205,7 +208,7 @@
 				4B542C4429F88D1F000A03AF /* AppWithTool.app */,
 				4B542C5A29F88D23000A03AF /* AppWithToolTests.xctest */,
 				4B542C6529F88D23000A03AF /* AppWithToolUITests.xctest */,
-				4B542C8729F88E6B000A03AF /* ToolX */,
+				4B542C8729F88E6B000A03AF /* libToolX.a */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -223,14 +226,6 @@
 				4B542C4F29F88D22000A03AF /* Main.storyboard */,
 				4B542C5229F88D22000A03AF /* Info.plist */,
 				4B542C5329F88D22000A03AF /* main.m */,
-				4BC67A242A170789004F106C /* execcl_bridge.h */,
-				4BC67A342A1707CA004F106C /* execcl_bridge.c */,
-				4B726E752A166D88002502E4 /* logargc.h */,
-				4B726E762A166D88002502E4 /* logargc.c */,
-				4B726E712A166908002502E4 /* logargv.h */,
-				4B726E722A166908002502E4 /* logargv.c */,
-				4B726E672A1662D2002502E4 /* execv_bridge.h */,
-				4B726E682A1662D2002502E4 /* execv_bridge.c */,
 				4B726E792A169178002502E4 /* test.h */,
 				4B726E7A2A169178002502E4 /* test.c */,
 				4B542C5529F88D22000A03AF /* AppWithTool.entitlements */,
@@ -261,6 +256,7 @@
 			children = (
 				4B248FD22A1FB1BC00D11F9E /* ToolXDebug.entitlements */,
 				4B542CA629F891A0000A03AF /* ToolX.entitlements */,
+				4B542C8A29F88E6B000A03AF /* ToolX.h */,
 				4B542C8929F88E6B000A03AF /* main.m */,
 			);
 			path = ToolX;
@@ -274,6 +270,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				4B1D26B62A1A880B00C79D93 /* async.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4BD5A0272A17A2010041CB20 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4BD5A0262A17A1010041CB20 /* ToolX in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -294,6 +298,7 @@
 			buildRules = (
 			);
 			dependencies = (
+				4B3549FF2A14826600F4FF5A /* PBXTargetDependency */,
 			);
 			name = AppWithTool;
 			productName = AppWithTool;
@@ -340,9 +345,9 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 4B542C8B29F88E6B000A03AF /* Build configuration list for PBXNativeTarget "ToolX" */;
 			buildPhases = (
+				4BD5A0272A17A2010041CB20 /* Headers */,
 				4B542C8329F88E6B000A03AF /* Sources */,
 				4B542C8429F88E6B000A03AF /* Frameworks */,
-				4B542C8529F88E6B000A03AF /* CopyFiles */,
 			);
 			buildRules = (
 			);
@@ -351,7 +356,7 @@
 			name = ToolX;
 			productName = ToolX;
 			productReference = 4B542C8729F88E6B000A03AF /* ToolX */;
-			productType = "com.apple.product-type.tool";
+			productType = "com.apple.product-type.library.static";
 		};
 /* End PBXNativeTarget section */
 
@@ -443,7 +448,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/bash;
-			shellScript = "rm -rf **.log\n\n## LOG=codesign.log\n## export LOG\n## echo -e $(date +%s):$SRCROOT > $SRCROOT/$LOG\n## echo -e \"\\n\" >> $SRCROOT/$LOG\n## codesign  --display --verbose=4  -d -vvv --entitlements :- $SRCROOT/Build/Products/Debug/AppWithTool.app >> $SRCROOT/$LOG\n\nhexdump -c $SRCROOT/Build/Products/Debug/AppWithTool.app/Contents/MacOS/AppWithTool > $SRCROOT/AppWithTool-hexdump.log\nhexdump -c $SRCROOT/Build/Products/Debug/AppWithTool.app/Contents/MacOS/ToolX > $SRCROOT/ToolX-hexdump.log\n##\n## open $SRCROOT/**.log\ntouch $SRCROOT/Build/Products/.gitkeep\ntouch $SRCROOT/Build/Products/Debug/.gitkeep\n## git add -f **.log\n## git commit -m \"$(date +%s)\" -m \"hexdump -c of AppWithTool and ToolX\" || echo\n";
+			shellScript = "rm -rf **.log\n\n## LOG=codesign.log\n## export LOG\n## echo -e $(date +%s):$SRCROOT > $SRCROOT/$LOG\n## echo -e \"\\n\" >> $SRCROOT/$LOG\n## codesign  --display --verbose=4  -d -vvv --entitlements :- $SRCROOT/Build/Products/Debug/AppWithTool.app >> $SRCROOT/$LOG\n\nhexdump -c $SRCROOT/Build/Products/Debug/AppWithTool.app/Contents/MacOS/AppWithTool > $SRCROOT/AppWithTool-hexdump.log\nhexdump -c $BUILT_PRODUCTS_DIR/libToolX.a > $SRCROOT/ToolX-hexdump.log\n##\n## open $SRCROOT/**.log\ntouch $SRCROOT/Build/Products/.gitkeep\ntouch $SRCROOT/Build/Products/Debug/.gitkeep\n## git add -f **.log\n## git commit -m \"$(date +%s)\" -m \"hexdump -c of AppWithTool and ToolX\" || echo\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -456,8 +461,6 @@
 				4B3549F32A14822E00F4FF5A /* main.m in Sources */,
 				4B726E772A166D88002502E4 /* logargc.c in Sources */,
 				4B542C4C29F88D1F000A03AF /* ViewController.m in Sources */,
-				4B726E732A166908002502E4 /* logargv.c in Sources */,
-				4B726E692A1662D2002502E4 /* execv_bridge.c in Sources */,
 				4B542C4929F88D1F000A03AF /* AppDelegate.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -574,7 +577,10 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				HEADER_SEARCH_PATHS = "$(SRCROOT)";
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)",
+					"$(SRCROOT)/AppWithTool",
+				);
 				MACOSX_DEPLOYMENT_TARGET = 10.13;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
@@ -628,7 +634,10 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				HEADER_SEARCH_PATHS = "$(SRCROOT)";
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)",
+					"$(SRCROOT)/AppWithTool",
+				);
 				MACOSX_DEPLOYMENT_TARGET = 10.13;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
@@ -845,6 +854,10 @@
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SKIP_INSTALL = NO;
 				STRIP_INSTALLED_PRODUCT = NO;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = YES;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
 		};
@@ -865,6 +878,10 @@
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SKIP_INSTALL = NO;
 				STRIP_INSTALLED_PRODUCT = NO;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = YES;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
 		};
