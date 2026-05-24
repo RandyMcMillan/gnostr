@@ -236,7 +236,7 @@ public struct RelayDashboardView: View {
                     card(title: nil, compact: false, content: configurationContent)
                 }
                 .frame(maxWidth: .infinity, alignment: .topLeading)
-                Spacer(minLength: 0)
+                Spacer(minLength: 10)
                 StickyFooter(
                     label: "Log console",
                     isExpanded: $model.isConsoleExpanded,
