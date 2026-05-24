@@ -386,7 +386,11 @@ public struct RelayDashboardView: View {
     @ViewBuilder
     private var headerBackground: some View {
         #if canImport(AppKit)
-        Color(nsColor: .windowBackgroundColor)
+        if #available(macOS 12.0, *) {
+            Color(nsColor: .windowBackgroundColor)
+        } else {
+            Color.white
+        }
         #elseif canImport(UIKit)
         if #available(iOS 15.0, *) {
             Color(uiColor: .systemBackground)
