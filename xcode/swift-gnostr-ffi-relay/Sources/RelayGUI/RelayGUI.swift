@@ -299,12 +299,9 @@ public struct RelayDashboardView: View {
 
     private var configurationContent: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .center) {
-                //Text("Listen endpoint")
-                //  .font(.subheadline.weight(.semibold))
-                //Spacer()
-                Text(model.listenEndpoint)
-                    .font(.system(.body, design: .monospaced))
+            HStack() {
+                Text("Config editor")
+                    .font(.subheadline.weight(.semibold))
                 Spacer()
                 Button(action: { model.toggleConfigEditorVisibility() }) {
                     if #available(macOS 11.0, iOS 14.0, *) {
@@ -316,14 +313,10 @@ public struct RelayDashboardView: View {
                 .buttonStyle(.plain)
                 .font(.system(size: 20, weight: .regular))
                 .frame(width: 30, height: 30, alignment: .center)
+                Spacer() /// 
             }
             if model.isConfigEditorVisible {
                 VStack(alignment: .leading, spacing: 12) {
-                    HStack {
-                        Text("Config editor")
-                            .font(.subheadline.weight(.semibold))
-                        Spacer()
-                    }
                     VStack(alignment: .leading, spacing: 12) {
                         HStack {
                             TextField("Host", text: Binding(
