@@ -18,7 +18,6 @@
 		4B542C4929F88D1F000A03AF /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 4B542C4829F88D1F000A03AF /* AppDelegate.m */; };
 		4B542C4C29F88D1F000A03AF /* ViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 4B542C4B29F88D1F000A03AF /* ViewController.m */; };
 		4B542C4E29F88D22000A03AF /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 4B542C4D29F88D22000A03AF /* Assets.xcassets */; };
-		4B542C5129F88D22000A03AF /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 4B542C4F29F88D22000A03AF /* Main.storyboard */; };
 		4B542C5F29F88D23000A03AF /* AppWithToolTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 4B542C5E29F88D23000A03AF /* AppWithToolTests.m */; };
 		4B542C6A29F88D23000A03AF /* AppWithToolUITests.m in Sources */ = {isa = PBXBuildFile; fileRef = 4B542C6929F88D23000A03AF /* AppWithToolUITests.m */; };
 		4B542CBE29F89419000A03AF /* ToolX in Embed Helper Tools */ = {isa = PBXBuildFile; fileRef = 4B542C8729F88E6B000A03AF /* ToolX */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
@@ -291,13 +290,11 @@
 				4B542C4129F88D1E000A03AF /* Frameworks */,
 				4B542C4229F88D1E000A03AF /* Resources */,
 				4BD59FEE2A1444690041CB20 /* Copy to Shared Support */,
-				4B542CB529F89373000A03AF /* Embed Helper Tools */,
 				4B542CC729F89763000A03AF /* hexdumps */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				4B3549FF2A14826600F4FF5A /* PBXTargetDependency */,
 			);
 			name = AppWithTool;
 			productName = AppWithTool;
@@ -408,7 +405,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				4B542C4E29F88D22000A03AF /* Assets.xcassets in Resources */,
-				4B542C5129F88D22000A03AF /* Main.storyboard in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
