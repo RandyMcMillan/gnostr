@@ -58,7 +58,7 @@ struct ContentView: View {
                     .shadow(radius: 2)
             }
             .accessibilityLabel("P2P settings")
-            .popover(isPresented: $showingNetworkPanel, arrowEdge: .top) {
+            .fullScreenCover(isPresented: $showingNetworkPanel) {
                 networkPanel
             }
         }
@@ -68,29 +68,48 @@ struct ContentView: View {
     }
 
     private var networkPanel: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("P2P Network").font(.headline)
-            Text(networkStatus)
-                .font(.caption)
-                .multilineTextAlignment(.leading)
+        VStack(spacing: 0) {
             HStack {
-                Button("Start") { startNetwork() }
-                Button("Stop") { stopNetwork() }
-                Button("Refresh Logs") { refreshNetworkSnapshot() }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("P2P Network")
+                        .font(.headline)
+                    Text(networkStatus)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.leading)
+                }
+
+                Spacer()
+
+                Button("Done") {
+                    showingNetworkPanel = false
+                }
             }
-            ScrollView {
-                Text(networkLogs.isEmpty ? "No P2P logs yet." : networkLogs)
-                    .font(.system(.footnote, design: .monospaced))
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .textSelection(.enabled)
+            .padding()
+            .background(.regularMaterial)
+
+            VStack(alignment: .leading, spacing: 16) {
+                HStack {
+                    Button("Start") { startNetwork() }
+                    Button("Stop") { stopNetwork() }
+                    Button("Refresh Logs") { refreshNetworkSnapshot() }
+                }
+                ScrollView {
+                    Text(networkLogs.isEmpty ? "No P2P logs yet." : networkLogs)
+                        .font(.system(.footnote, design: .monospaced))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .textSelection(.enabled)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                Divider()
+                Text(rustHello())
+                Text(String(rustAdd(a: 10, b: 32)))
             }
-            .frame(maxHeight: 240)
-            Divider()
-            Text(rustHello())
-            Text(String(rustAdd(a: 10, b: 32)))
+            .padding()
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
-        .padding()
-        .frame(minWidth: 360, minHeight: 420)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(.background)
     }
 
     private func startNetwork() {
