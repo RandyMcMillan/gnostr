@@ -228,16 +228,22 @@ public struct RelayDashboardView: View {
                 header
                     .padding(.top, 24)
                     .padding(.bottom, 8)
-                .background(headerBackground)
-                .zIndex(1)
+                    .background(headerBackground)
+                    .zIndex(1)
 #endif
-                controls
-                    .padding(.bottom, 8)
-                card(title: nil, compact: false, content: configurationContent)
+                ScrollView(showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: model.isConfigEditorVisible ? 12 : 20) {
+                        controls
+                        card(title: nil, compact: false, content: configurationContent)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
+                }
+                .frame(maxHeight: .infinity, alignment: .topLeading)
+                Spacer(minLength: 0)
                 StickyFooter(
                     label: "Log console",
                     isExpanded: $model.isConsoleExpanded,
-                    expandedMaxHeight: nil,
+                    expandedMaxHeight: 180,
                     expandedContent: {
                         consoleContent
                     },
@@ -246,8 +252,6 @@ public struct RelayDashboardView: View {
                             .buttonStyle(.borderless)
                     }
                 )
-                .frame(maxHeight: .infinity, alignment: .bottom)
-                .layoutPriority(1)
             }
             .padding(.horizontal)
             .padding(.bottom)
@@ -517,11 +521,15 @@ public struct StickyFooter<ExpandedContent: View, TrailingActions: View>: View {
     }
 
     public var body: some View {
-        ZStack(alignment: .bottom) {
+        VStack(spacing: 0) {
             if isExpanded {
-                expandedContent
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                    .padding(.bottom, footerBarHeight + 12)
+                ScrollView(showsIndicators: false) {
+                    expandedContent
+                        .frame(maxWidth: .infinity, alignment: .topLeading)
+                }
+                .frame(maxHeight: expandedMaxHeight ?? 180, alignment: .topLeading)
+                .padding(.bottom, 8)
+                Divider()
             }
             footerBar
         }
