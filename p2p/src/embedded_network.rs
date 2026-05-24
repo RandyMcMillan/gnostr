@@ -49,6 +49,10 @@ fn push_log(line: impl Into<String>) {
     }
 }
 
+pub fn log_line(line: impl Into<String>) {
+    push_log(line);
+}
+
 fn with_status<F, T>(f: F) -> T
 where
     F: FnOnce(&mut String) -> T,

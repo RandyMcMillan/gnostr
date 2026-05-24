@@ -22,11 +22,13 @@ use crate::p2p::{behaviour::Behaviour, network_config::IPFS_PROTO_NAME};
 
 pub async fn build_swarm(keypair: identity::Keypair) -> Result<Swarm<Behaviour>, Box<dyn Error>> {
     let peer_id = PeerId::from(keypair.public());
+    crate::embedded_network::log_line(format!("local peer id: {peer_id}"));
     info!("Local PeerId: {}", peer_id);
 
     let message_id_fn = |message: &gossipsub::Message| {
         let mut s = DefaultHasher::new();
         message.data.hash(&mut s);
+        crate::embedded_network::log_line(format!("message topic={}", message.topic));
         info!("message:\n{0:?}", message);
         info!("message.data:\n{0:?}", message.data);
         info!("message.source:\n{0:?}", message.source);

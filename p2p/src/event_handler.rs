@@ -14,10 +14,12 @@ pub async fn handle_swarm_event(
 ) {
     match event {
         SwarmEvent::NewListenAddr { address, .. } => {
+            crate::embedded_network::log_line(format!("listening on {address}"));
             warn!("Listening on {address}");
         }
         SwarmEvent::Behaviour(BehaviourEvent::Mdns(mdns::Event::Discovered(list))) => {
             for (peer_id, multiaddr) in list {
+                crate::embedded_network::log_line(format!("mDNS discovered peer {peer_id} at {multiaddr}"));
                 info!("mDNS discovered a new peer: {peer_id}\n{multiaddr}");
                 let peer_id_label = peer_id.to_string();
                 let address_with_p2p = multiaddr_with_peer_id(&multiaddr, &peer_id);
@@ -30,12 +32,14 @@ pub async fn handle_swarm_event(
                     .autonat
                     .add_server(peer_id, Some(address_with_p2p.clone()));
                 if let Err(error) = swarm.dial(address_with_p2p) {
+                    crate::embedded_network::log_line(format!("failed to dial discovered peer {peer_id_label}: {error}"));
                     warn!("Failed to dial discovered peer {peer_id_label}: {error}");
                 }
             }
         }
         SwarmEvent::Behaviour(BehaviourEvent::Mdns(mdns::Event::Expired(list))) => {
             for (peer_id, _multiaddr) in list {
+                crate::embedded_network::log_line(format!("mDNS peer expired: {peer_id}"));
                 info!("mDNS peer expired: {peer_id}");
                 swarm.behaviour_mut().autonat.remove_server(&peer_id);
             }
@@ -48,11 +52,13 @@ pub async fn handle_swarm_event(
             },
             ..
         })) => {
+            crate::embedded_network::log_line(format!("observed external address from {peer_id}: {observed_addr}"));
             info!("Observed external address from {peer_id}: {observed_addr}");
             swarm.add_external_address(observed_addr.clone());
         }
         SwarmEvent::Behaviour(BehaviourEvent::Autonat(event)) => match event {
             autonat::Event::StatusChanged { old, new } => {
+                crate::embedded_network::log_line(format!("autonat status changed: {old:?} -> {new:?}"));
                 info!("AutoNAT status changed: {old:?} -> {new:?}");
             }
             other => {
@@ -64,12 +70,15 @@ pub async fn handle_swarm_event(
         }
         SwarmEvent::Behaviour(BehaviourEvent::RelayClient(event)) => match event {
             relay::client::Event::ReservationReqAccepted { relay_peer_id, .. } => {
+                crate::embedded_network::log_line(format!("relay reservation accepted by {relay_peer_id}"));
                 info!("Relay reservation accepted by {relay_peer_id}");
             }
             relay::client::Event::OutboundCircuitEstablished { relay_peer_id, .. } => {
+                crate::embedded_network::log_line(format!("relay circuit established via {relay_peer_id}"));
                 info!("Relay circuit established via {relay_peer_id}");
             }
             relay::client::Event::InboundCircuitEstablished { src_peer_id, .. } => {
+                crate::embedded_network::log_line(format!("inbound relay circuit established from {src_peer_id}"));
                 info!("Inbound relay circuit established from {src_peer_id}");
             }
         },
@@ -114,6 +123,7 @@ pub async fn handle_swarm_event(
 
                         info!("Rendezvous discovered peer {peer} at {address_with_p2p}");
                         if let Err(error) = swarm.dial(address_with_p2p) {
+                            crate::embedded_network::log_line(format!("failed to dial rendezvous peer {peer}: {error:?}"));
                             warn!("Failed to dial rendezvous peer {peer}: {error:?}");
                         }
                     }
@@ -134,6 +144,11 @@ pub async fn handle_swarm_event(
                 record,
                 ..
             }))) => {
+                crate::embedded_network::log_line(format!(
+                    "get record key={:?} value={:?}",
+                    std::str::from_utf8(record.key.as_ref()).unwrap_or("invalid utf8"),
+                    std::str::from_utf8(&record.value).unwrap_or("invalid utf8"),
+                ));
                 println!(
                     "{{\"key\":{:?},\"value\":{:?}}}",
                     std::str::from_utf8(record.key.as_ref()).unwrap_or("invalid utf8"),
@@ -171,6 +186,9 @@ pub async fn handle_swarm_event(
             } => {
                 let topic_str = message.topic.to_string();
                 let message_text = String::from_utf8_lossy(&message.data);
+                crate::embedded_network::log_line(format!(
+                    "received message '{message_text}' on topic '{topic_str}' from peer {propagation_source:?}"
+                ));
                 println!(
                     "Received message: '{}' on topic '{}' from peer: {:?}",
                     message_text, topic_str, propagation_source
