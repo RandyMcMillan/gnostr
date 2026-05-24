@@ -204,12 +204,13 @@ public struct RelayDashboardView: View {
         VStack(alignment: .leading, spacing: 0) {
 #if os(macOS) || targetEnvironment(macCatalyst)
             header
-                .padding(.top, 12)
+                .padding(.top, 24)
                 .padding(.bottom, 8)
                 .background(headerBackground)
                 .zIndex(1)
 #else
             header
+                .padding(.top, 24)
                 .padding(.bottom, 8)
                 .background(headerBackground)
                 .zIndex(1)
