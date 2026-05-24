@@ -5,6 +5,7 @@
 //  Created by Jonathan McKenzie on 7/9/24.
 //
 
+import Foundation
 import Combine
 import SwiftUI
 import RustyLib
@@ -26,12 +27,11 @@ struct ContentView: View {
         .onAppear {
             if !didAutoStartNetwork {
                 didAutoStartNetwork = true
-                refreshNetworkState(p2pNetworkStart())
+                startNetwork()
             }
         }
         .onReceive(Timer.publish(every: 1.0, on: .main, in: .common).autoconnect()) { _ in
-            networkStatus = p2pNetworkStatus()
-            networkLogs = p2pNetworkLogs()
+            refreshNetworkSnapshot()
         }
     }
 
@@ -74,9 +74,9 @@ struct ContentView: View {
                 .font(.caption)
                 .multilineTextAlignment(.leading)
             HStack {
-                Button("Start") { refreshNetworkState(p2pNetworkStart()) }
-                Button("Stop") { refreshNetworkState(p2pNetworkStop()) }
-                Button("Refresh Logs") { refreshNetworkState(p2pNetworkStatus()) }
+                Button("Start") { startNetwork() }
+                Button("Stop") { stopNetwork() }
+                Button("Refresh Logs") { refreshNetworkSnapshot() }
             }
             ScrollView {
                 Text(networkLogs.isEmpty ? "No P2P logs yet." : networkLogs)
@@ -93,9 +93,37 @@ struct ContentView: View {
         .frame(minWidth: 360, minHeight: 420)
     }
 
-    private func refreshNetworkState(_ status: String) {
-        networkStatus = status
-        networkLogs = p2pNetworkLogs()
+    private func startNetwork() {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let status = p2pNetworkStart()
+            let logs = p2pNetworkLogs()
+            DispatchQueue.main.async {
+                networkStatus = status
+                networkLogs = logs
+            }
+        }
+    }
+
+    private func stopNetwork() {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let status = p2pNetworkStop()
+            let logs = p2pNetworkLogs()
+            DispatchQueue.main.async {
+                networkStatus = status
+                networkLogs = logs
+            }
+        }
+    }
+
+    private func refreshNetworkSnapshot() {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let status = p2pNetworkStatus()
+            let logs = p2pNetworkLogs()
+            DispatchQueue.main.async {
+                networkStatus = status
+                networkLogs = logs
+            }
+        }
     }
 }
 
