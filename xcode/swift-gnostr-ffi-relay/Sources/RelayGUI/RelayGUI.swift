@@ -212,7 +212,8 @@ public struct RelayDashboardView: View {
                 .frame(maxHeight: .infinity, alignment: .topLeading)
                 .layoutPriority(1)
         }
-        .padding()
+        .padding(.horizontal)
+        .padding(.bottom)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
