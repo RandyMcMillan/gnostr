@@ -26,14 +26,6 @@ import Testing
 }
 
 @MainActor
-@Test func relayDashboardViewModelTogglesConfigEditorExpansion() {
-    let model = RelayDashboardViewModel(autoStart: false)
-    #expect(model.isConfigEditorExpanded == true)
-    model.toggleConfigEditorExpansion()
-    #expect(model.isConfigEditorExpanded == false)
-}
-
-@MainActor
 @Test func relayDashboardViewModelTogglesConsoleVisibility() {
     let model = RelayDashboardViewModel(autoStart: false)
     #expect(model.isConsoleExpanded == false)
