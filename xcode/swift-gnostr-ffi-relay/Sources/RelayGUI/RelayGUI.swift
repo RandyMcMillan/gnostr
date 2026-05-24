@@ -232,7 +232,7 @@ public struct RelayDashboardView: View {
                     .zIndex(1)
 #endif
                 ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: model.isConfigEditorVisible ? 12 : 20) {
+                    VStack(alignment: .leading, spacing: 20) {
                         controls
                         card(title: nil, compact: false, content: configurationContent)
                     }
@@ -299,7 +299,7 @@ public struct RelayDashboardView: View {
 
     private var configurationContent: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
+            HStack(alignment: .center) {
                 //Text("Listen endpoint")
                 //  .font(.subheadline.weight(.semibold))
                 //Spacer()
@@ -314,7 +314,8 @@ public struct RelayDashboardView: View {
                     }
                 }
                 .buttonStyle(.plain)
-                .frame(width: 24, height: 24, alignment: .center)
+                .font(.system(size: 20, weight: .regular))
+                .frame(width: 30, height: 30, alignment: .center)
             }
             if model.isConfigEditorVisible {
                 VStack(alignment: .leading, spacing: 12) {
