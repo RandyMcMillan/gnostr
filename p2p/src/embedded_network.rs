@@ -159,6 +159,16 @@ pub fn publish_presence(
     Ok(())
 }
 
+pub fn subscribe_to_discovery_topic(
+    swarm: &mut libp2p::Swarm<crate::behaviour::Behaviour>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    swarm
+        .behaviour_mut()
+        .gossipsub
+        .subscribe(&discovery_topic())?;
+    Ok(())
+}
+
 pub fn bootstrap_public_dht(
     swarm: &mut libp2p::Swarm<crate::behaviour::Behaviour>,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -193,8 +203,10 @@ pub fn refresh_wide_area_discovery(
     swarm: &mut libp2p::Swarm<crate::behaviour::Behaviour>,
     peer_id: PeerId,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    subscribe_to_discovery_topic(swarm)?;
     bootstrap_public_dht(swarm)?;
     publish_presence(swarm, peer_id)?;
+    swarm.behaviour_mut().kademlia.get_providers(discovery_key());
     Ok(())
 }
 
