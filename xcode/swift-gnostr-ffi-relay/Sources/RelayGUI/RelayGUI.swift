@@ -231,14 +231,11 @@ public struct RelayDashboardView: View {
                     .background(headerBackground)
                     .zIndex(1)
 #endif
-                ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 20) {
-                        controls
-                        card(title: nil, compact: false, content: configurationContent)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .topLeading)
+                VStack(alignment: .leading, spacing: 20) {
+                    controls
+                    card(title: nil, compact: false, content: configurationContent)
                 }
-                .frame(maxHeight: .infinity, alignment: .topLeading)
+                .frame(maxWidth: .infinity, alignment: .topLeading)
                 Spacer(minLength: 0)
                 StickyFooter(
                     label: "Log console",
