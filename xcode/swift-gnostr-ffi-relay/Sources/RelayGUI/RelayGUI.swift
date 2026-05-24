@@ -245,7 +245,9 @@ public final class RelayDashboardViewModel: ObservableObject {
     }
 
     private func appendLog(_ message: String) {
-        logLines.insert("[\(Self.timestamp())] \(message)", at: 0)
+        let line = "[\(Self.timestamp())] \(message)"
+        logLines.insert(line, at: 0)
+        NSLog("%@", line)
     }
 
     private func readConfigFile() throws -> String? {
