@@ -202,7 +202,7 @@ public struct RelayDashboardView: View {
 
     public var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-#if os(macOS)
+#if os(macOS) || targetEnvironment(macCatalyst)
             header
                 .padding(.top, 12)
                 .padding(.bottom, 8)
