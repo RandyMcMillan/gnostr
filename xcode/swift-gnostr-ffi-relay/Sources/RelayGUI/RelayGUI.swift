@@ -231,10 +231,7 @@ public struct RelayDashboardView: View {
                     .background(headerBackground)
                     .zIndex(1)
 #endif
-                VStack(alignment: .leading, spacing: 20) {
-                    controls
-                    card(title: nil, compact: false, content: configurationContent)
-                }
+                card(title: nil, compact: false, content: configurationContent)
                 .frame(maxWidth: .infinity, alignment: .topLeading)
                 Spacer(minLength: 10)
                 StickyFooter(
@@ -268,6 +265,7 @@ public struct RelayDashboardView: View {
                   //  .foregroundColor(.secondary)
             }
             Spacer()
+            controls
             trafficLightIndicator
         }
     }
@@ -387,13 +385,14 @@ public struct RelayDashboardView: View {
     }
 
     private var controls: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 8) {
             Button("Start") { model.startRelay() }
                 .disabled(model.isRunning)
             Button("Stop") { model.stopRelay() }
                 .disabled(!model.isRunning)
-            Button("Refresh") { model.refresh() }
+            Button("Restart") { model.refresh() }
         }
+        .buttonStyle(.borderless)
     }
 
     private var consoleContent: some View {
