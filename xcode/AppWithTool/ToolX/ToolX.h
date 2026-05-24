@@ -8,11 +8,9 @@
 #ifndef ToolX_h
 #define ToolX_h
 
-#import <TargetConditionals.h>
+#import <Foundation/Foundation.h>
 
-static inline void ToolXRun(int argc, const char *argv[]) {
-    (void)argc;
-    (void)argv;
-}
+FOUNDATION_EXPORT NSString *ToolXCopyStatus(void);
+FOUNDATION_EXPORT void ToolXLogStatus(void);
 
 #endif /* ToolX_h */
