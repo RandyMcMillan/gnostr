@@ -20,6 +20,8 @@ public final class RelayDashboardViewModel: ObservableObject {
     @Published public var defaultConfiguration: RelayConfiguration
     @Published public var configFileContents: String
     @Published public var isConfigEditorVisible = false
+    @Published public var isConfigEditorExpanded = true
+    @Published public private(set) var isConfigFileEditable = false
     @Published public private(set) var listenEndpoint: String
     @Published public private(set) var statusMessage: String
     @Published public private(set) var configFileStatus: String
@@ -43,7 +45,7 @@ public final class RelayDashboardViewModel: ObservableObject {
         self.statusMessage = RustRelayBridge.shared.isAvailable ? "Relay FFI available" : "Relay FFI unavailable"
         self.configFileContents = ""
         self.configFileStatus = "Config file not loaded"
-        loadConfigFileContents()
+        loadConfigFileContents(allowEditing: false)
         appendLog("Relay dashboard ready")
         appendLog(statusMessage)
         if autoStart {
@@ -72,6 +74,10 @@ public final class RelayDashboardViewModel: ObservableObject {
     }
 
     public func loadConfigFileContents() {
+        loadConfigFileContents(allowEditing: true)
+    }
+
+    private func loadConfigFileContents(allowEditing: Bool) {
         do {
             if let contents = try readConfigFile() {
                 configFileContents = contents
@@ -80,9 +86,14 @@ public final class RelayDashboardViewModel: ObservableObject {
                 configFileContents = Self.defaultConfigTemplate()
                 configFileStatus = "Loaded template for \(resolvedConfigFilePath)"
             }
+            isConfigFileEditable = allowEditing
+            if allowEditing {
+                isConfigEditorExpanded = true
+            }
             appendLog(configFileStatus)
         } catch {
             configFileStatus = "Load failed: \(error.localizedDescription)"
+            isConfigFileEditable = false
             appendLog(configFileStatus)
         }
     }
@@ -132,6 +143,11 @@ public final class RelayDashboardViewModel: ObservableObject {
     public func toggleConfigEditorVisibility() {
         isConfigEditorVisible.toggle()
         appendLog(isConfigEditorVisible ? "Config editor shown" : "Config editor hidden")
+    }
+
+    public func toggleConfigEditorExpansion() {
+        isConfigEditorExpanded.toggle()
+        appendLog(isConfigEditorExpanded ? "Config editor expanded" : "Config editor collapsed")
     }
 
     var statusIndicatorState: RelayStatusIndicatorState {
@@ -305,43 +321,70 @@ public struct RelayDashboardView: View {
             }
             if model.isConfigEditorVisible {
                 HStack {
-                    TextField("Host", text: Binding(
-                        get: { model.host },
-                        set: { newValue in
-                            model.host = newValue
-                            model.updateEndpoint()
+                    Text("Config editor")
+                        .font(.subheadline.weight(.semibold))
+                    Spacer()
+                    Button(action: { model.toggleConfigEditorExpansion() }) {
+                        if #available(macOS 11.0, iOS 14.0, *) {
+                            Image(systemName: model.isConfigEditorExpanded ? "chevron.down" : "chevron.right")
+                        } else {
+                            Text(model.isConfigEditorExpanded ? "⌄" : "›")
                         }
-                    ))
-                    .textFieldStyle(.roundedBorder)
-                    TextField("Port", text: Binding(
-                        get: { model.port },
-                        set: { newValue in
-                            model.port = newValue
-                            model.updateEndpoint()
-                        }
-                    ))
-                    .textFieldStyle(.roundedBorder)
-                    .frame(width: 100)
+                    }
+                    .buttonStyle(.plain)
                 }
-                TextField("Logging", text: Binding(
-                    get: { model.defaultConfiguration.logging },
-                    set: { model.updateLogging($0) }
-                ))
-                .textFieldStyle(.roundedBorder)
-                TextField("Config file", text: Binding(
-                    get: { model.defaultConfiguration.configFilePath },
-                    set: { model.updateConfigFilePath($0) }
-                ))
-                .textFieldStyle(.roundedBorder)
-                //row(label: "System path", value: model.resolvedConfigFilePath)
-                configEditor
-                row(label: "File status", value: model.configFileStatus)
-                HStack {
-                    Button("Refresh defaults") { model.refresh() }
-                    /// the file should not be editable until load file pressed
-                    /// gray out text to indicate not active
-                    Button("Load file") { model.loadConfigFileContents() }
-                    Button("Save file") { model.saveConfigFileContents() }
+                if model.isConfigEditorExpanded {
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                            TextField("Host", text: Binding(
+                                get: { model.host },
+                                set: { newValue in
+                                    model.host = newValue
+                                    model.updateEndpoint()
+                                }
+                            ))
+                            .textFieldStyle(.roundedBorder)
+                            TextField("Port", text: Binding(
+                                get: { model.port },
+                                set: { newValue in
+                                    model.port = newValue
+                                    model.updateEndpoint()
+                                }
+                            ))
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 100)
+                        }
+                        VStack(alignment: .leading, spacing: 12) {
+                            TextField("Logging", text: Binding(
+                                get: { model.defaultConfiguration.logging },
+                                set: { model.updateLogging($0) }
+                            ))
+                            .textFieldStyle(.roundedBorder)
+                            TextField("Config file", text: Binding(
+                                get: { model.defaultConfiguration.configFilePath },
+                                set: { model.updateConfigFilePath($0) }
+                            ))
+                            .textFieldStyle(.roundedBorder)
+                            row(label: "File status", value: model.configFileStatus)
+                            configEditor
+                                .disabled(!model.isConfigFileEditable)
+                                .opacity(model.isConfigFileEditable ? 1.0 : 0.45)
+                            HStack {
+                                Button("Refresh defaults") { model.refresh() }
+                                Button("Load file") { model.loadConfigFileContents() }
+                                Button("Save file") { model.saveConfigFileContents() }
+                                    .disabled(!model.isConfigFileEditable)
+                            }
+                        }
+                        .padding(12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .fill(Color.secondary.opacity(0.08))
+                        )
+                    }
+                } else {
+                    Text("Click the chevron to show the config editor.")
+                        .foregroundColor(.secondary)
                 }
             } else {
                 Text("Click the gear to edit the relay config file.")
@@ -487,6 +530,7 @@ public struct StickyFooter<ExpandedContent: View, TrailingActions: View>: View {
                 expandedContent
                     .frame(maxHeight: expandedMaxHeight, alignment: .topLeading)
                     .padding(.bottom, 8)
+                Divider()
             }
             HStack {
                 Text(label)
@@ -502,12 +546,15 @@ public struct StickyFooter<ExpandedContent: View, TrailingActions: View>: View {
                 .buttonStyle(.plain)
                 trailingActions
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .background(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(Color.secondary.opacity(0.12))
-            )
         }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Color.secondary.opacity(0.12))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(Color.secondary.opacity(0.25))
+        )
     }
 }
