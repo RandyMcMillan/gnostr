@@ -15,6 +15,7 @@ path = "uniffi-bindgen.rs"
 
 [dependencies]
 gnostr-p2p = { package = "gnostr-p2p", path = "../../../p2p", version = ">=949455.1873.486970" }
+gnostr-relay = { version = "949455.1873.486970", path = "../../../relay" }
 uniffi = { version = "0.28.0", features = [ "cli" ] }
 
 [build-dependencies]
