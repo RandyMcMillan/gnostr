@@ -350,11 +350,6 @@ public struct RelayDashboardView: View {
                                 set: { model.updateLogging($0) }
                             ))
                             .textFieldStyle(.roundedBorder)
-                            TextField("Config file", text: Binding(
-                                get: { model.defaultConfiguration.configFilePath },
-                                set: { model.updateConfigFilePath($0) }
-                            ))
-                            .textFieldStyle(.roundedBorder)
                             row(label: "File status", value: model.configFileStatus)
                             configEditor
                                 .disabled(!model.isConfigFileEditable)
