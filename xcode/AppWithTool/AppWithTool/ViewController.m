@@ -14,10 +14,14 @@
 #if TARGET_OS_OSX && !TARGET_OS_IPHONE
 @property (strong, nonatomic) NSTextField *statusLabel;
 @property (strong, nonatomic) NSButton *refreshButton;
+@property (strong, nonatomic) NSButton *runButton;
+@property (strong, nonatomic) NSTextField *jobField;
 @property (strong, nonatomic) NSTextView *logView;
 #else
 @property (strong, nonatomic) UILabel *statusLabel;
 @property (strong, nonatomic) UIButton *refreshButton;
+@property (strong, nonatomic) UIButton *runButton;
+@property (strong, nonatomic) UITextField *jobField;
 @property (strong, nonatomic) UITextView *logView;
 #endif
 
@@ -46,6 +50,11 @@
 
     self.refreshButton = [NSButton buttonWithTitle:@"Refresh ToolX" target:self action:@selector(refreshToolX:)];
     self.refreshButton.bezelStyle = NSBezelStyleRounded;
+    self.runButton = [NSButton buttonWithTitle:@"Run Job" target:self action:@selector(runToolXJob:)];
+    self.runButton.bezelStyle = NSBezelStyleRounded;
+    self.jobField = [[NSTextField alloc] initWithFrame:NSZeroRect];
+    self.jobField.placeholderString = @"ToolX job name";
+    self.jobField.stringValue = ToolXJobNames().firstObject ?: @"status";
     self.logView = [[NSTextView alloc] initWithFrame:NSZeroRect];
     self.logView.editable = NO;
     self.logView.selectable = YES;
@@ -62,6 +71,14 @@
     [self.refreshButton setTitle:@"Refresh ToolX" forState:UIControlStateNormal];
     self.refreshButton.titleLabel.font = [UIFont systemFontOfSize:17 weight:UIFontWeightSemibold];
     [self.refreshButton addTarget:self action:@selector(refreshToolX:) forControlEvents:UIControlEventTouchUpInside];
+    self.runButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    [self.runButton setTitle:@"Run Job" forState:UIControlStateNormal];
+    self.runButton.titleLabel.font = [UIFont systemFontOfSize:17 weight:UIFontWeightSemibold];
+    [self.runButton addTarget:self action:@selector(runToolXJob:) forControlEvents:UIControlEventTouchUpInside];
+    self.jobField = [[UITextField alloc] initWithFrame:CGRectZero];
+    self.jobField.borderStyle = UITextBorderStyleRoundedRect;
+    self.jobField.placeholder = @"ToolX job name";
+    self.jobField.text = ToolXJobNames().firstObject ?: @"status";
     self.logView = [[UITextView alloc] initWithFrame:CGRectZero];
     self.logView.editable = NO;
     self.logView.selectable = YES;
@@ -77,6 +94,8 @@
 #endif
     [self.view addSubview:self.statusLabel];
     [self.view addSubview:self.refreshButton];
+    [self.view addSubview:self.runButton];
+    [self.view addSubview:self.jobField];
     [self.view addSubview:self.logView];
 
     [self installConstraints];
@@ -107,14 +126,21 @@
 - (void)installConstraints {
     self.statusLabel.translatesAutoresizingMaskIntoConstraints = NO;
     self.refreshButton.translatesAutoresizingMaskIntoConstraints = NO;
+    self.runButton.translatesAutoresizingMaskIntoConstraints = NO;
+    self.jobField.translatesAutoresizingMaskIntoConstraints = NO;
     self.logView.translatesAutoresizingMaskIntoConstraints = NO;
 
     [NSLayoutConstraint activateConstraints:@[
         [self.statusLabel.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:24],
         [self.statusLabel.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-24],
         [self.statusLabel.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor constant:24],
-        [self.refreshButton.topAnchor constraintEqualToAnchor:self.statusLabel.bottomAnchor constant:24],
-        [self.refreshButton.centerXAnchor constraintEqualToAnchor:self.view.centerXAnchor],
+        [self.jobField.topAnchor constraintEqualToAnchor:self.statusLabel.bottomAnchor constant:24],
+        [self.jobField.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:24],
+        [self.jobField.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-24],
+        [self.refreshButton.topAnchor constraintEqualToAnchor:self.jobField.bottomAnchor constant:16],
+        [self.refreshButton.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:24],
+        [self.runButton.topAnchor constraintEqualToAnchor:self.jobField.bottomAnchor constant:16],
+        [self.runButton.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-24],
         [self.logView.topAnchor constraintEqualToAnchor:self.refreshButton.bottomAnchor constant:24],
         [self.logView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:24],
         [self.logView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-24],
