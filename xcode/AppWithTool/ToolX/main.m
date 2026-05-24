@@ -24,6 +24,10 @@ NSArray<NSString *> *ToolXJobNames(void) {
         @"status",
         @"bundle-path",
         @"bundle-resources",
+        @"app-home",
+        @"documents",
+        @"library",
+        @"tmp",
         @"environment",
     ];
 }
@@ -35,10 +39,17 @@ static NSString *ToolXBundlePathJob(void) {
 
 static NSString *ToolXBundleResourcesJob(void) {
     NSURL *resourceURL = [[NSBundle mainBundle] resourceURL];
+    if (resourceURL == nil) {
+        return @"No resource URL available.";
+    }
+    NSError *error = nil;
     NSArray<NSURL *> *items = [[NSFileManager defaultManager] contentsOfDirectoryAtURL:resourceURL
                                                            includingPropertiesForKeys:nil
                                                                               options:0
-                                                                                error:nil];
+                                                                                error:&error];
+    if (items == nil) {
+        return [NSString stringWithFormat:@"Failed to list resources: %@", error.localizedDescription ?: @"unknown error"];
+    }
     NSMutableArray<NSString *> *names = [NSMutableArray array];
     for (NSURL *item in items) {
         [names addObject:item.lastPathComponent];
@@ -47,6 +58,43 @@ static NSString *ToolXBundleResourcesJob(void) {
         return @"No bundled resources found.";
     }
     return [NSString stringWithFormat:@"Resources:\n%@", [names componentsJoinedByString:@"\n"]];
+}
+
+static NSString *ToolXListDirectoryAtURL(NSURL *directoryURL, NSString *label) {
+    if (directoryURL == nil) {
+        return [NSString stringWithFormat:@"%@: unavailable", label];
+    }
+
+    NSError *error = nil;
+    NSArray<NSURL *> *items = [[NSFileManager defaultManager] contentsOfDirectoryAtURL:directoryURL
+                                                           includingPropertiesForKeys:nil
+                                                                              options:0
+                                                                                error:&error];
+    if (items == nil) {
+        return [NSString stringWithFormat:@"%@: failed to list (%@)", label, error.localizedDescription ?: @"unknown error"];
+    }
+
+    NSMutableArray<NSString *> *names = [NSMutableArray array];
+    for (NSURL *item in items) {
+        [names addObject:item.lastPathComponent];
+    }
+    return [NSString stringWithFormat:@"%@:\n%@", label, [names componentsJoinedByString:@"\n"]];
+}
+
+static NSString *ToolXAppHomeJob(void) {
+    return ToolXListDirectoryAtURL([NSURL fileURLWithPath:NSHomeDirectory()], @"app-home");
+}
+
+static NSString *ToolXDocumentsJob(void) {
+    return ToolXListDirectoryAtURL([[[NSFileManager defaultManager] URLsForDirectory:NSDocumentDirectory inDomains:NSUserDomainMask] firstObject], @"documents");
+}
+
+static NSString *ToolXLibraryJob(void) {
+    return ToolXListDirectoryAtURL([[[NSFileManager defaultManager] URLsForDirectory:NSLibraryDirectory inDomains:NSUserDomainMask] firstObject], @"library");
+}
+
+static NSString *ToolXTmpJob(void) {
+    return ToolXListDirectoryAtURL([NSURL fileURLWithPath:NSTemporaryDirectory()], @"tmp");
 }
 
 static NSString *ToolXEnvironmentJob(void) {
@@ -70,6 +118,14 @@ NSString *ToolXRunJob(NSString *jobName) {
         result = ToolXBundlePathJob();
     } else if ([normalized isEqualToString:@"bundle-resources"]) {
         result = ToolXBundleResourcesJob();
+    } else if ([normalized isEqualToString:@"app-home"]) {
+        result = ToolXAppHomeJob();
+    } else if ([normalized isEqualToString:@"documents"]) {
+        result = ToolXDocumentsJob();
+    } else if ([normalized isEqualToString:@"library"]) {
+        result = ToolXLibraryJob();
+    } else if ([normalized isEqualToString:@"tmp"]) {
+        result = ToolXTmpJob();
     } else if ([normalized isEqualToString:@"environment"]) {
         result = ToolXEnvironmentJob();
     } else {

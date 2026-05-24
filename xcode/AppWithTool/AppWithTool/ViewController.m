@@ -77,8 +77,8 @@
     [self.runButton addTarget:self action:@selector(runToolXJob:) forControlEvents:UIControlEventTouchUpInside];
     self.jobField = [[UITextField alloc] initWithFrame:CGRectZero];
     self.jobField.borderStyle = UITextBorderStyleRoundedRect;
-    self.jobField.placeholder = @"ToolX job name";
-    self.jobField.text = ToolXJobNames().firstObject ?: @"status";
+    self.jobField.placeholder = @"status, app-home, documents, library, tmp";
+    self.jobField.text = @"app-home";
     self.logView = [[UITextView alloc] initWithFrame:CGRectZero];
     self.logView.editable = NO;
     self.logView.selectable = YES;
