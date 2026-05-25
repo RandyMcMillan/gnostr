@@ -12,7 +12,7 @@ import Foundation
 #endif
 
 private extension RustBuffer {
-    /// Allocate a new buffer, copying the contents of a `UInt8` array.
+    // Allocate a new buffer, copying the contents of a `UInt8` array.
     init(bytes: [UInt8]) {
         let rbuf = bytes.withUnsafeBufferPointer { ptr in
             RustBuffer.from(ptr)
@@ -28,8 +28,8 @@ private extension RustBuffer {
         try! rustCall { ffi_rustylib_rustbuffer_from_bytes(ForeignBytes(bufferPointer: ptr), $0) }
     }
 
-    /// Frees the buffer in place.
-    /// The buffer must not be used after this is called.
+    // Frees the buffer in place.
+    // The buffer must not be used after this is called.
     func deallocate() {
         try! rustCall { ffi_rustylib_rustbuffer_free(self, $0) }
     }
@@ -50,9 +50,11 @@ private extension ForeignBytes {
 
 private extension Data {
     init(rustBuffer: RustBuffer) {
-        // TODO: This copies the buffer. Can we read directly from a
-        // Rust buffer?
-        self.init(bytes: rustBuffer.data!, count: Int(rustBuffer.len))
+        self.init(
+            bytesNoCopy: rustBuffer.data!,
+            count: Int(rustBuffer.len),
+            deallocator: .none
+        )
     }
 }
 
@@ -74,9 +76,9 @@ private func createReader(data: Data) -> (data: Data, offset: Data.Index) {
     (data: data, offset: 0)
 }
 
-/// Reads an integer at the current offset, in big-endian order, and advances
-/// the offset on success. Throws if reading the integer would move the
-/// offset past the end of the buffer.
+// Reads an integer at the current offset, in big-endian order, and advances
+// the offset on success. Throws if reading the integer would move the
+// offset past the end of the buffer.
 private func readInt<T: FixedWidthInteger>(_ reader: inout (data: Data, offset: Data.Index)) throws -> T {
     let range = reader.offset ..< reader.offset + MemoryLayout<T>.size
     guard reader.data.count >= range.upperBound else {
@@ -93,8 +95,8 @@ private func readInt<T: FixedWidthInteger>(_ reader: inout (data: Data, offset: 
     return value.bigEndian
 }
 
-/// Reads an arbitrary number of bytes, to be used to read
-/// raw bytes, this is useful when lifting strings
+// Reads an arbitrary number of bytes, to be used to read
+// raw bytes, this is useful when lifting strings
 private func readBytes(_ reader: inout (data: Data, offset: Data.Index), count: Int) throws -> [UInt8] {
     let range = reader.offset ..< (reader.offset + count)
     guard reader.data.count >= range.upperBound else {
@@ -108,17 +110,17 @@ private func readBytes(_ reader: inout (data: Data, offset: Data.Index), count: 
     return value
 }
 
-/// Reads a float at the current offset.
+// Reads a float at the current offset.
 private func readFloat(_ reader: inout (data: Data, offset: Data.Index)) throws -> Float {
     return try Float(bitPattern: readInt(&reader))
 }
 
-/// Reads a float at the current offset.
+// Reads a float at the current offset.
 private func readDouble(_ reader: inout (data: Data, offset: Data.Index)) throws -> Double {
     return try Double(bitPattern: readInt(&reader))
 }
 
-/// Indicates if the offset has reached the end of the buffer.
+// Indicates if the offset has reached the end of the buffer.
 private func hasRemaining(_ reader: (data: Data, offset: Data.Index)) -> Bool {
     return reader.offset < reader.data.count
 }
@@ -131,14 +133,14 @@ private func createWriter() -> [UInt8] {
     return []
 }
 
-private func writeBytes<S: Sequence>(_ writer: inout [UInt8], _ byteArr: S) where S.Element == UInt8 {
+private func writeBytes<S>(_ writer: inout [UInt8], _ byteArr: S) where S: Sequence, S.Element == UInt8 {
     writer.append(contentsOf: byteArr)
 }
 
-/// Writes an integer in big-endian order.
-///
-/// Warning: make sure what you are trying to write
-/// is in the correct type!
+// Writes an integer in big-endian order.
+//
+// Warning: make sure what you are trying to write
+// is in the correct type!
 private func writeInt<T: FixedWidthInteger>(_ writer: inout [UInt8], _ value: T) {
     var value = value.bigEndian
     withUnsafeBytes(of: &value) { writer.append(contentsOf: $0) }
@@ -152,8 +154,8 @@ private func writeDouble(_ writer: inout [UInt8], _ value: Double) {
     writeInt(&writer, value.bitPattern)
 }
 
-/// Protocol for types that transfer other types across the FFI. This is
-/// analogous to the Rust trait of the same name.
+// Protocol for types that transfer other types across the FFI. This is
+// analogous to the Rust trait of the same name.
 private protocol FfiConverter {
     associatedtype FfiType
     associatedtype SwiftType
@@ -164,24 +166,33 @@ private protocol FfiConverter {
     static func write(_ value: SwiftType, into buf: inout [UInt8])
 }
 
-/// Types conforming to `Primitive` pass themselves directly over the FFI.
+// Types conforming to `Primitive` pass themselves directly over the FFI.
 private protocol FfiConverterPrimitive: FfiConverter where FfiType == SwiftType {}
 
 extension FfiConverterPrimitive {
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
     public static func lift(_ value: FfiType) throws -> SwiftType {
         return value
     }
 
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
     public static func lower(_ value: SwiftType) -> FfiType {
         return value
     }
 }
 
-/// Types conforming to `FfiConverterRustBuffer` lift and lower into a `RustBuffer`.
-/// Used for complex types where it's hard to write a custom lift/lower.
+// Types conforming to `FfiConverterRustBuffer` lift and lower into a `RustBuffer`.
+// Used for complex types where it's hard to write a custom lift/lower.
 private protocol FfiConverterRustBuffer: FfiConverter where FfiType == RustBuffer {}
 
 extension FfiConverterRustBuffer {
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
     public static func lift(_ buf: RustBuffer) throws -> SwiftType {
         var reader = createReader(data: Data(rustBuffer: buf))
         let value = try read(from: &reader)
@@ -192,6 +203,9 @@ extension FfiConverterRustBuffer {
         return value
     }
 
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
     public static func lower(_ value: SwiftType) -> RustBuffer {
         var writer = createWriter()
         write(value, into: &writer)
@@ -199,8 +213,8 @@ extension FfiConverterRustBuffer {
     }
 }
 
-/// An error type for FFI errors. These errors occur at the UniFFI level, not
-/// the library level.
+// An error type for FFI errors. These errors occur at the UniFFI level, not
+// the library level.
 private enum UniffiInternalError: LocalizedError {
     case bufferOverflow
     case incompleteData
@@ -381,6 +395,9 @@ private class UniffiHandleMap<T> {
 
 // Public interface members begin here.
 
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
 private struct FfiConverterUInt32: FfiConverterPrimitive {
     typealias FfiType = UInt32
     typealias SwiftType = UInt32
@@ -394,6 +411,9 @@ private struct FfiConverterUInt32: FfiConverterPrimitive {
     }
 }
 
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
 private struct FfiConverterString: FfiConverter {
     typealias SwiftType = String
     typealias FfiType = RustBuffer
@@ -434,25 +454,29 @@ private struct FfiConverterString: FfiConverter {
 
 public func p2pNetworkLogs() -> String {
     return try! FfiConverterString.lift(try! rustCall {
-        uniffi_rustylib_fn_func_p2p_network_logs($0)
+        uniffi_rustylib_fn_func_p2p_network_logs($0
+        )
     })
 }
 
 public func p2pNetworkStart() -> String {
     return try! FfiConverterString.lift(try! rustCall {
-        uniffi_rustylib_fn_func_p2p_network_start($0)
+        uniffi_rustylib_fn_func_p2p_network_start($0
+        )
     })
 }
 
 public func p2pNetworkStatus() -> String {
     return try! FfiConverterString.lift(try! rustCall {
-        uniffi_rustylib_fn_func_p2p_network_status($0)
+        uniffi_rustylib_fn_func_p2p_network_status($0
+        )
     })
 }
 
 public func p2pNetworkStop() -> String {
     return try! FfiConverterString.lift(try! rustCall {
-        uniffi_rustylib_fn_func_p2p_network_stop($0)
+        uniffi_rustylib_fn_func_p2p_network_stop($0
+        )
     })
 }
 
@@ -467,7 +491,8 @@ public func rustAdd(a: UInt32, b: UInt32) -> UInt32 {
 
 public func rustHello() -> String {
     return try! FfiConverterString.lift(try! rustCall {
-        uniffi_rustylib_fn_func_rust_hello($0)
+        uniffi_rustylib_fn_func_rust_hello($0
+        )
     })
 }
 
@@ -477,8 +502,8 @@ private enum InitializationResult {
     case apiChecksumMismatch
 }
 
-/// Use a global variable to perform the versioning checks. Swift ensures that
-/// the code inside is only computed once.
+// Use a global variable to perform the versioning checks. Swift ensures that
+// the code inside is only computed once.
 private var initializationResult: InitializationResult = {
     // Get the bindings contract version from our ComponentInterface
     let bindings_contract_version = 26
