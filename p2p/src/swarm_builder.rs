@@ -50,15 +50,25 @@ pub async fn build_swarm(keypair: identity::Keypair) -> Result<Swarm<Behaviour>,
         .build()
         .map_err(|msg| io::Error::other(msg))?;
 
-    let swarm = libp2p::SwarmBuilder::with_existing_identity(keypair)
+    let builder = libp2p::SwarmBuilder::with_existing_identity(keypair)
         .with_tokio()
         .with_tcp(
             tcp::Config::default(),
             noise::Config::new,
             yamux::Config::default,
         )?
-        .with_quic()
-        .with_dns()?
+        .with_quic();
+
+    #[cfg(target_os = "ios")]
+    crate::embedded_network::log_line("skipping DNS transport setup on iOS");
+
+    #[cfg(target_os = "ios")]
+    let builder = builder;
+
+    #[cfg(not(target_os = "ios"))]
+    let builder = builder.with_dns()?;
+
+    let swarm = builder
         .with_websocket(noise::Config::new, yamux::Config::default)
         .await?
         .with_relay_client(noise::Config::new, yamux::Config::default)?
