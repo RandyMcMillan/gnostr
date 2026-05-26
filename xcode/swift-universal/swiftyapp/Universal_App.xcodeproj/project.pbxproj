@@ -8,26 +8,16 @@
 
 /* Begin PBXBuildFile section */
 		3A030AD425840BDE0012228D /* MainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A030AD325840BDE0012228D /* MainView.swift */; };
-		3A030AD525840BDE0012228D /* MainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A030AD325840BDE0012228D /* MainView.swift */; };
 		3A030ADA2584132F0012228D /* SideBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A85D1152582BA4500636BA4 /* SideBar.swift */; };
 		3A85D10C2582B9A600636BA4 /* TabBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A85D10B2582B9A600636BA4 /* TabBar.swift */; };
 		3A85D1102582B9DC00636BA4 /* ArticleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A85D10F2582B9DC00636BA4 /* ArticleView.swift */; };
-		3A85D1162582BA4500636BA4 /* SideBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A85D1152582BA4500636BA4 /* SideBar.swift */; };
-		3A85D1192582BA7F00636BA4 /* Article.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AE332802582AF2300FBDB3E /* Article.swift */; };
-		3A85D1212582BC3F00636BA4 /* ArticleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A85D10F2582B9DC00636BA4 /* ArticleView.swift */; };
 		3AE3323E2582A02B00FBDB3E /* Universal_AppApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AE3322B2582A02900FBDB3E /* Universal_AppApp.swift */; };
-		3AE3323F2582A02B00FBDB3E /* Universal_AppApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AE3322B2582A02900FBDB3E /* Universal_AppApp.swift */; };
 		3AE332422582A02B00FBDB3E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 3AE3322D2582A02B00FBDB3E /* Assets.xcassets */; };
-		3AE332432582A02B00FBDB3E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 3AE3322D2582A02B00FBDB3E /* Assets.xcassets */; };
 		3AE332752582AE2700FBDB3E /* ArticlesListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AE332742582AE2700FBDB3E /* ArticlesListView.swift */; };
-		3AE3327A2582AE3C00FBDB3E /* ArticlesListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AE332742582AE2700FBDB3E /* ArticlesListView.swift */; };
 		3AE332812582AF2300FBDB3E /* Article.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AE332802582AF2300FBDB3E /* Article.swift */; };
-		A10000000000000000000001 /* RustyLib in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000011 /* RustyLib */; };
+		4B390D682FC60FE100C9A891 /* RustyLib in Frameworks */ = {isa = PBXBuildFile; productRef = 4B390D672FC60FE100C9A891 /* RustyLib */; };
 		A10000000000000000000002 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A10000000000000000000021 /* SystemConfiguration.framework */; };
-		A10000000000000000000003 /* RustyLib in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000011 /* RustyLib */; };
-		A10000000000000000000004 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A10000000000000000000021 /* SystemConfiguration.framework */; };
 		B10000000000000000000001 /* P2PServicesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000003 /* P2PServicesView.swift */; };
-		B10000000000000000000002 /* P2PServicesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000003 /* P2PServicesView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -37,9 +27,8 @@
 		3A85D1152582BA4500636BA4 /* SideBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SideBar.swift; sourceTree = "<group>"; };
 		3AE3322B2582A02900FBDB3E /* Universal_AppApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Universal_AppApp.swift; sourceTree = "<group>"; };
 		3AE3322D2582A02B00FBDB3E /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		3AE332322582A02B00FBDB3E /* Universal App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Universal App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		3AE332322582A02B00FBDB3E /* Universal_App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Universal_App.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		3AE332352582A02B00FBDB3E /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		3AE3323A2582A02B00FBDB3E /* Universal App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Universal App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		3AE3323C2582A02B00FBDB3E /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		3AE3323D2582A02B00FBDB3E /* macOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = macOS.entitlements; sourceTree = "<group>"; };
 		3AE332742582AE2700FBDB3E /* ArticlesListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArticlesListView.swift; sourceTree = "<group>"; tabWidth = 2; };
@@ -53,17 +42,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4B390D682FC60FE100C9A891 /* RustyLib in Frameworks */,
 				A10000000000000000000002 /* SystemConfiguration.framework in Frameworks */,
-				A10000000000000000000001 /* RustyLib in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		3AE332372582A02B00FBDB3E /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				A10000000000000000000004 /* SystemConfiguration.framework in Frameworks */,
-				A10000000000000000000003 /* RustyLib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -110,6 +90,7 @@
 		3AE3322A2582A02900FBDB3E /* Shared */ = {
 			isa = PBXGroup;
 			children = (
+				4B390D5F2FC60D7A00C9A891 /* Lib */,
 				3A030AC8258401580012228D /* Utilities */,
 				3AE3327F2582AF1500FBDB3E /* Models */,
 				3A030B0925841B860012228D /* Screens */,
@@ -122,8 +103,7 @@
 		3AE332332582A02B00FBDB3E /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				3AE332322582A02B00FBDB3E /* Universal App.app */,
-				3AE3323A2582A02B00FBDB3E /* Universal App.app */,
+				3AE332322582A02B00FBDB3E /* Universal_App.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -163,6 +143,13 @@
 			path = Models;
 			sourceTree = "<group>";
 		};
+		4B390D5F2FC60D7A00C9A891 /* Lib */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = Lib;
+			sourceTree = "<group>";
+		};
 		A10000000000000000000022 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
@@ -174,9 +161,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		3AE332312582A02B00FBDB3E /* Universal App (iOS) */ = {
+		3AE332312582A02B00FBDB3E /* Universal_App (iOS) */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 3AE332462582A02B00FBDB3E /* Build configuration list for PBXNativeTarget "Universal App (iOS)" */;
+			buildConfigurationList = 3AE332462582A02B00FBDB3E /* Build configuration list for PBXNativeTarget "Universal_App (iOS)" */;
 			buildPhases = (
 				3AE3322E2582A02B00FBDB3E /* Sources */,
 				3AE3322F2582A02B00FBDB3E /* Frameworks */,
@@ -186,32 +173,12 @@
 			);
 			dependencies = (
 			);
-			name = "Universal App (iOS)";
+			name = "Universal_App (iOS)";
 			packageProductDependencies = (
-				A10000000000000000000011 /* RustyLib */,
+				4B390D672FC60FE100C9A891 /* RustyLib */,
 			);
 			productName = "Universal App (iOS)";
-			productReference = 3AE332322582A02B00FBDB3E /* Universal App.app */;
-			productType = "com.apple.product-type.application";
-		};
-		3AE332392582A02B00FBDB3E /* Universal App (macOS) */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 3AE332492582A02B00FBDB3E /* Build configuration list for PBXNativeTarget "Universal App (macOS)" */;
-			buildPhases = (
-				3AE332362582A02B00FBDB3E /* Sources */,
-				3AE332372582A02B00FBDB3E /* Frameworks */,
-				3AE332382582A02B00FBDB3E /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = "Universal App (macOS)";
-			packageProductDependencies = (
-				A10000000000000000000011 /* RustyLib */,
-			);
-			productName = "Universal App (macOS)";
-			productReference = 3AE3323A2582A02B00FBDB3E /* Universal App.app */;
+			productReference = 3AE332322582A02B00FBDB3E /* Universal_App.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -227,12 +194,9 @@
 					3AE332312582A02B00FBDB3E = {
 						CreatedOnToolsVersion = 12.2;
 					};
-					3AE332392582A02B00FBDB3E = {
-						CreatedOnToolsVersion = 12.2;
-					};
 				};
 			};
-			buildConfigurationList = 3AE332292582A02900FBDB3E /* Build configuration list for PBXProject "Universal App" */;
+			buildConfigurationList = 3AE332292582A02900FBDB3E /* Build configuration list for PBXProject "Universal_App" */;
 			compatibilityVersion = "Xcode 9.3";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
@@ -242,14 +206,13 @@
 			);
 			mainGroup = 3AE332252582A02900FBDB3E;
 			packageReferences = (
-				A10000000000000000000031 /* XCLocalSwiftPackageReference "Lib/swiftyrustlib" */,
+				4B390D692FC6103F00C9A891 /* XCLocalSwiftPackageReference "Shared/Lib/swiftyrustlib" */,
 			);
 			productRefGroup = 3AE332332582A02B00FBDB3E /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				3AE332312582A02B00FBDB3E /* Universal App (iOS) */,
-				3AE332392582A02B00FBDB3E /* Universal App (macOS) */,
+				3AE332312582A02B00FBDB3E /* Universal_App (iOS) */,
 			);
 		};
 /* End PBXProject section */
@@ -260,14 +223,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				3AE332422582A02B00FBDB3E /* Assets.xcassets in Resources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		3AE332382582A02B00FBDB3E /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				3AE332432582A02B00FBDB3E /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -286,20 +241,6 @@
 				3A85D1102582B9DC00636BA4 /* ArticleView.swift in Sources */,
 				B10000000000000000000001 /* P2PServicesView.swift in Sources */,
 				3AE3323E2582A02B00FBDB3E /* Universal_AppApp.swift in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		3AE332362582A02B00FBDB3E /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				3A85D1212582BC3F00636BA4 /* ArticleView.swift in Sources */,
-				3A030AD525840BDE0012228D /* MainView.swift in Sources */,
-				3AE3327A2582AE3C00FBDB3E /* ArticlesListView.swift in Sources */,
-				3A85D1162582BA4500636BA4 /* SideBar.swift in Sources */,
-				B10000000000000000000002 /* P2PServicesView.swift in Sources */,
-				3AE3323F2582A02B00FBDB3E /* Universal_AppApp.swift in Sources */,
-				3A85D1192582BA7F00636BA4 /* Article.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -445,8 +386,8 @@
 					"-lz",
 					"-liconv",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "com.canbalkaya.Universal-App";
-				PRODUCT_NAME = "Universal App";
+				PRODUCT_BUNDLE_IDENTIFIER = "org.gnostr.Universal-App";
+				PRODUCT_NAME = Universal_App;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -473,8 +414,8 @@
 					"-lz",
 					"-liconv",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "com.canbalkaya.Universal-App";
-				PRODUCT_NAME = "Universal App";
+				PRODUCT_BUNDLE_IDENTIFIER = "org.gnostr.Universal-App";
+				PRODUCT_NAME = Universal_App;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -482,74 +423,10 @@
 			};
 			name = Release;
 		};
-		3AE3324A2582A02B00FBDB3E /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = macOS/macOS.entitlements;
-				CODE_SIGN_IDENTITY = "Apple Development";
-				CODE_SIGN_STYLE = Automatic;
-				COMBINE_HIDPI_IMAGES = YES;
-				DEAD_CODE_STRIPPING = YES;
-				ENABLE_HARDENED_RUNTIME = YES;
-				ENABLE_PREVIEWS = YES;
-				INFOPLIST_FILE = macOS/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/../Frameworks",
-				);
-				MACOSX_DEPLOYMENT_TARGET = 14.6;
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					"-lz",
-					"-liconv",
-				);
-				PRODUCT_BUNDLE_IDENTIFIER = "org.gnostr.Universal-App";
-				PRODUCT_NAME = "Universal App";
-				PROVISIONING_PROFILE_SPECIFIER = "";
-				SDKROOT = macosx;
-				SWIFT_VERSION = 5.0;
-			};
-			name = Debug;
-		};
-		3AE3324B2582A02B00FBDB3E /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = macOS/macOS.entitlements;
-				CODE_SIGN_IDENTITY = "Apple Development";
-				CODE_SIGN_STYLE = Automatic;
-				COMBINE_HIDPI_IMAGES = YES;
-				DEAD_CODE_STRIPPING = YES;
-				ENABLE_HARDENED_RUNTIME = YES;
-				ENABLE_PREVIEWS = YES;
-				INFOPLIST_FILE = macOS/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/../Frameworks",
-				);
-				MACOSX_DEPLOYMENT_TARGET = 14.6;
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					"-lz",
-					"-liconv",
-				);
-				PRODUCT_BUNDLE_IDENTIFIER = "org.gnostr.Universal-App";
-				PRODUCT_NAME = "Universal App";
-				PROVISIONING_PROFILE_SPECIFIER = "";
-				SDKROOT = macosx;
-				SWIFT_VERSION = 5.0;
-			};
-			name = Release;
-		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		3AE332292582A02900FBDB3E /* Build configuration list for PBXProject "Universal App" */ = {
+		3AE332292582A02900FBDB3E /* Build configuration list for PBXProject "Universal_App" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				3AE332442582A02B00FBDB3E /* Debug */,
@@ -558,7 +435,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		3AE332462582A02B00FBDB3E /* Build configuration list for PBXNativeTarget "Universal App (iOS)" */ = {
+		3AE332462582A02B00FBDB3E /* Build configuration list for PBXNativeTarget "Universal_App (iOS)" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				3AE332472582A02B00FBDB3E /* Debug */,
@@ -567,28 +444,18 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		3AE332492582A02B00FBDB3E /* Build configuration list for PBXNativeTarget "Universal App (macOS)" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				3AE3324A2582A02B00FBDB3E /* Debug */,
-				3AE3324B2582A02B00FBDB3E /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		A10000000000000000000031 /* XCLocalSwiftPackageReference "Lib/swiftyrustlib" */ = {
+		4B390D692FC6103F00C9A891 /* XCLocalSwiftPackageReference "Shared/Lib/swiftyrustlib" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = Lib/swiftyrustlib;
+			relativePath = Shared/Lib/swiftyrustlib;
 		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		A10000000000000000000011 /* RustyLib */ = {
+		4B390D672FC60FE100C9A891 /* RustyLib */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = A10000000000000000000031 /* XCLocalSwiftPackageReference "Lib/swiftyrustlib" */;
 			productName = RustyLib;
 		};
 /* End XCSwiftPackageProductDependency section */
