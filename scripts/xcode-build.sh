@@ -16,7 +16,7 @@ CLEAN=false
 
 usage() {
   cat <<'EOF'
-Usage: xcode-build.sh [--mode build|test|all|list] [--project relay|p2p|appwithtool|all] [--configuration Debug|Release] [--clean]
+Usage: xcode-build.sh [--mode build|test|all|list] [--project relay|p2p|appwithtool|universal|all] [--configuration Debug|Release] [--clean]
 
 Modes:
   build   Build the selected Xcode projects
@@ -25,7 +25,7 @@ Modes:
   list    Print the known projects, schemes, and test coverage
 
 Options:
-  --project NAME        Select relay, p2p, appwithtool, or all (default)
+  --project NAME        Select relay, p2p, appwithtool, universal, or all (default)
   --configuration NAME  Xcode build configuration (default: Debug)
   --clean               Remove per-project derived data before running
   --help                Show this help
@@ -52,6 +52,9 @@ project_path() {
     appwithtool)
       printf '%s\n' "xcode/AppWithTool/AppWithTool.xcodeproj"
       ;;
+    universal)
+      printf '%s\n' "xcode/swift-universal/swiftyapp/Universal_App.xcodeproj"
+      ;;
     *)
       echo "Unsupported project: $1" >&2
       exit 1
@@ -70,6 +73,9 @@ project_scheme() {
     appwithtool)
       printf '%s\n' "AppWithTool"
       ;;
+    universal)
+      printf '%s\n' "Universal_App (iOS)"
+      ;;
     *)
       echo "Unsupported project: $1" >&2
       exit 1
@@ -84,6 +90,9 @@ project_build_script() {
       ;;
     p2p)
       printf '%s\n' "xcode/xcode-gnostr-p2p/build.sh"
+      ;;
+    universal)
+      printf '%s\n' "xcode/swift-universal/build.sh"
       ;;
     *)
       return 1
@@ -152,6 +161,9 @@ project_build_destination() {
     appwithtool)
       printf '%s\n' "generic/platform=macOS"
       ;;
+    universal)
+      printf '%s\n' "generic/platform=iOS Simulator"
+      ;;
     *)
       echo "Unsupported project: $1" >&2
       exit 1
@@ -162,9 +174,9 @@ project_build_destination() {
 selected_projects() {
   case "$PROJECT_FILTER" in
     all)
-      printf '%s\n' relay p2p appwithtool
+      printf '%s\n' relay p2p appwithtool universal
       ;;
-    relay|p2p|appwithtool)
+    relay|p2p|appwithtool|universal)
       printf '%s\n' "$PROJECT_FILTER"
       ;;
     *)
@@ -287,7 +299,7 @@ done
 
 case "$MODE" in
   list)
-    for project in relay p2p appwithtool; do
+    for project in relay p2p appwithtool universal; do
       printf '%s\t%s\t%s\t%s\n' \
         "$project" \
         "$(project_scheme "$project")" \
