@@ -457,7 +457,6 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "org.gnostr.Universal-App";
 				PRODUCT_NAME = "Universal App";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -484,7 +483,6 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "org.gnostr.Universal-App";
 				PRODUCT_NAME = "Universal App";
 				PROVISIONING_PROFILE_SPECIFIER = "";
