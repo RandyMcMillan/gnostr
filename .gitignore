@@ -90,6 +90,8 @@ relays.yaml**
 **/target
 .idea
 *.json
+!xcode/icons/Assets.xcassets/**/Contents.json
+!xcode/swift-universal/Universal App/Shared/Support/Assets.xcassets/**/Contents.json
 
 ##old artifacts
 
