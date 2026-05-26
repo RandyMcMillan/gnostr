@@ -19,6 +19,8 @@
 		B10000000000000000000002 /* P2PServicesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000003 /* P2PServicesView.swift */; };
 		A10000000000000000000001 /* RustyLib in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000011 /* RustyLib */; };
 		A10000000000000000000002 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A10000000000000000000021 /* SystemConfiguration.framework */; };
+		A10000000000000000000003 /* RustyLib in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000011 /* RustyLib */; };
+		A10000000000000000000004 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A10000000000000000000021 /* SystemConfiguration.framework */; };
 		3AE3323E2582A02B00FBDB3E /* Universal_AppApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AE3322B2582A02900FBDB3E /* Universal_AppApp.swift */; };
 		3AE3323F2582A02B00FBDB3E /* Universal_AppApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AE3322B2582A02900FBDB3E /* Universal_AppApp.swift */; };
 		3AE332422582A02B00FBDB3E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 3AE3322D2582A02B00FBDB3E /* Assets.xcassets */; };
@@ -60,6 +62,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A10000000000000000000004 /* SystemConfiguration.framework in Frameworks */,
+				A10000000000000000000003 /* RustyLib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -203,6 +207,9 @@
 			dependencies = (
 			);
 			name = "Universal App (macOS)";
+			packageProductDependencies = (
+				A10000000000000000000011 /* RustyLib */,
+			);
 			productName = "Universal App (macOS)";
 			productReference = 3AE3323A2582A02B00FBDB3E /* Universal App.app */;
 			productType = "com.apple.product-type.application";
@@ -494,6 +501,11 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.6;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-lz",
+					"-liconv",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = "org.gnostr.Universal-App";
 				PRODUCT_NAME = "Universal App";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -521,6 +533,11 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.6;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-lz",
+					"-liconv",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = "org.gnostr.Universal-App";
 				PRODUCT_NAME = "Universal App";
 				PROVISIONING_PROFILE_SPECIFIER = "";
