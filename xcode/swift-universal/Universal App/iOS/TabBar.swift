@@ -32,6 +32,13 @@ struct TabBar: View {
                     Text("Design")
                 }
                 .tag(2)
+
+            P2PServicesView()
+                .tabItem {
+                    Image(systemName: "antenna.radiowaves.left.and.right")
+                    Text("P2P")
+                }
+                .tag(3)
         }
         .navigationTitle("Articles")
     }

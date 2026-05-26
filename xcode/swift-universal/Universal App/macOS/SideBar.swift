@@ -11,6 +11,7 @@ enum NavigationItem {
     case tech
     case science
     case design
+    case services
 }
 
 struct SideBar: View {
@@ -45,6 +46,14 @@ struct SideBar: View {
                 }
             )
             .tag(NavigationItem.design)
+
+            NavigationLink(
+                destination: P2PServicesView(),
+                label: {
+                    Label("P2P", systemImage: "antenna.radiowaves.left.and.right")
+                }
+            )
+            .tag(NavigationItem.services)
         }
         .navigationTitle("Articles")
         .listStyle(SidebarListStyle())
