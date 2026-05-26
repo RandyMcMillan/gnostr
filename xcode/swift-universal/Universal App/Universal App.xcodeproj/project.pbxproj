@@ -231,7 +231,7 @@
 			);
 			mainGroup = 3AE332252582A02900FBDB3E;
 			packageReferences = (
-				A10000000000000000000031 /* XCLocalSwiftPackageReference "../Lib/swiftyrustlib" */,
+				A10000000000000000000031 /* XCLocalSwiftPackageReference "Lib/swiftyrustlib" */,
 			);
 			productRefGroup = 3AE332332582A02B00FBDB3E /* Products */;
 			projectDirPath = "";
@@ -556,16 +556,16 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		A10000000000000000000031 /* XCLocalSwiftPackageReference "../Lib/swiftyrustlib" */ = {
+		A10000000000000000000031 /* XCLocalSwiftPackageReference "Lib/swiftyrustlib" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = ../Lib/swiftyrustlib;
+			relativePath = Lib/swiftyrustlib;
 		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
 		A10000000000000000000011 /* RustyLib */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = A10000000000000000000031 /* XCLocalSwiftPackageReference "../Lib/swiftyrustlib" */;
+			package = A10000000000000000000031 /* XCLocalSwiftPackageReference "Lib/swiftyrustlib" */;
 			productName = RustyLib;
 		};
 /* End XCSwiftPackageProductDependency section */
