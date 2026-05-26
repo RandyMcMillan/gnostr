@@ -48,7 +48,7 @@ struct SideBar: View {
             .tag(NavigationItem.design)
 
             NavigationLink(
-                destination: P2PServicesView(),
+                destination: P2PListView(),
                 label: {
                     Label("P2P", systemImage: "antenna.radiowaves.left.and.right")
                 }

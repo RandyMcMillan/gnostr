@@ -17,6 +17,7 @@
 		3AE332812582AF2300FBDB3E /* Article.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AE332802582AF2300FBDB3E /* Article.swift */; };
 		4B390D682FC60FE100C9A891 /* RustyLib in Frameworks */ = {isa = PBXBuildFile; productRef = 4B390D672FC60FE100C9A891 /* RustyLib */; };
 		A10000000000000000000002 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A10000000000000000000021 /* SystemConfiguration.framework */; };
+		B10000000000000000000004 /* P2PListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000005 /* P2PListView.swift */; };
 		B10000000000000000000001 /* P2PServicesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000003 /* P2PServicesView.swift */; };
 /* End PBXBuildFile section */
 
@@ -34,6 +35,7 @@
 		3AE332742582AE2700FBDB3E /* ArticlesListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArticlesListView.swift; sourceTree = "<group>"; tabWidth = 2; };
 		3AE332802582AF2300FBDB3E /* Article.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Article.swift; sourceTree = "<group>"; };
 		A10000000000000000000021 /* SystemConfiguration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemConfiguration.framework; path = System/Library/Frameworks/SystemConfiguration.framework; sourceTree = SDKROOT; };
+		B10000000000000000000005 /* P2PListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = P2PListView.swift; sourceTree = "<group>"; };
 		B10000000000000000000003 /* P2PServicesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = P2PServicesView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -71,6 +73,7 @@
 			children = (
 				3A030AD325840BDE0012228D /* MainView.swift */,
 				3AE332742582AE2700FBDB3E /* ArticlesListView.swift */,
+				B10000000000000000000005 /* P2PListView.swift */,
 				B10000000000000000000003 /* P2PServicesView.swift */,
 			);
 			path = Screens;
@@ -239,6 +242,7 @@
 				3AE332812582AF2300FBDB3E /* Article.swift in Sources */,
 				3A85D10C2582B9A600636BA4 /* TabBar.swift in Sources */,
 				3A85D1102582B9DC00636BA4 /* ArticleView.swift in Sources */,
+				B10000000000000000000004 /* P2PListView.swift in Sources */,
 				B10000000000000000000001 /* P2PServicesView.swift in Sources */,
 				3AE3323E2582A02B00FBDB3E /* Universal_AppApp.swift in Sources */,
 			);

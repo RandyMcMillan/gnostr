@@ -33,7 +33,7 @@ struct TabBar: View {
                 }
                 .tag(2)
 
-            P2PServicesView()
+            P2PListView()
                 .tabItem {
                     Image(systemName: "antenna.radiowaves.left.and.right")
                     Text("P2P")
