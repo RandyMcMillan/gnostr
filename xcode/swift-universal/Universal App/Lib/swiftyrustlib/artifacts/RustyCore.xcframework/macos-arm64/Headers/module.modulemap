@@ -1,5 +1,0 @@
-module rustylibFFI {
-    header "rustylibFFI.h"
-    export *
-    link "rustylib"
-}
