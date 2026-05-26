@@ -160,8 +160,20 @@ run_build_script() {
   local build_script
 
   if build_script="$(project_build_script "$project" 2>/dev/null)"; then
-    bash "./$build_script"
+    [[ -f "$build_script" ]] || {
+      echo "Missing build script for $project: $build_script" >&2
+      exit 1
+    }
+
+    (
+      cd "$(dirname "$build_script")"
+      bash "./$(basename "$build_script")"
+    )
   fi
+}
+
+project_has_tests() {
+  project_test_schemes "$1" >/dev/null 2>&1
 }
 
 run_xcodebuild() {
@@ -191,7 +203,7 @@ run_xcodebuild() {
       -scheme "$scheme" \
       -configuration "$CONFIGURATION" \
       -derivedDataPath "$derived_data_path" \
-      -destination "$(resolve_test_destination)" \
+      -destination "$(project_test_destination "$project")" \
       test
   fi
 }
@@ -211,7 +223,12 @@ run_test_projects() {
   for project in $(selected_projects); do
     clean_project_artifacts "$project"
     run_build_script "$project"
-    run_xcodebuild build "$project"
+
+    if project_has_tests "$project"; then
+      run_xcodebuild test "$project"
+    else
+      run_xcodebuild build "$project"
+    fi
   done
 }
 
