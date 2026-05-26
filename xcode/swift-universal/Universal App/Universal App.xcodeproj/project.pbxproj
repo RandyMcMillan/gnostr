@@ -15,6 +15,8 @@
 		3A85D1162582BA4500636BA4 /* SideBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A85D1152582BA4500636BA4 /* SideBar.swift */; };
 		3A85D1192582BA7F00636BA4 /* Article.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AE332802582AF2300FBDB3E /* Article.swift */; };
 		3A85D1212582BC3F00636BA4 /* ArticleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A85D10F2582B9DC00636BA4 /* ArticleView.swift */; };
+		A10000000000000000000001 /* RustyLib in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000011 /* RustyLib */; };
+		A10000000000000000000002 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A10000000000000000000021 /* SystemConfiguration.framework */; };
 		3AE3323E2582A02B00FBDB3E /* Universal_AppApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AE3322B2582A02900FBDB3E /* Universal_AppApp.swift */; };
 		3AE3323F2582A02B00FBDB3E /* Universal_AppApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AE3322B2582A02900FBDB3E /* Universal_AppApp.swift */; };
 		3AE332422582A02B00FBDB3E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 3AE3322D2582A02B00FBDB3E /* Assets.xcassets */; };
@@ -38,6 +40,7 @@
 		3AE3323D2582A02B00FBDB3E /* macOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = macOS.entitlements; sourceTree = "<group>"; };
 		3AE332742582AE2700FBDB3E /* ArticlesListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArticlesListView.swift; sourceTree = "<group>"; tabWidth = 2; };
 		3AE332802582AF2300FBDB3E /* Article.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Article.swift; sourceTree = "<group>"; };
+		A10000000000000000000021 /* SystemConfiguration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemConfiguration.framework; path = System/Library/Frameworks/SystemConfiguration.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -45,6 +48,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A10000000000000000000002 /* SystemConfiguration.framework in Frameworks */,
+				A10000000000000000000001 /* RustyLib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -90,6 +95,7 @@
 				3AE332342582A02B00FBDB3E /* iOS */,
 				3AE3323B2582A02B00FBDB3E /* macOS */,
 				3AE332332582A02B00FBDB3E /* Products */,
+				A10000000000000000000022 /* Frameworks */,
 			);
 			sourceTree = "<group>";
 		};
@@ -149,6 +155,14 @@
 			path = Models;
 			sourceTree = "<group>";
 		};
+		A10000000000000000000022 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				A10000000000000000000021 /* SystemConfiguration.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -165,6 +179,9 @@
 			dependencies = (
 			);
 			name = "Universal App (iOS)";
+			packageProductDependencies = (
+				A10000000000000000000011 /* RustyLib */,
+			);
 			productName = "Universal App (iOS)";
 			productReference = 3AE332322582A02B00FBDB3E /* Universal App.app */;
 			productType = "com.apple.product-type.application";
@@ -213,6 +230,9 @@
 				Base,
 			);
 			mainGroup = 3AE332252582A02900FBDB3E;
+			packageReferences = (
+				A10000000000000000000031 /* XCLocalSwiftPackageReference "../Lib/swiftyrustlib" */,
+			);
 			productRefGroup = 3AE332332582A02B00FBDB3E /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -407,6 +427,11 @@
 					"@executable_path/Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.6;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-lz",
+					"-liconv",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = "com.canbalkaya.Universal-App";
 				PRODUCT_NAME = "Universal App";
 				SDKROOT = iphoneos;
@@ -430,6 +455,11 @@
 					"@executable_path/Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.6;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-lz",
+					"-liconv",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = "com.canbalkaya.Universal-App";
 				PRODUCT_NAME = "Universal App";
 				SDKROOT = iphoneos;
@@ -524,6 +554,21 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		A10000000000000000000031 /* XCLocalSwiftPackageReference "../Lib/swiftyrustlib" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../Lib/swiftyrustlib;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		A10000000000000000000011 /* RustyLib */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A10000000000000000000031 /* XCLocalSwiftPackageReference "../Lib/swiftyrustlib" */;
+			productName = RustyLib;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 3AE332262582A02900FBDB3E /* Project object */;
 }
