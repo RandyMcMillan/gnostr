@@ -66,9 +66,12 @@ if let backend = env["SCUI_DEFAULT_BACKEND"] {
                 condition: .when(platforms: [.iOS, .tvOS, .macCatalyst, .visionOS])
             ),
         ]
-    #else
+    #elseif os(Windows)
         defaultBackendDependencies = [
             .target(name: "WinUIBackend", condition: .when(platforms: [.windows])),
+        ]
+    #else
+        defaultBackendDependencies = [
             .target(name: "GtkBackend", condition: .when(platforms: [.linux])),
         ]
     #endif
@@ -140,7 +143,6 @@ let package = Package(
         .library(name: "AppKitBackend", type: libraryType, targets: ["AppKitBackend"]),
         .library(name: "GtkBackend", type: libraryType, targets: ["GtkBackend"]),
         .library(name: "Gtk3Backend", type: libraryType, targets: ["Gtk3Backend"]),
-        .library(name: "WinUIBackend", type: libraryType, targets: ["WinUIBackend"]),
         .library(name: "DefaultBackend", type: libraryType, targets: ["DefaultBackend"]),
         .library(name: "UIKitBackend", type: libraryType, targets: ["UIKitBackend"]),
         .library(name: "Gtk", type: libraryType, targets: ["Gtk"]),
@@ -170,18 +172,6 @@ let package = Package(
         .package(
             url: "https://github.com/stackotter/swift-image-formats",
             .upToNextMinor(from: "0.5.0")
-        ),
-        .package(
-            url: "https://github.com/moreSwift/swift-windowsappsdk",
-            .upToNextMinor(from: "0.1.1")
-        ),
-        .package(
-            url: "https://github.com/moreSwift/swift-windowsfoundation",
-            .upToNextMinor(from: "0.1.0")
-        ),
-        .package(
-            url: "https://github.com/moreSwift/swift-winui",
-            .upToNextMinor(from: "0.1.1")
         ),
         .package(
             url: "https://github.com/stackotter/swift-benchmark",
@@ -317,21 +307,6 @@ let package = Package(
             dependencies: ["CGtk3"]
         ),
         .target(name: "UIKitBackend", dependencies: ["SwiftCrossUI"]),
-        .target(
-            name: "WinUIBackend",
-            dependencies: [
-                "SwiftCrossUI",
-                "WinUIInterop",
-                .product(name: "WinUI", package: "swift-winui"),
-                .product(name: "WinAppSDK", package: "swift-windowsappsdk"),
-                .product(name: "WindowsFoundation", package: "swift-windowsfoundation"),
-                .product(name: "Mutex", package: "swift-mutex"),
-            ]
-        ),
-        .target(
-            name: "WinUIInterop",
-            dependencies: []
-        ),
         .target(name: "DummyBackend", dependencies: ["SwiftCrossUI"]),
 
         .executableTarget(
@@ -373,6 +348,45 @@ let package = Package(
         // ),
     ]
 )
+
+#if os(Windows)
+package.dependencies += [
+    .package(
+        url: "https://github.com/moreSwift/swift-windowsappsdk",
+        .upToNextMinor(from: "0.1.1")
+    ),
+    .package(
+        url: "https://github.com/moreSwift/swift-windowsfoundation",
+        .upToNextMinor(from: "0.1.0")
+    ),
+    .package(
+        url: "https://github.com/moreSwift/swift-winui",
+        .upToNextMinor(from: "0.1.1")
+    ),
+]
+
+package.products.append(
+    .library(name: "WinUIBackend", type: libraryType, targets: ["WinUIBackend"])
+)
+
+package.targets += [
+    .target(
+        name: "WinUIBackend",
+        dependencies: [
+            "SwiftCrossUI",
+            "WinUIInterop",
+            .product(name: "WinUI", package: "swift-winui"),
+            .product(name: "WinAppSDK", package: "swift-windowsappsdk"),
+            .product(name: "WindowsFoundation", package: "swift-windowsfoundation"),
+            .product(name: "Mutex", package: "swift-mutex"),
+        ]
+    ),
+    .target(
+        name: "WinUIInterop",
+        dependencies: []
+    ),
+]
+#endif
 
 // Newer versions of swift-log only support Swift >=6.1, and SwiftPM doesn't
 // seem to want to use the tools-version of the package during resolution
