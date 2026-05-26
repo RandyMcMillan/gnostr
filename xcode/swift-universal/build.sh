@@ -68,7 +68,7 @@ rm -rf "${NEW_HEADER_DIR}"
 
 cd "${SCRIPT_DIR}"
 
-SWIFT_LIB_PATH="./${SWIFT_APP}/Lib/${SWIFT_PROJECT}"
+SWIFT_LIB_PATH="./${SWIFT_APP}/Shared/Lib/${SWIFT_PROJECT}"
 
 disable_swiftformat() {
     local file="$1"
