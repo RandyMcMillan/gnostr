@@ -11,7 +11,6 @@ cd "$ROOT_DIR"
 MODE="all"
 PROJECT_FILTER="all"
 CONFIGURATION="${XCODE_CONFIGURATION:-Debug}"
-BUILD_DESTINATION="${XCODE_BUILD_DESTINATION:-generic/platform=iOS}"
 DERIVED_DATA_ROOT="${XCODE_DERIVED_DATA_ROOT:-$ROOT_DIR/.xcodebuild}"
 CLEAN=false
 
@@ -140,6 +139,26 @@ project_test_destination() {
   esac
 }
 
+project_build_destination() {
+  if [[ -n "${XCODE_BUILD_DESTINATION:-}" ]]; then
+    printf '%s\n' "$XCODE_BUILD_DESTINATION"
+    return 0
+  fi
+
+  case "$1" in
+    relay|p2p)
+      printf '%s\n' "generic/platform=iOS Simulator"
+      ;;
+    appwithtool)
+      printf '%s\n' "generic/platform=macOS"
+      ;;
+    *)
+      echo "Unsupported project: $1" >&2
+      exit 1
+      ;;
+  esac
+}
+
 selected_projects() {
   case "$PROJECT_FILTER" in
     all)
@@ -186,8 +205,10 @@ run_xcodebuild() {
   scheme="$(project_scheme "$project")"
   project_path_value="$(project_path "$project")"
   derived_data_path="$DERIVED_DATA_ROOT/$project/$CONFIGURATION/$action"
+  local build_destination
 
   mkdir -p "$derived_data_path"
+  build_destination="$(project_build_destination "$project")"
 
   if [[ "$action" == "build" ]]; then
     xcodebuild \
@@ -195,7 +216,7 @@ run_xcodebuild() {
       -scheme "$scheme" \
       -configuration "$CONFIGURATION" \
       -derivedDataPath "$derived_data_path" \
-      -destination "$BUILD_DESTINATION" \
+      -destination "$build_destination" \
       build
   else
     xcodebuild \
