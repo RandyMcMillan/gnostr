@@ -70,6 +70,20 @@ cd "${SCRIPT_DIR}"
 
 SWIFT_LIB_PATH="./${SWIFT_APP}/Lib/${SWIFT_PROJECT}"
 
+disable_swiftformat() {
+    local file="$1"
+
+    if ! grep -q '^// swiftformat:disable all$' "$file"; then
+        local tmp
+        tmp="$(mktemp)"
+        {
+            echo "// swiftformat:disable all"
+            cat "$file"
+        } > "$tmp"
+        mv "$tmp" "$file"
+    fi
+}
+
 # step 3 - move to SwiftLib artifacts
 if [ -d "${SWIFT_LIB_PATH}/artifacts" ]; then
     rm -rf "${SWIFT_LIB_PATH}/artifacts"
@@ -85,3 +99,5 @@ fi
 mkdir "${SWIFT_LIB_PATH}/Sources"
 mkdir "${SWIFT_LIB_PATH}/Sources/${SWIFT_PROJECT_NAME}"
 cp "./${MY_CRATE}/out/${MY_CRATE}.swift" "${SWIFT_LIB_PATH}/Sources/${SWIFT_PROJECT_NAME}/${SWIFT_PROJECT_NAME}.swift"
+disable_swiftformat "./${MY_CRATE}/out/${MY_CRATE}.swift"
+disable_swiftformat "${SWIFT_LIB_PATH}/Sources/${SWIFT_PROJECT_NAME}/${SWIFT_PROJECT_NAME}.swift"
