@@ -1,3 +1,10 @@
+*/*/librustylib.a
+
+rustylib/rustylib_framework.xcframework/ios-arm64_x86_64-simulator/librustylib.a
+swiftyapp/Lib/swiftyrustlib/artifacts/RustyCore.xcframework/ios-arm64/librustylib.a
+swiftyapp/Lib/swiftyrustlib/artifacts/RustyCore.xcframework/ios-arm64_x86_64-simulator/librustylib.a
+swiftyapp/Lib/swiftyrustlib/artifacts/RustyCore.xcframework/macos-arm64/librustylib.a
+
 xcode-gnostr-relay/swiftyapp/gnostr-relay.xcodeproj/project.xcworkspace/xcuserdata
 
 .genkit

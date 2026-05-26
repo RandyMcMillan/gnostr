@@ -1,10 +1,24 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+export PATH="${HOME}/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${PATH}"
+[ -f "${HOME}/.cargo/env" ] && . "${HOME}/.cargo/env"
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "${SCRIPT_DIR}"
+
 MY_CRATE=rustylib
 SWIFT_APP=swiftyapp
 SWIFT_PROJECT=swiftyrustlib
 SWIFT_PROJECT_NAME=RustyLib
 SWIFT_CORE_NAME=RustyCore
 
-cd $MY_CRATE
+[[ -d "${MY_CRATE}" ]] || {
+    echo "Missing crate directory: ${SCRIPT_DIR}/${MY_CRATE}" >&2
+    exit 1
+}
+
+cd "${MY_CRATE}"
 
 # step 1 - compile rust library and generate bindings
 HEADERPATH="out/${MY_CRATE}FFI.h"
@@ -52,7 +66,7 @@ xcodebuild -create-xcframework \
 
 rm -rf "${NEW_HEADER_DIR}"
 
-cd ../
+cd "${SCRIPT_DIR}"
 
 SWIFT_LIB_PATH="./${SWIFT_APP}/Lib/${SWIFT_PROJECT}"
 

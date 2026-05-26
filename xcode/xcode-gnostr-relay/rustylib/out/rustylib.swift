@@ -50,11 +50,9 @@ private extension ForeignBytes {
 
 private extension Data {
     init(rustBuffer: RustBuffer) {
-        self.init(
-            bytesNoCopy: rustBuffer.data!,
-            count: Int(rustBuffer.len),
-            deallocator: .none
-        )
+        // TODO: This copies the buffer. Can we read directly from a
+        // Rust buffer?
+        self.init(bytes: rustBuffer.data!, count: Int(rustBuffer.len))
     }
 }
 
@@ -170,16 +168,10 @@ private protocol FfiConverter {
 private protocol FfiConverterPrimitive: FfiConverter where FfiType == SwiftType {}
 
 extension FfiConverterPrimitive {
-    #if swift(>=5.8)
-        @_documentation(visibility: private)
-    #endif
     public static func lift(_ value: FfiType) throws -> SwiftType {
         return value
     }
 
-    #if swift(>=5.8)
-        @_documentation(visibility: private)
-    #endif
     public static func lower(_ value: SwiftType) -> FfiType {
         return value
     }
@@ -190,9 +182,6 @@ extension FfiConverterPrimitive {
 private protocol FfiConverterRustBuffer: FfiConverter where FfiType == RustBuffer {}
 
 extension FfiConverterRustBuffer {
-    #if swift(>=5.8)
-        @_documentation(visibility: private)
-    #endif
     public static func lift(_ buf: RustBuffer) throws -> SwiftType {
         var reader = createReader(data: Data(rustBuffer: buf))
         let value = try read(from: &reader)
@@ -203,9 +192,6 @@ extension FfiConverterRustBuffer {
         return value
     }
 
-    #if swift(>=5.8)
-        @_documentation(visibility: private)
-    #endif
     public static func lower(_ value: SwiftType) -> RustBuffer {
         var writer = createWriter()
         write(value, into: &writer)
@@ -395,9 +381,6 @@ private class UniffiHandleMap<T> {
 
 // Public interface members begin here.
 
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
 private struct FfiConverterUInt32: FfiConverterPrimitive {
     typealias FfiType = UInt32
     typealias SwiftType = UInt32
@@ -411,9 +394,6 @@ private struct FfiConverterUInt32: FfiConverterPrimitive {
     }
 }
 
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
 private struct FfiConverterString: FfiConverter {
     typealias SwiftType = String
     typealias FfiType = RustBuffer
