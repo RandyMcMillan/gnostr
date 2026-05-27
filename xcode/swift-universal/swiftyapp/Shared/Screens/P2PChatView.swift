@@ -176,6 +176,7 @@ struct P2PChatView: View {
             }
 
             try persistChatTopics(topics, using: privateKey, to: topicsURL)
+            restartP2PNetwork()
         } catch {
             print("Failed to register chat topic: \(error)")
         }
@@ -266,6 +267,11 @@ struct P2PChatView: View {
         }
 
         return result
+    }
+
+    private func restartP2PNetwork() {
+        _ = p2pNetworkStop()
+        _ = p2pNetworkStart()
     }
 
     private func scrollToLatestLog(using proxy: ScrollViewProxy) {

@@ -5,6 +5,7 @@
 
 import Foundation
 import CryptoKit
+import RustyLib
 import SwiftUI
 
 struct P2PListView: View {
@@ -88,6 +89,7 @@ struct P2PListView: View {
 
         do {
             try persistChatTopics(using: privateKey)
+            restartP2PNetwork()
         } catch {
             print("Failed to persist chat topics: \(error)")
         }
@@ -107,6 +109,7 @@ struct P2PListView: View {
             if result.needsMigration {
                 do {
                     try persistChatTopics(using: privateKey)
+                    restartP2PNetwork()
                 } catch {
                     print("Failed to migrate legacy chat topics: \(error)")
                 }
@@ -210,6 +213,11 @@ struct P2PListView: View {
         }
 
         return result
+    }
+
+    private func restartP2PNetwork() {
+        _ = p2pNetworkStop()
+        _ = p2pNetworkStart()
     }
 }
 
