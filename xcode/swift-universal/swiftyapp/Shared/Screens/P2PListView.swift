@@ -8,10 +8,18 @@ import SwiftUI
 
 struct P2PListView: View {
     @AppStorage("P2PChatTopics") private var chatTopicsRaw: String = "gnostr-dev"
+    @State private var privateKeyDraft: String = ""
     @State private var topicDraft: String = ""
 
     var body: some View {
         List {
+            Section("IDENTITY") {
+                SecureField("Private key", text: $privateKeyDraft)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .font(.system(.caption, design: .monospaced))
+            }
+
             Section("CHAT") {
                 HStack(spacing: 8) {
                     TextField("Topic", text: $topicDraft)
