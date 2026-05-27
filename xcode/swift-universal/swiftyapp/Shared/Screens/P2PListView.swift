@@ -7,14 +7,14 @@ import Foundation
 import SwiftUI
 
 struct P2PListView: View {
+    @EnvironmentObject private var appState: AppState
     @AppStorage("P2PChatTopics") private var chatTopicsRaw: String = "gnostr-dev"
-    @State private var privateKeyDraft: String = ""
     @State private var topicDraft: String = ""
 
     var body: some View {
         List {
             Section("IDENTITY") {
-                SecureField("Private key", text: $privateKeyDraft)
+                SecureField("Private key", text: $appState.privateKey)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .font(.system(.caption, design: .monospaced))
