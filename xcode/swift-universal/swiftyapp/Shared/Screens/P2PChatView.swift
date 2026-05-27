@@ -5,10 +5,12 @@
 
 import Combine
 import Foundation
+import CryptoKit
 import RustyLib
 import SwiftUI
 
 struct P2PChatView: View {
+    @EnvironmentObject private var appState: AppState
     private let chatTopic: String
     @State private var networkStatus = p2pNetworkStatus()
     @State private var networkLogs = p2pNetworkLogs()
@@ -156,39 +158,120 @@ struct P2PChatView: View {
     }
 
     private func registerChatTopic() {
-        let topicsURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
-            .appendingPathComponent("gnostr", isDirectory: true)
-            .appendingPathComponent("p2p-chat-topics.txt")
-        guard let topicsURL else { return }
-
-        let existingTopics = (try? String(contentsOf: topicsURL, encoding: .utf8))
-            .map { contents in
-                contents
-                    .split(whereSeparator: { $0 == "\n" || $0 == "," })
-                    .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-                    .filter { !$0.isEmpty }
-            } ?? []
-
-        var topics = existingTopics
-        if !topics.contains(chatTopic) {
-            topics.append(chatTopic)
-        }
-
         do {
-            try FileManager.default.createDirectory(
-                at: topicsURL.deletingLastPathComponent(),
-                withIntermediateDirectories: true
-            )
-            try topics.joined(separator: "\n").write(to: topicsURL, atomically: true, encoding: .utf8)
+            guard let privateKey = normalizedPrivateKey else {
+                print("Private key required to persist chat topics")
+                return
+            }
+
+            let topic = effectiveChatTopic
+            guard let topicsURL = chatTopicsFileURL() else {
+                throw ChatTopicsStoreError.missingFileURL
+            }
+
+            let existingTopics = try existingChatTopics(at: topicsURL, using: privateKey)
+            var topics = existingTopics
+            if !topics.contains(topic) {
+                topics.append(topic)
+            }
+
+            try persistChatTopics(topics, using: privateKey, to: topicsURL)
         } catch {
             print("Failed to register chat topic: \(error)")
         }
     }
 
+    private var normalizedPrivateKey: String? {
+        let trimmed = appState.privateKey.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    private func chatTopicsFileURL() -> URL? {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
+            .appendingPathComponent("gnostr", isDirectory: true)
+            .appendingPathComponent("p2p-chat-topics.txt")
+    }
+
+    private func existingChatTopics(at url: URL, using privateKey: String) throws -> [String] {
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            return []
+        }
+
+        let data = try Data(contentsOf: url)
+        if let payload = try? JSONDecoder().decode(EncryptedChatTopicsPayload.self, from: data) {
+            return try decryptTopics(payload, using: privateKey)
+        }
+
+        return legacyTopics(from: data)
+    }
+
+    private func persistChatTopics(_ topics: [String], using privateKey: String, to url: URL) throws {
+        let payload = try encryptTopics(topics, using: privateKey)
+        try FileManager.default.createDirectory(
+            at: url.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        let data = try JSONEncoder().encode(payload)
+        try data.write(to: url, options: .atomic)
+    }
+
+    private func encryptTopics(_ topics: [String], using privateKey: String) throws -> EncryptedChatTopicsPayload {
+        let key = SymmetricKey(data: Data(SHA256.hash(data: Data(privateKey.utf8))))
+        let plaintext = try JSONEncoder().encode(normalizedTopics(topics))
+        let sealedBox = try ChaChaPoly.seal(plaintext, using: key)
+        return EncryptedChatTopicsPayload(
+            nonce: Data(sealedBox.nonce).base64EncodedString(),
+            ciphertext: sealedBox.ciphertext.base64EncodedString(),
+            tag: sealedBox.tag.base64EncodedString()
+        )
+    }
+
+    private func decryptTopics(_ payload: EncryptedChatTopicsPayload, using privateKey: String) throws -> [String] {
+        guard
+            let nonceData = Data(base64Encoded: payload.nonce),
+            let ciphertext = Data(base64Encoded: payload.ciphertext),
+            let tag = Data(base64Encoded: payload.tag)
+        else {
+            throw ChatTopicsStoreError.invalidEncryptedPayload
+        }
+
+        let key = SymmetricKey(data: Data(SHA256.hash(data: Data(privateKey.utf8))))
+        let sealedBox = try ChaChaPoly.SealedBox(
+            nonce: try ChaChaPoly.Nonce(data: nonceData),
+            ciphertext: ciphertext,
+            tag: tag
+        )
+        let plaintext = try ChaChaPoly.open(sealedBox, using: key)
+        return normalizedTopics(try JSONDecoder().decode([String].self, from: plaintext))
+    }
+
+    private func legacyTopics(from data: Data) -> [String] {
+        let contents = String(decoding: data, as: UTF8.self)
+        return normalizedTopics(
+            contents
+                .split(whereSeparator: { $0 == "\n" || $0 == "," })
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+        )
+    }
+
+    private func normalizedTopics(_ topics: [String]) -> [String] {
+        var seen = Set<String>()
+        var result: [String] = []
+
+        for topic in topics {
+            let trimmed = topic.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty, seen.insert(trimmed).inserted else { continue }
+            result.append(trimmed)
+        }
+
+        return result
+    }
+
     private func scrollToLatestLog(using proxy: ScrollViewProxy) {
         guard let lastIndex = visibleChatEntries.indices.last else { return }
         DispatchQueue.main.async {
-            proxy.scrollTo(lastIndex, anchor: .bottom)
+           proxy.scrollTo(lastIndex, anchor: .bottom)
         }
     }
 
@@ -238,6 +321,17 @@ struct P2PChatView: View {
             chatEntries.append(message)
         }
     }
+}
+
+private struct EncryptedChatTopicsPayload: Codable {
+    let nonce: String
+    let ciphertext: String
+    let tag: String
+}
+
+private enum ChatTopicsStoreError: Error {
+    case missingFileURL
+    case invalidEncryptedPayload
 }
 
 private struct P2PChatMessage: Identifiable {
@@ -302,5 +396,6 @@ private struct P2PChatMessage: Identifiable {
 struct P2PChatView_Previews: PreviewProvider {
     static var previews: some View {
         P2PChatView()
+            .environmentObject(AppState())
     }
 }
