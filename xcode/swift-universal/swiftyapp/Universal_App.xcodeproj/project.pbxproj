@@ -397,7 +397,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Universal_App (iOS).entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = M684FYCYG6;
+				DEVELOPMENT_TEAM = QP9MSC9X74;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = iOS/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "universal-debug";
@@ -412,7 +412,7 @@
 					"-lz",
 					"-liconv",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = org.gnostr.universal;
+				PRODUCT_BUNDLE_IDENTIFIER = "org.gnostr.Universal-App";
 				PRODUCT_NAME = Universal_App;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				REGISTER_APP_GROUPS = NO;
@@ -434,7 +434,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Universal_App (iOS).entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = M684FYCYG6;
+				DEVELOPMENT_TEAM = QP9MSC9X74;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = iOS/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = universal;
@@ -449,7 +449,7 @@
 					"-lz",
 					"-liconv",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = org.gnostr.universal;
+				PRODUCT_BUNDLE_IDENTIFIER = "org.gnostr.Universal-App";
 				PRODUCT_NAME = Universal_App;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				REGISTER_APP_GROUPS = NO;
