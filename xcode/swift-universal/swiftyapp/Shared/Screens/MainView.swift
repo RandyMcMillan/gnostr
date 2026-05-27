@@ -17,18 +17,43 @@ struct MainView: View {
     // MARK: - UI Elements
     @ViewBuilder
     var body: some View {
-        NavigationView {
-            #if os(iOS)
-            if horizontalSizeClass == .compact {
-                TabBar()
-            } else {
+        VStack(spacing: 0) {
+            persistentHeader
+
+            NavigationView {
+                #if os(iOS)
+                if horizontalSizeClass == .compact {
+                    TabBar()
+                } else {
+                    SideBar()
+                }
+                #else
                 SideBar()
+                ArticlesListView(articles: techArticles)
+                #endif
             }
-            #else
-            SideBar()
-            ArticlesListView(articles: techArticles)
-            #endif
         }
+    }
+
+    private var persistentHeader: some View {
+        HStack(alignment: .center, spacing: 12) {
+            Image(systemName: "antenna.radiowaves.left.and.right")
+                .font(.headline)
+                .foregroundStyle(.accent)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("gnostr")
+                    .font(.headline)
+                Text("Universal App")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 10)
+        .background(.regularMaterial)
     }
 }
 
