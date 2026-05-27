@@ -5,7 +5,7 @@
 //! chunked payloads before delivery.
 
 use std::{
-    collections::HashMap,
+    collections::{HashMap, VecDeque},
     sync::Arc,
     time::Duration,
 };
@@ -332,6 +332,7 @@ pub async fn evt_loop(
 ) -> Result<()> {
     let reassembler = Arc::new(MessageReassembler::new()); // Create reassembler here
     let mut pending_crawler_search: HashMap<kad::QueryId, i32> = HashMap::new();
+    let mut pending_chat_messages: VecDeque<Msg> = VecDeque::new();
 
     let mut swarm = libp2p::SwarmBuilder::with_new_identity()
         .with_tokio()
@@ -500,13 +501,14 @@ pub async fn evt_loop(
             Some(event) = send.recv() => {
                 match event {
                     ChatEvent::ChatMessage(m) => {
-                        if let Err(e) = swarm
-                            .behaviour_mut().gossipsub
-                            .publish(topic.clone(), serde_json::to_vec(&m)?) {
-                            debug!("Publish error: {e:?}");
-                            let m = Msg::default().set_content(format!("publish error: {e:?}"), 0).set_kind(MsgKind::System);
-                            recv.send(ChatEvent::ShowErrorMsg(m.to_string())).await?;
-                        }
+                        publish_or_queue_chat_message(
+                            &mut swarm,
+                            &topic,
+                            m,
+                            &mut pending_chat_messages,
+                            &recv,
+                        )
+                        .await?;
                     }
                     ChatEvent::CrawlerSearch { nip } => {
                         let key = kad::RecordKey::new(&format!("gnostr/relay-buckets/{nip}"));
@@ -603,6 +605,13 @@ pub async fn evt_loop(
                             endpoint: format!("{endpoint:?}"),
                         })
                         .await?;
+                    flush_pending_chat_messages(
+                        &mut swarm,
+                        &topic,
+                        &mut pending_chat_messages,
+                        &recv,
+                    )
+                    .await?;
                     recv
                         .send(ChatEvent::ShowInfoMsg(format!(
                             "Connected to peer {peer_id} via {endpoint:?}"
@@ -639,6 +648,65 @@ pub async fn evt_loop(
                             let m = Msg::default().set_content(format!("Error deserializing message: {e:?}"), 0).set_kind(MsgKind::System);
                             recv.send(ChatEvent::ShowErrorMsg(m.to_string())).await?;
                         }
+                    }
+
+                    async fn publish_or_queue_chat_message(
+                        swarm: &mut libp2p::Swarm<MyBehaviour>,
+                        topic: &gossipsub::IdentTopic,
+                        msg: Msg,
+                        pending_chat_messages: &mut VecDeque<Msg>,
+                        recv: &tokio::sync::mpsc::Sender<ChatEvent>,
+                    ) -> Result<()> {
+                        let payload = serde_json::to_vec(&msg)?;
+                        match swarm.behaviour_mut().gossipsub.publish(topic.clone(), payload) {
+                            Ok(_) => Ok(()),
+                            Err(error) if format!("{error:?}").contains("InsufficientPeers") => {
+                                pending_chat_messages.push_back(msg);
+                                recv.send(ChatEvent::ShowInfoMsg(
+                                    "queued chat message until a peer connects".to_string(),
+                                ))
+                                .await?;
+                                Ok(())
+                            }
+                            Err(error) => {
+                                debug!("Publish error: {error:?}");
+                                let system = Msg::default()
+                                    .set_content(format!("publish error: {error:?}"), 0)
+                                    .set_kind(MsgKind::System);
+                                recv.send(ChatEvent::ShowErrorMsg(system.to_string())).await?;
+                                Ok(())
+                            }
+                        }
+                    }
+
+                    async fn flush_pending_chat_messages(
+                        swarm: &mut libp2p::Swarm<MyBehaviour>,
+                        topic: &gossipsub::IdentTopic,
+                        pending_chat_messages: &mut VecDeque<Msg>,
+                        recv: &tokio::sync::mpsc::Sender<ChatEvent>,
+                    ) -> Result<()> {
+                        while let Some(msg) = pending_chat_messages.pop_front() {
+                            let payload = serde_json::to_vec(&msg)?;
+                            match swarm.behaviour_mut().gossipsub.publish(topic.clone(), payload) {
+                                Ok(_) => {
+                                    recv.send(ChatEvent::ShowInfoMsg("sent queued chat message".to_string()))
+                                        .await?;
+                                }
+                                Err(error) if format!("{error:?}").contains("InsufficientPeers") => {
+                                    pending_chat_messages.push_front(msg);
+                                    break;
+                                }
+                                Err(error) => {
+                                    debug!("Publish error: {error:?}");
+                                    let system = Msg::default()
+                                        .set_content(format!("publish error: {error:?}"), 0)
+                                        .set_kind(MsgKind::System);
+                                    recv.send(ChatEvent::ShowErrorMsg(system.to_string())).await?;
+                                }
+                            }
+                        }
+
+                        Ok(())
                     }
                 },
                 SwarmEvent::NewListenAddr { address, .. } => {
