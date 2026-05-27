@@ -29,3 +29,8 @@ pub fn p2p_network_stop() -> String {
 pub fn p2p_network_logs() -> String {
     gnostr_p2p::embedded_network::logs()
 }
+
+#[uniffi::export]
+pub fn p2p_network_peers() -> String {
+    gnostr_p2p::embedded_network::peers()
+}
