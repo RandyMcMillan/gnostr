@@ -40,7 +40,7 @@ struct TabBar: View {
                 }
                 .tag(3)
         }
-        .navigationTitle("Articles")
+        .navigationTitle("gnostr")
     }
 }
 
