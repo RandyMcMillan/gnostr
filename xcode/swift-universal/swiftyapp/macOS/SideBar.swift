@@ -55,7 +55,7 @@ struct SideBar: View {
             )
             .tag(NavigationItem.services)
         }
-        .navigationTitle("Articles")
+        .navigationTitle("gnostr")
         .listStyle(SidebarListStyle())
     }
 }
