@@ -1,5 +1,6 @@
 use std::{
     collections::HashSet,
+    path::PathBuf,
     sync::{Arc, Mutex, OnceLock},
     thread,
     time::{SystemTime, UNIX_EPOCH},
@@ -66,6 +67,11 @@ fn chat_topics_slot() -> &'static Mutex<HashSet<String>> {
 
 fn subscribed_chat_topics_slot() -> &'static Mutex<HashSet<String>> {
     SUBSCRIBED_CHAT_TOPICS.get_or_init(|| Mutex::new(HashSet::new()))
+}
+
+fn chat_topics_file_path() -> Option<PathBuf> {
+    let home = std::env::var_os("HOME")?;
+    Some(PathBuf::from(home).join("Library/Application Support/gnostr/p2p-chat-topics.txt"))
 }
 
 fn push_log(line: impl Into<String>) {
@@ -223,6 +229,32 @@ fn sync_registered_chat_topics(
     Ok(())
 }
 
+fn sync_chat_topics_from_disk() {
+    let Some(path) = chat_topics_file_path() else {
+        push_log("chat topic sync skipped: HOME is not set");
+        return;
+    };
+
+    let Ok(contents) = std::fs::read_to_string(&path) else {
+        return;
+    };
+
+    for topic in contents
+        .split(|c| c == '\n' || c == ',')
+        .map(|topic| topic.trim())
+        .filter(|topic| !topic.is_empty())
+    {
+        let _ = register_chat_topic(topic.to_string());
+    }
+}
+
+fn sync_chat_topics(
+    swarm: &mut libp2p::Swarm<crate::behaviour::Behaviour>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    sync_chat_topics_from_disk();
+    sync_registered_chat_topics(swarm)
+}
+
 pub fn register_chat_topic(topic: impl Into<String>) -> String {
     let topic = topic.into().trim().to_string();
     if topic.is_empty() {
@@ -233,8 +265,6 @@ pub fn register_chat_topic(topic: impl Into<String>) -> String {
     let mut topics = chat_topics_slot().lock().unwrap_or_else(|poisoned| poisoned.into_inner());
     if topics.insert(topic.clone()) {
         push_log(format!("registered chat topic {topic}"));
-    } else {
-        push_log(format!("chat topic already registered {topic}"));
     }
     topic
 }
@@ -297,7 +327,7 @@ pub fn subscribe_to_discovery_topic(
 pub fn subscribe_to_chat_topic(
     swarm: &mut libp2p::Swarm<crate::behaviour::Behaviour>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    sync_registered_chat_topics(swarm)
+    sync_chat_topics(swarm)
 }
 
 pub fn bootstrap_public_dht(
@@ -334,7 +364,7 @@ pub fn refresh_wide_area_discovery(
     swarm: &mut libp2p::Swarm<crate::behaviour::Behaviour>,
     peer_id: PeerId,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    sync_registered_chat_topics(swarm)?;
+    sync_chat_topics(swarm)?;
     subscribe_to_discovery_topic(swarm)?;
     bootstrap_public_dht(swarm)?;
     publish_presence(swarm, peer_id)?;
@@ -489,7 +519,7 @@ pub fn start() -> String {
                         }
                     }
                     _ = chat_tick.tick() => {
-                        if let Err(error) = sync_registered_chat_topics(&mut swarm) {
+                        if let Err(error) = sync_chat_topics(&mut swarm) {
                             push_log(format!("chat topic sync failed: {error}"));
                         }
                     }
