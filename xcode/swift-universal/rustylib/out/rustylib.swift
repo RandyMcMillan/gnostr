@@ -445,6 +445,14 @@ public func p2pNetworkPeers() -> String {
     })
 }
 
+public func p2pNetworkRegisterChatTopic(topic: String) -> String {
+    return try! FfiConverterString.lift(try! rustCall {
+        uniffi_rustylib_fn_func_p2p_network_register_chat_topic(
+            FfiConverterString.lower(topic), $0
+        )
+    })
+}
+
 public func p2pNetworkStart() -> String {
     return try! FfiConverterString.lift(try! rustCall {
         uniffi_rustylib_fn_func_p2p_network_start($0)
@@ -498,6 +506,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_rustylib_checksum_func_p2p_network_peers() != 40916 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_rustylib_checksum_func_p2p_network_register_chat_topic() != 25139 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_rustylib_checksum_func_p2p_network_start() != 17127 {
