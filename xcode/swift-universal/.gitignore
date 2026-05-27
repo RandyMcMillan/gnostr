@@ -1,3 +1,9 @@
+#swiftyapp
+swiftyapp/Shared/Lib/swiftyrustlib/artifacts/RustyCore.xcframework/Info.plist
+#rustylib
+rustylib/rustylib_framework.xcframework/Info.plist
+rustylib/out/rustylib.swift
+
 # Xcode
 #
 # gitignore contributors: remember to update Global/Xcode.gitignore, Objective-C.gitignore & Swift.gitignore
