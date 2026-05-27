@@ -455,7 +455,7 @@ pub fn start() -> String {
             .expect("tokio runtime");
 
         runtime.block_on(async move {
-            let keypair = keypair_from_seed(None);
+            let keypair = keypair_from_seed(private_key_seed_from_env());
             let peer_id = keypair.public().to_peer_id();
             push_log(format!("p2p network starting peer={peer_id}"));
 
@@ -580,4 +580,11 @@ pub fn stop() -> String {
         .clone();
     push_log(status.clone());
     status
+}
+
+fn private_key_seed_from_env() -> Option<String> {
+    std::env::var("GNOSTR_NSEC")
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
 }
