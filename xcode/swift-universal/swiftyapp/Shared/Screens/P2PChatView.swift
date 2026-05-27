@@ -9,12 +9,16 @@ import RustyLib
 import SwiftUI
 
 struct P2PChatView: View {
-    @AppStorage("P2PChatTopic") private var chatTopic: String = "gnostr-dev"
+    private let chatTopic: String
     @State private var networkStatus = p2pNetworkStatus()
     @State private var networkLogs = p2pNetworkLogs()
     @State private var chatEntries: [P2PChatMessage] = []
     @State private var seenChatLogLines: Set<String> = []
     @State private var logFontSize: CGFloat = 12
+
+    init(topic: String = "gnostr-dev") {
+        self.chatTopic = topic.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "gnostr-dev" : topic
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -33,9 +37,6 @@ struct P2PChatView: View {
                     scrollToLatestLog(using: proxy)
                 }
                 .onChange(of: chatEntries.count) { _ in
-                    scrollToLatestLog(using: proxy)
-                }
-                .onChange(of: chatTopic) { _ in
                     scrollToLatestLog(using: proxy)
                 }
             }
@@ -102,14 +103,6 @@ struct P2PChatView: View {
             VStack(alignment: .leading, spacing: 8) {
                 topicRow(label: "Topic", value: effectiveChatTopic)
                 topicRow(label: "Filter", value: "kind == Chat")
-
-                TextField("Chat topic", text: $chatTopic)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .font(.system(.caption, design: .monospaced))
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 8)
-                    .background(.background, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
             }
             .padding()
             .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))

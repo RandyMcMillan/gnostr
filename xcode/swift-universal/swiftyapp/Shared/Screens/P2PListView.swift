@@ -6,10 +6,16 @@
 import SwiftUI
 
 struct P2PListView: View {
+    @AppStorage("P2PChatTopic") private var chatTopic: String = "gnostr-dev"
+
     var body: some View {
         List {
             Section("CHAT") {
-                NavigationLink(destination: P2PChatView()) {
+                TextField("Topic", text: $chatTopic)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+
+                NavigationLink(destination: P2PChatView(topic: chatTopic)) {
                     Label("Chat", systemImage: "message.fill")
                 }
             }
