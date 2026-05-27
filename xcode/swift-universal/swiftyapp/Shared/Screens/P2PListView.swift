@@ -4,12 +4,13 @@
 //
 
 import Foundation
+import CryptoKit
 import SwiftUI
 
 struct P2PListView: View {
     @EnvironmentObject private var appState: AppState
-    @AppStorage("P2PChatTopics") private var chatTopicsRaw: String = "gnostr-dev"
     @State private var topicDraft: String = ""
+    @State private var chatTopics: [String] = ["gnostr-dev"]
 
     var body: some View {
         List {
@@ -60,20 +61,15 @@ struct P2PListView: View {
         }
         .navigationTitle("P2P")
         .onAppear {
-            syncChatTopics()
+            loadChatTopics()
+        }
+        .onChange(of: appState.privateKey) { _ in
+            loadChatTopics()
+            persistChatTopics()
         }
         #if os(macOS)
         .listStyle(SidebarListStyle())
         #endif
-    }
-
-    private var chatTopics: [String] {
-        let topics = chatTopicsRaw
-            .split(whereSeparator: { $0 == "\n" || $0 == "," })
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-
-        return topics.isEmpty ? ["gnostr-dev"] : topics
     }
 
     private var normalizedDraft: String {
@@ -84,26 +80,45 @@ struct P2PListView: View {
         let topic = normalizedDraft
         guard !topic.isEmpty, !chatTopics.contains(topic) else { return }
 
-        let updated = chatTopics + [topic]
-        chatTopicsRaw = updated.joined(separator: "\n")
+        chatTopics.append(topic)
         persistChatTopics()
         topicDraft = ""
     }
 
-    private func syncChatTopics() {
-        persistChatTopics()
+    private func loadChatTopics() {
+        guard let key = privateKeyString else {
+            chatTopics = ["gnostr-dev"]
+            return
+        }
+
+        guard let url = chatTopicsFileURL(),
+              let data = try? Data(contentsOf: url),
+              let payload = try? JSONDecoder().decode(EncryptedChatTopicsPayload.self, from: data),
+              let decryptedTopics = decryptTopics(payload, using: key),
+              !decryptedTopics.isEmpty
+        else {
+            chatTopics = ["gnostr-dev"]
+            return
+        }
+
+        chatTopics = decryptedTopics
     }
 
     private func persistChatTopics() {
+        guard let key = privateKeyString else {
+            print("Private key required to persist encrypted chat topics")
+            return
+        }
         guard let url = chatTopicsFileURL() else { return }
 
-        let contents = chatTopics.joined(separator: "\n")
         do {
+            let payload = try encryptTopics(chatTopics, using: key)
             try FileManager.default.createDirectory(
                 at: url.deletingLastPathComponent(),
                 withIntermediateDirectories: true
             )
-            try contents.write(to: url, atomically: true, encoding: .utf8)
+            let data = try JSONEncoder().encode(payload)
+            try data.write(to: url, options: .atomic)
         } catch {
             print("Failed to persist chat topics: \(error)")
         }
@@ -114,6 +129,52 @@ struct P2PListView: View {
             .appendingPathComponent("gnostr", isDirectory: true)
             .appendingPathComponent("p2p-chat-topics.txt")
     }
+
+    private var privateKeyString: String? {
+        let trimmed = appState.privateKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    private func encryptTopics(_ topics: [String], using privateKey: String) throws -> EncryptedChatTopicsPayload {
+        let key = SymmetricKey(data: Data(SHA256.hash(data: Data(privateKey.utf8))))
+        let plaintext = try JSONEncoder().encode(topics)
+        let sealedBox = try ChaChaPoly.seal(plaintext, using: key)
+        return EncryptedChatTopicsPayload(
+            nonce: Data(sealedBox.nonce).base64EncodedString(),
+            ciphertext: sealedBox.ciphertext.base64EncodedString(),
+            tag: sealedBox.tag.base64EncodedString()
+        )
+    }
+
+    private func decryptTopics(_ payload: EncryptedChatTopicsPayload, using privateKey: String) -> [String]? {
+        guard
+            let nonceData = Data(base64Encoded: payload.nonce),
+            let ciphertext = Data(base64Encoded: payload.ciphertext),
+            let tag = Data(base64Encoded: payload.tag)
+        else {
+            return nil
+        }
+
+        do {
+            let key = SymmetricKey(data: Data(SHA256.hash(data: Data(privateKey.utf8))))
+            let sealedBox = try ChaChaPoly.SealedBox(
+                nonce: try ChaChaPoly.Nonce(data: nonceData),
+                ciphertext: ciphertext,
+                tag: tag
+            )
+            let plaintext = try ChaChaPoly.open(sealedBox, using: key)
+            return try JSONDecoder().decode([String].self, from: plaintext)
+        } catch {
+            print("Failed to decrypt chat topics: \(error)")
+            return nil
+        }
+    }
+}
+
+private struct EncryptedChatTopicsPayload: Codable {
+    let nonce: String
+    let ciphertext: String
+    let tag: String
 }
 
 struct P2PListView_Previews: PreviewProvider {
