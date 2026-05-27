@@ -17,9 +17,9 @@
 		3AE332812582AF2300FBDB3E /* Article.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AE332802582AF2300FBDB3E /* Article.swift */; };
 		4B390D682FC60FE100C9A891 /* RustyLib in Frameworks */ = {isa = PBXBuildFile; productRef = 4B390D672FC60FE100C9A891 /* RustyLib */; };
 		A10000000000000000000002 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A10000000000000000000021 /* SystemConfiguration.framework */; };
-		B10000000000000000000006 /* P2PPeersView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000007 /* P2PPeersView.swift */; };
-		B10000000000000000000004 /* P2PListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000005 /* P2PListView.swift */; };
 		B10000000000000000000001 /* P2PServicesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000003 /* P2PServicesView.swift */; };
+		B10000000000000000000004 /* P2PListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000005 /* P2PListView.swift */; };
+		B10000000000000000000006 /* P2PPeersView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000007 /* P2PPeersView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -36,9 +36,9 @@
 		3AE332742582AE2700FBDB3E /* ArticlesListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArticlesListView.swift; sourceTree = "<group>"; tabWidth = 2; };
 		3AE332802582AF2300FBDB3E /* Article.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Article.swift; sourceTree = "<group>"; };
 		A10000000000000000000021 /* SystemConfiguration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemConfiguration.framework; path = System/Library/Frameworks/SystemConfiguration.framework; sourceTree = SDKROOT; };
-		B10000000000000000000007 /* P2PPeersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = P2PPeersView.swift; sourceTree = "<group>"; };
-		B10000000000000000000005 /* P2PListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = P2PListView.swift; sourceTree = "<group>"; };
 		B10000000000000000000003 /* P2PServicesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = P2PServicesView.swift; sourceTree = "<group>"; };
+		B10000000000000000000005 /* P2PListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = P2PListView.swift; sourceTree = "<group>"; };
+		B10000000000000000000007 /* P2PPeersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = P2PPeersView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -383,6 +383,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = iOS/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "universal-debug";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -411,6 +412,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = iOS/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = universal;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
