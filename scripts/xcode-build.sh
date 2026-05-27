@@ -5,6 +5,7 @@ if ! bash -n "${BASH_SOURCE[0]}"; then
   exit 1
 fi
 
+WHOAMI="$(whoami)"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
@@ -39,6 +40,10 @@ clean_project_artifacts() {
   if [[ "$CLEAN" == true && -d "$project_root" ]]; then
     rm -rf "$project_root"
   fi
+  if [[ "$MODE" == "all" ]]; then
+    rm -rf /Users/$WHOAMI/Library/Developer/Xcode/DerivedData/**
+  fi
+
 }
 
 project_path() {
