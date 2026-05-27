@@ -22,6 +22,7 @@ use gnostr_asyncgit::types::PrivateKey;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use tokio::{runtime::Builder, sync::oneshot};
+use tokio::sync::Notify;
 
 use crate::{
     cli,
@@ -51,6 +52,7 @@ static LOGS: OnceLock<Mutex<Vec<String>>> = OnceLock::new();
 static PEERS: OnceLock<Mutex<Vec<DiscoveredPeer>>> = OnceLock::new();
 static CHAT_TOPICS: OnceLock<Mutex<HashSet<String>>> = OnceLock::new();
 static SUBSCRIBED_CHAT_TOPICS: OnceLock<Mutex<HashSet<String>>> = OnceLock::new();
+static CHAT_TOPIC_SYNC_NOTIFY: OnceLock<Notify> = OnceLock::new();
 
 fn network_slot() -> &'static Mutex<Option<EmbeddedNetwork>> {
     NETWORK.get_or_init(|| Mutex::new(None))
@@ -74,6 +76,10 @@ fn chat_topics_slot() -> &'static Mutex<HashSet<String>> {
 
 fn subscribed_chat_topics_slot() -> &'static Mutex<HashSet<String>> {
     SUBSCRIBED_CHAT_TOPICS.get_or_init(|| Mutex::new(HashSet::new()))
+}
+
+fn chat_topic_sync_notify() -> &'static Notify {
+    CHAT_TOPIC_SYNC_NOTIFY.get_or_init(Notify::new)
 }
 
 fn chat_topics_file_path() -> Option<PathBuf> {
@@ -288,6 +294,7 @@ pub fn register_chat_topic(topic: impl Into<String>) -> String {
     let mut topics = chat_topics_slot().lock().unwrap_or_else(|poisoned| poisoned.into_inner());
     if topics.insert(topic.clone()) {
         push_log(format!("registered chat topic {topic}"));
+        chat_topic_sync_notify().notify_one();
     }
     topic
 }
@@ -610,12 +617,19 @@ pub fn start() -> String {
             discovery_tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
             let mut chat_tick = tokio::time::interval(std::time::Duration::from_secs(1));
             chat_tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+            let mut chat_topic_sync = Box::pin(chat_topic_sync_notify().notified());
 
             loop {
                 tokio::select! {
                     _ = &mut shutdown_rx => {
                         push_log(format!("p2p network stopping peer={peer_id}"));
                         break;
+                    }
+                    _ = chat_topic_sync.as_mut() => {
+                        if let Err(error) = sync_chat_topics(&mut swarm) {
+                            push_log(format!("chat topic sync failed: {error}"));
+                        }
+                        chat_topic_sync = Box::pin(chat_topic_sync_notify().notified());
                     }
                     _ = discovery_tick.tick() => {
                         if let Err(error) = refresh_wide_area_discovery(&mut swarm, peer_id) {
