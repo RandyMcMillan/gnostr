@@ -6,6 +6,11 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
+use base64::Engine;
+use chacha20poly1305::{
+    aead::{Aead, KeyInit, Payload},
+    ChaCha20Poly1305, Nonce,
+};
 use futures::StreamExt;
 use libp2p::{
     gossipsub::IdentTopic,
@@ -13,7 +18,9 @@ use libp2p::{
     swarm::SwarmEvent,
     Multiaddr, PeerId,
 };
+use gnostr_asyncgit::types::PrivateKey;
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use tokio::{runtime::Builder, sync::oneshot};
 
 use crate::{
@@ -72,6 +79,13 @@ fn subscribed_chat_topics_slot() -> &'static Mutex<HashSet<String>> {
 fn chat_topics_file_path() -> Option<PathBuf> {
     let home = std::env::var_os("HOME")?;
     Some(PathBuf::from(home).join("Library/Application Support/gnostr/p2p-chat-topics.txt"))
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct EncryptedChatTopicsPayload {
+    nonce: String,
+    ciphertext: String,
+    tag: String,
 }
 
 fn push_log(line: impl Into<String>) {
@@ -235,16 +249,25 @@ fn sync_chat_topics_from_disk() {
         return;
     };
 
-    let Ok(contents) = std::fs::read_to_string(&path) else {
+    let Ok(contents) = std::fs::read(&path) else {
         return;
     };
 
-    for topic in contents
-        .split(|c| c == '\n' || c == ',')
-        .map(|topic| topic.trim())
-        .filter(|topic| !topic.is_empty())
-    {
-        let _ = register_chat_topic(topic.to_string());
+    if let Ok(payload) = serde_json::from_slice::<EncryptedChatTopicsPayload>(&contents) {
+        if let Some(private_key_seed) = topic_list_private_key_seed() {
+            if let Ok(topics) = decrypt_chat_topics(payload, &private_key_seed) {
+                for topic in topics {
+                    let _ = register_chat_topic(topic);
+                }
+            }
+        }
+        return;
+    }
+
+    if let Ok(contents) = String::from_utf8(contents) {
+        for topic in legacy_chat_topics(&contents) {
+            let _ = register_chat_topic(topic);
+        }
     }
 }
 
@@ -267,6 +290,82 @@ pub fn register_chat_topic(topic: impl Into<String>) -> String {
         push_log(format!("registered chat topic {topic}"));
     }
     topic
+}
+
+fn legacy_chat_topics(contents: &str) -> Vec<String> {
+    let mut seen = HashSet::new();
+    let mut topics = Vec::new();
+
+    for topic in contents
+        .split(|c| c == '\n' || c == ',')
+        .map(|topic| topic.trim())
+        .filter(|topic| !topic.is_empty())
+    {
+        let topic = topic.to_string();
+        if seen.insert(topic.clone()) {
+            topics.push(topic);
+        }
+    }
+
+    topics
+}
+
+fn topic_list_private_key_seed() -> Option<String> {
+    let value = std::env::var("GNOSTR_NSEC").ok()?;
+    let normalized = value.trim().to_lowercase();
+    if normalized.is_empty() {
+        return None;
+    }
+
+    if normalized.starts_with("nsec") {
+        PrivateKey::try_from_bech32_string(&normalized).ok()?;
+    } else {
+        PrivateKey::try_from_hex_string(&normalized).ok()?;
+    }
+
+    Some(normalized)
+}
+
+fn chat_topics_key(seed: &str) -> [u8; 32] {
+    Sha256::digest(seed.as_bytes()).into()
+}
+
+fn decrypt_chat_topics(
+    payload: EncryptedChatTopicsPayload,
+    private_key_seed: &str,
+) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    let nonce = base64::engine::general_purpose::STANDARD.decode(payload.nonce)?;
+    let ciphertext = base64::engine::general_purpose::STANDARD.decode(payload.ciphertext)?;
+    let tag = base64::engine::general_purpose::STANDARD.decode(payload.tag)?;
+
+    if nonce.len() != 12 || tag.len() != 16 {
+        return Err("invalid encrypted chat topics payload".into());
+    }
+
+    let mut combined = ciphertext;
+    combined.extend(tag);
+
+    let key = chat_topics_key(private_key_seed);
+    let cipher = ChaCha20Poly1305::new((&key).into());
+    let plaintext = cipher.decrypt(
+        Nonce::from_slice(&nonce),
+        Payload {
+            msg: &combined,
+            aad: &[],
+        },
+    )?;
+
+    let topics: Vec<String> = serde_json::from_slice(&plaintext)?;
+    let mut seen = HashSet::new();
+    let mut normalized = Vec::new();
+    for topic in topics {
+        let topic = topic.trim().to_string();
+        if !topic.is_empty() && seen.insert(topic.clone()) {
+            normalized.push(topic);
+        }
+    }
+
+    Ok(normalized)
 }
 
 fn timestamp_secs() -> u64 {
