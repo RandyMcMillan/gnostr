@@ -6,7 +6,24 @@
 import SwiftUI
 
 struct P2PListView: View {
+    #if os(iOS)
+    @State private var showingServices = false
+    #endif
+
     var body: some View {
+        #if os(iOS)
+        List {
+            Section("P2P") {
+                NavigationLink(
+                    destination: P2PServicesView(),
+                    isActive: $showingServices
+                ) {
+                    Label("Services", systemImage: "antenna.radiowaves.left.and.right")
+                }
+            }
+        }
+        .navigationTitle("P2P")
+        #else
         List {
             Section("P2P") {
                 NavigationLink(destination: P2PServicesView()) {
@@ -15,6 +32,7 @@ struct P2PListView: View {
             }
         }
         .navigationTitle("P2P")
+        #endif
     }
 }
 

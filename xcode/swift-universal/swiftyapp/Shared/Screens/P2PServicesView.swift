@@ -5,7 +5,6 @@ import SwiftUI
 struct P2PServicesView: View {
     @State private var networkStatus = p2pNetworkStatus()
     @State private var networkLogs = p2pNetworkLogs()
-    @State private var didAutoStartNetwork = false
     @State private var logFontSize: CGFloat = 12
 
     var body: some View {
@@ -31,10 +30,6 @@ struct P2PServicesView: View {
         }
         .navigationTitle("P2P")
         .onAppear {
-            if !didAutoStartNetwork {
-                didAutoStartNetwork = true
-                startNetwork()
-            }
             refreshNetworkSnapshot()
         }
         .onReceive(Timer.publish(every: 1.0, on: .main, in: .common).autoconnect()) { _ in
@@ -57,8 +52,6 @@ struct P2PServicesView: View {
 
             VStack(alignment: .trailing, spacing: 8) {
                 HStack(spacing: 8) {
-                    Button("Start", action: startNetwork)
-                    Button("Stop", action: stopNetwork)
                     Button("Refresh", action: refreshNetworkSnapshot)
                 }
                 .buttonStyle(.borderedProminent)
@@ -152,39 +145,9 @@ struct P2PServicesView: View {
         .system(size: logFontSize, weight: .regular, design: .monospaced)
     }
 
-    private func startNetwork() {
-        DispatchQueue.global(qos: .userInitiated).async {
-            _ = p2pNetworkStart()
-            let status = p2pNetworkStatus()
-            let logs = p2pNetworkLogs()
-            DispatchQueue.main.async {
-                networkStatus = status
-                networkLogs = logs
-            }
-        }
-    }
-
-    private func stopNetwork() {
-        DispatchQueue.global(qos: .userInitiated).async {
-            _ = p2pNetworkStop()
-            let status = p2pNetworkStatus()
-            let logs = p2pNetworkLogs()
-            DispatchQueue.main.async {
-                networkStatus = status
-                networkLogs = logs
-            }
-        }
-    }
-
     private func refreshNetworkSnapshot() {
-        DispatchQueue.global(qos: .userInitiated).async {
-            let status = p2pNetworkStatus()
-            let logs = p2pNetworkLogs()
-            DispatchQueue.main.async {
-                networkStatus = status
-                networkLogs = logs
-            }
-        }
+        networkStatus = p2pNetworkStatus()
+        networkLogs = p2pNetworkLogs()
     }
 
     private func scrollToLatestLog(using proxy: ScrollViewProxy) {
