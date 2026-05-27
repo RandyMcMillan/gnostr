@@ -84,7 +84,11 @@ struct P2PListView: View {
         }
 
         chatTopics.append(topic)
-        persistChatTopics(using: privateKey)
+        do {
+            try persistChatTopics(using: privateKey)
+        } catch {
+            print("Failed to persist chat topics: \(error)")
+        }
         topicDraft = ""
     }
 
