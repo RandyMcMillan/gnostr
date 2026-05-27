@@ -30,8 +30,17 @@ struct EmbeddedNetwork {
     join: Option<thread::JoinHandle<()>>,
 }
 
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct DiscoveredPeer {
+    pub peer_id: String,
+    pub source: String,
+    pub addresses: Vec<String>,
+    pub last_seen_secs: u64,
+}
+
 static NETWORK: OnceLock<Mutex<Option<EmbeddedNetwork>>> = OnceLock::new();
 static LOGS: OnceLock<Mutex<Vec<String>>> = OnceLock::new();
+static PEERS: OnceLock<Mutex<Vec<DiscoveredPeer>>> = OnceLock::new();
 
 fn network_slot() -> &'static Mutex<Option<EmbeddedNetwork>> {
     NETWORK.get_or_init(|| Mutex::new(None))
@@ -39,6 +48,10 @@ fn network_slot() -> &'static Mutex<Option<EmbeddedNetwork>> {
 
 fn logs_slot() -> &'static Mutex<Vec<String>> {
     LOGS.get_or_init(|| Mutex::new(Vec::new()))
+}
+
+fn peers_slot() -> &'static Mutex<Vec<DiscoveredPeer>> {
+    PEERS.get_or_init(|| Mutex::new(Vec::new()))
 }
 
 fn push_log(line: impl Into<String>) {
@@ -93,6 +106,63 @@ pub fn clear_logs() {
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner())
         .clear();
+}
+
+pub fn clear_peers() {
+    peers_slot()
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .clear();
+}
+
+fn merge_peer_discovery(peer_id: String, source: String, addresses: Vec<String>) {
+    let mut peers = peers_slot().lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    let mut normalized = Vec::new();
+    let mut seen = HashSet::new();
+    for address in addresses {
+        if seen.insert(address.clone()) {
+            normalized.push(address);
+        }
+    }
+
+    if let Some(existing) = peers.iter_mut().find(|peer| peer.peer_id == peer_id) {
+        existing.source = source;
+        existing.last_seen_secs = timestamp_secs();
+        for address in normalized {
+            if !existing.addresses.contains(&address) {
+                existing.addresses.push(address);
+            }
+        }
+    } else {
+        peers.push(DiscoveredPeer {
+            peer_id,
+            source,
+            addresses: normalized,
+            last_seen_secs: timestamp_secs(),
+        });
+    }
+
+    peers.sort_by(|a, b| {
+        b.last_seen_secs
+            .cmp(&a.last_seen_secs)
+            .then_with(|| a.peer_id.cmp(&b.peer_id))
+    });
+
+    if peers.len() > 100 {
+        peers.truncate(100);
+    }
+}
+
+pub fn record_peer_discovery(peer_id: impl Into<String>, source: impl Into<String>, addresses: Vec<String>) {
+    merge_peer_discovery(peer_id.into(), source.into(), addresses);
+}
+
+pub fn peers() -> String {
+    let peers = peers_slot().lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    serde_json::to_string(&*peers).unwrap_or_else(|error| {
+        push_log(format!("failed to serialize peers: {error}"));
+        String::from("[]")
+    })
 }
 
 pub const DISCOVERY_TOPIC: &str = "gnostr/p2p/presence";
@@ -268,6 +338,7 @@ pub fn start() -> String {
     }
 
     clear_logs();
+    clear_peers();
     let status = Arc::new(Mutex::new(String::from("starting p2p network")));
     let thread_status = Arc::clone(&status);
     let thread_logs = Arc::new(Mutex::new(Vec::new()));
