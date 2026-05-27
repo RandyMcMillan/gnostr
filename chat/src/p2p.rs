@@ -34,6 +34,11 @@ use gnostr_p2p::kvs::{FileRequest, FileResponse};
 use gnostr_p2p::utils::multiaddr_with_peer_id;
 use libp2p::identity;
 
+fn is_insufficient_peers_error(error: &impl std::fmt::Debug) -> bool {
+let error = format!("{error:?}").to_lowercase();
+error.contains("insufficient") && error.contains("peer")
+}
+
 /// Handle for the local p2p relay service started by chat.
 pub struct LocalP2pRelayService {
     peer_id: PeerId,
@@ -660,7 +665,7 @@ pub async fn evt_loop(
                         let payload = serde_json::to_vec(&msg)?;
                         match swarm.behaviour_mut().gossipsub.publish(topic.clone(), payload) {
                             Ok(_) => Ok(()),
-                            Err(error) if format!("{error:?}").contains("InsufficientPeers") => {
+                            Err(error) if is_insufficient_peers_error(&error) => {
                                 pending_chat_messages.push_back(msg);
                                 recv.send(ChatEvent::ShowInfoMsg(
                                     "queued chat message until a peer connects".to_string(),
@@ -692,7 +697,7 @@ pub async fn evt_loop(
                                     recv.send(ChatEvent::ShowInfoMsg("sent queued chat message".to_string()))
                                         .await?;
                                 }
-                                Err(error) if format!("{error:?}").contains("InsufficientPeers") => {
+                                Err(error) if is_insufficient_peers_error(&error) => {
                                     pending_chat_messages.push_front(msg);
                                     break;
                                 }
