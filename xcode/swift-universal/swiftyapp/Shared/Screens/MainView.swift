@@ -37,9 +37,12 @@ struct MainView: View {
 
     private var persistentHeader: some View {
         HStack(alignment: .center, spacing: 12) {
-            Image(systemName: "antenna.radiowaves.left.and.right")
-                .font(.headline)
-                .foregroundStyle(.accent)
+            Image("Icon")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 28, height: 28)
+                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("gnostr")
