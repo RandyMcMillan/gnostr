@@ -257,6 +257,12 @@ RustBuffer uniffi_rustylib_fn_func_p2p_network_logs(RustCallStatus *_Nonnull out
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_FN_FUNC_P2P_NETWORK_PEERS
+#define UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_FN_FUNC_P2P_NETWORK_PEERS
+RustBuffer uniffi_rustylib_fn_func_p2p_network_peers(RustCallStatus *_Nonnull out_status
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_FN_FUNC_P2P_NETWORK_START
 #define UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_FN_FUNC_P2P_NETWORK_START
 RustBuffer uniffi_rustylib_fn_func_p2p_network_start(RustCallStatus *_Nonnull out_status
@@ -569,6 +575,12 @@ void ffi_rustylib_rust_future_complete_void(uint64_t handle, RustCallStatus *_No
 #ifndef UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_CHECKSUM_FUNC_P2P_NETWORK_LOGS
 #define UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_CHECKSUM_FUNC_P2P_NETWORK_LOGS
 uint16_t uniffi_rustylib_checksum_func_p2p_network_logs(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_CHECKSUM_FUNC_P2P_NETWORK_PEERS
+#define UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_CHECKSUM_FUNC_P2P_NETWORK_PEERS
+uint16_t uniffi_rustylib_checksum_func_p2p_network_peers(void
     
 );
 #endif
