@@ -32,7 +32,7 @@ struct P2PListView: View {
                             .foregroundStyle(.green)
                     }
                     .accessibilityLabel("Add topic")
-                    .disabled(normalizedDraft.isEmpty || chatTopics.contains(normalizedDraft) || normalizedPrivateKey == nil)
+                    .disabled(normalizedDraft.isEmpty || chatTopics.contains(normalizedDraft))
                 }
 
                 ForEach(chatTopics, id: \.self) { topic in
@@ -78,12 +78,14 @@ struct P2PListView: View {
     private func addTopic() {
         let topic = normalizedDraft
         guard !topic.isEmpty, !chatTopics.contains(topic) else { return }
+
+        chatTopics.append(topic)
         guard let privateKey = normalizedPrivateKey else {
-            print("Private key required to persist chat topics")
+            print("Added chat topic in memory; private key required to persist it")
+            topicDraft = ""
             return
         }
 
-        chatTopics.append(topic)
         do {
             try persistChatTopics(using: privateKey)
         } catch {
