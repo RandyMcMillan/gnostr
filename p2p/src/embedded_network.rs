@@ -41,6 +41,8 @@ pub struct DiscoveredPeer {
 static NETWORK: OnceLock<Mutex<Option<EmbeddedNetwork>>> = OnceLock::new();
 static LOGS: OnceLock<Mutex<Vec<String>>> = OnceLock::new();
 static PEERS: OnceLock<Mutex<Vec<DiscoveredPeer>>> = OnceLock::new();
+static CHAT_TOPICS: OnceLock<Mutex<HashSet<String>>> = OnceLock::new();
+static SUBSCRIBED_CHAT_TOPICS: OnceLock<Mutex<HashSet<String>>> = OnceLock::new();
 
 fn network_slot() -> &'static Mutex<Option<EmbeddedNetwork>> {
     NETWORK.get_or_init(|| Mutex::new(None))
@@ -52,6 +54,18 @@ fn logs_slot() -> &'static Mutex<Vec<String>> {
 
 fn peers_slot() -> &'static Mutex<Vec<DiscoveredPeer>> {
     PEERS.get_or_init(|| Mutex::new(Vec::new()))
+}
+
+fn chat_topics_slot() -> &'static Mutex<HashSet<String>> {
+    CHAT_TOPICS.get_or_init(|| {
+        let mut topics = HashSet::new();
+        topics.insert(CHAT_TOPIC.to_string());
+        Mutex::new(topics)
+    })
+}
+
+fn subscribed_chat_topics_slot() -> &'static Mutex<HashSet<String>> {
+    SUBSCRIBED_CHAT_TOPICS.get_or_init(|| Mutex::new(HashSet::new()))
 }
 
 fn push_log(line: impl Into<String>) {
@@ -185,8 +199,44 @@ fn discovery_key() -> KadKey {
     KadKey::new(&DISCOVERY_KEY)
 }
 
-fn chat_topic() -> IdentTopic {
-    IdentTopic::new(CHAT_TOPIC)
+fn sync_registered_chat_topics(
+    swarm: &mut libp2p::Swarm<crate::behaviour::Behaviour>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let topics = {
+        let topics = chat_topics_slot().lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        topics.clone()
+    };
+    let mut subscribed = subscribed_chat_topics_slot()
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+
+    for topic in topics {
+        if subscribed.insert(topic.clone()) {
+            swarm
+                .behaviour_mut()
+                .gossipsub
+                .subscribe(&IdentTopic::new(topic.clone()))?;
+            push_log(format!("subscribed chat topic {topic}"));
+        }
+    }
+
+    Ok(())
+}
+
+pub fn register_chat_topic(topic: impl Into<String>) -> String {
+    let topic = topic.into().trim().to_string();
+    if topic.is_empty() {
+        push_log("skipping empty chat topic");
+        return String::from("skipping empty chat topic");
+    }
+
+    let mut topics = chat_topics_slot().lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    if topics.insert(topic.clone()) {
+        push_log(format!("registered chat topic {topic}"));
+    } else {
+        push_log(format!("chat topic already registered {topic}"));
+    }
+    topic
 }
 
 fn timestamp_secs() -> u64 {
@@ -247,8 +297,7 @@ pub fn subscribe_to_discovery_topic(
 pub fn subscribe_to_chat_topic(
     swarm: &mut libp2p::Swarm<crate::behaviour::Behaviour>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    swarm.behaviour_mut().gossipsub.subscribe(&chat_topic())?;
-    Ok(())
+    sync_registered_chat_topics(swarm)
 }
 
 pub fn bootstrap_public_dht(
@@ -285,8 +334,8 @@ pub fn refresh_wide_area_discovery(
     swarm: &mut libp2p::Swarm<crate::behaviour::Behaviour>,
     peer_id: PeerId,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    sync_registered_chat_topics(swarm)?;
     subscribe_to_discovery_topic(swarm)?;
-    subscribe_to_chat_topic(swarm)?;
     bootstrap_public_dht(swarm)?;
     publish_presence(swarm, peer_id)?;
     swarm.behaviour_mut().kademlia.get_providers(discovery_key());
@@ -425,6 +474,8 @@ pub fn start() -> String {
             let mut discovery_tick =
                 tokio::time::interval(std::time::Duration::from_secs(DISCOVERY_REFRESH_SECS));
             discovery_tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+            let mut chat_tick = tokio::time::interval(std::time::Duration::from_secs(1));
+            chat_tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
 
             loop {
                 tokio::select! {
@@ -435,6 +486,11 @@ pub fn start() -> String {
                     _ = discovery_tick.tick() => {
                         if let Err(error) = refresh_wide_area_discovery(&mut swarm, peer_id) {
                             push_log(format!("wide-area discovery refresh failed: {error}"));
+                        }
+                    }
+                    _ = chat_tick.tick() => {
+                        if let Err(error) = sync_registered_chat_topics(&mut swarm) {
+                            push_log(format!("chat topic sync failed: {error}"));
                         }
                     }
                     event = swarm.select_next_some() => {
