@@ -102,7 +102,9 @@ struct P2PListView: View {
 
     private func loadChatTopics() {
         guard let privateKey = normalizedPrivateKey else {
-            chatTopics = ["gnostr-dev"]
+            if chatTopics.isEmpty {
+                chatTopics = ["gnostr-dev"]
+            }
             registerChatTopicsInRelay(chatTopics)
             return
         }
@@ -123,7 +125,10 @@ struct P2PListView: View {
             }
         } catch {
             print("Failed to load chat topics: \(error)")
-            chatTopics = ["gnostr-dev"]
+            if chatTopics.isEmpty {
+                chatTopics = ["gnostr-dev"]
+            }
+            registerChatTopicsInRelay(chatTopics)
         }
     }
 
