@@ -9,6 +9,7 @@ import RustyLib
 import SwiftUI
 
 struct P2PChatView: View {
+    @AppStorage("P2PChatTopic") private var chatTopic: String = "gnostr-dev"
     @State private var networkStatus = p2pNetworkStatus()
     @State private var networkLogs = p2pNetworkLogs()
     @State private var chatEntries: [P2PChatMessage] = []
@@ -32,6 +33,9 @@ struct P2PChatView: View {
                     scrollToLatestLog(using: proxy)
                 }
                 .onChange(of: chatEntries.count) { _ in
+                    scrollToLatestLog(using: proxy)
+                }
+                .onChange(of: chatTopic) { _ in
                     scrollToLatestLog(using: proxy)
                 }
             }
@@ -96,8 +100,16 @@ struct P2PChatView: View {
                 .font(.subheadline.weight(.semibold))
 
             VStack(alignment: .leading, spacing: 8) {
-                topicRow(label: "Topic", value: "gnostr/p2p/presence")
+                topicRow(label: "Topic", value: effectiveChatTopic)
                 topicRow(label: "Filter", value: "kind == Chat")
+
+                TextField("Chat topic", text: $chatTopic)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .font(.system(.caption, design: .monospaced))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+                    .background(.background, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
             }
             .padding()
             .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -111,12 +123,12 @@ struct P2PChatView: View {
 
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 4) {
-                    if chatEntries.isEmpty {
-                        Text("No chat messages yet.")
+                    if visibleChatEntries.isEmpty {
+                        Text("No chat messages for this topic yet.")
                             .font(logFont)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     } else {
-                        ForEach(Array(chatEntries.enumerated()), id: \.element.id) { index, message in
+                        ForEach(Array(visibleChatEntries.enumerated()), id: \.element.id) { index, message in
                             chatBubble(message)
                                 .id(index)
                         }
@@ -134,6 +146,15 @@ struct P2PChatView: View {
         .system(size: logFontSize, weight: .regular, design: .monospaced)
     }
 
+    private var effectiveChatTopic: String {
+        let topic = chatTopic.trimmingCharacters(in: .whitespacesAndNewlines)
+        return topic.isEmpty ? "gnostr-dev" : topic
+    }
+
+    private var visibleChatEntries: [P2PChatMessage] {
+        chatEntries.filter { $0.topic == effectiveChatTopic }
+    }
+
     private func refreshNetworkSnapshot() {
         networkStatus = p2pNetworkStatus()
         networkLogs = p2pNetworkLogs()
@@ -141,7 +162,7 @@ struct P2PChatView: View {
     }
 
     private func scrollToLatestLog(using proxy: ScrollViewProxy) {
-        guard let lastIndex = chatEntries.indices.last else { return }
+        guard let lastIndex = visibleChatEntries.indices.last else { return }
         DispatchQueue.main.async {
             proxy.scrollTo(lastIndex, anchor: .bottom)
         }
