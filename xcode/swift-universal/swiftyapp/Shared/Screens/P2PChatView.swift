@@ -159,12 +159,14 @@ struct P2PChatView: View {
 
     private func registerChatTopic() {
         do {
+            let topic = effectiveChatTopic
+            registerChatTopicInRelay(topic)
+
             guard let privateKey = normalizedPrivateKey else {
                 print("Private key required to persist chat topics")
                 return
             }
 
-            let topic = effectiveChatTopic
             guard let topicsURL = chatTopicsFileURL() else {
                 throw ChatTopicsStoreError.missingFileURL
             }
@@ -176,7 +178,7 @@ struct P2PChatView: View {
             }
 
             try persistChatTopics(topics, using: privateKey, to: topicsURL)
-            restartP2PNetwork()
+            appState.notifyChatTopicsChanged()
         } catch {
             print("Failed to register chat topic: \(error)")
         }
@@ -269,9 +271,8 @@ struct P2PChatView: View {
         return result
     }
 
-    private func restartP2PNetwork() {
-        _ = p2pNetworkStop()
-        _ = p2pNetworkStart()
+    private func registerChatTopicInRelay(_ topic: String) {
+        _ = p2pNetworkRegisterChatTopic(topic: topic)
     }
 
     private func scrollToLatestLog(using proxy: ScrollViewProxy) {

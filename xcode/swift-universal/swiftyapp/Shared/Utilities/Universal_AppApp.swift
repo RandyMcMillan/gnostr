@@ -23,6 +23,11 @@ struct Universal_AppApp: App {
 
 final class AppState: ObservableObject {
     @Published var privateKey: String = ""
+    @Published var chatTopicsRefreshToken = UUID()
+
+    func notifyChatTopicsChanged() {
+        chatTopicsRefreshToken = UUID()
+    }
 }
 
 private struct AppLifecycleView: View {

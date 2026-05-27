@@ -67,6 +67,9 @@ struct P2PListView: View {
         .onChange(of: appState.privateKey) { _ in
             loadChatTopics()
         }
+        .onChange(of: appState.chatTopicsRefreshToken) { _ in
+            loadChatTopics()
+        }
         #if os(macOS)
         .listStyle(SidebarListStyle())
         #endif
@@ -81,6 +84,7 @@ struct P2PListView: View {
         guard !topic.isEmpty, !chatTopics.contains(topic) else { return }
 
         chatTopics.append(topic)
+        registerChatTopic(topic)
         guard let privateKey = normalizedPrivateKey else {
             print("Added chat topic in memory; private key required to persist it")
             topicDraft = ""
@@ -89,7 +93,7 @@ struct P2PListView: View {
 
         do {
             try persistChatTopics(using: privateKey)
-            restartP2PNetwork()
+            appState.notifyChatTopicsChanged()
         } catch {
             print("Failed to persist chat topics: \(error)")
         }
@@ -99,17 +103,20 @@ struct P2PListView: View {
     private func loadChatTopics() {
         guard let privateKey = normalizedPrivateKey else {
             chatTopics = ["gnostr-dev"]
+            registerChatTopicsInRelay(chatTopics)
             return
         }
 
         do {
             let result = try loadChatTopicsFromDisk(using: privateKey)
             chatTopics = result.topics.isEmpty ? ["gnostr-dev"] : result.topics
+            registerChatTopicsInRelay(chatTopics)
 
             if result.needsMigration {
                 do {
                     try persistChatTopics(using: privateKey)
-                    restartP2PNetwork()
+                    appState.notifyChatTopicsChanged()
+                    registerChatTopicsInRelay(chatTopics)
                 } catch {
                     print("Failed to migrate legacy chat topics: \(error)")
                 }
@@ -215,9 +222,12 @@ struct P2PListView: View {
         return result
     }
 
-    private func restartP2PNetwork() {
-        _ = p2pNetworkStop()
-        _ = p2pNetworkStart()
+    private func registerChatTopic(_ topic: String) {
+        _ = p2pNetworkRegisterChatTopic(topic: topic)
+    }
+
+    private func registerChatTopicsInRelay(_ topics: [String]) {
+        topics.forEach { registerChatTopic($0) }
     }
 }
 
