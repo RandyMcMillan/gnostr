@@ -40,7 +40,7 @@ pub async fn blockhash_async() -> String {
     blockhash
 }
 pub fn blockhash_sync() -> String {
-    let blockhash = fetch_blockhash_sync().unwrap_or_default();
+    let blockhash = fetch_blockhash_sync().unwrap_or_else(|| "0".to_string());
     debug!("blockhash_sync: {}", blockhash);
     blockhash
 }
