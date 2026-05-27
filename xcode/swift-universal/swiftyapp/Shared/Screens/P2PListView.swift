@@ -8,6 +8,12 @@ import SwiftUI
 struct P2PListView: View {
     var body: some View {
         List {
+            Section("CHAT") {
+                NavigationLink(destination: P2PChatView()) {
+                    Label("Chat", systemImage: "message.fill")
+                }
+            }
+
             Section("P2P") {
                 NavigationLink(destination: P2PPeersView()) {
                     Label("Peers", systemImage: "person.3.fill")
