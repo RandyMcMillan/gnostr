@@ -292,6 +292,7 @@ pub fn handle_presence_message(
         return Ok(());
     }
 
+    let mut discovered_addresses = Vec::new();
     let mut announced = 0usize;
     for addr in presence.addresses {
         let Ok(addr) = addr.parse::<Multiaddr>() else {
@@ -299,6 +300,7 @@ pub fn handle_presence_message(
         };
 
         let addr_with_peer = multiaddr_with_peer_id(&addr, &remote_peer_id);
+        discovered_addresses.push(addr_with_peer.to_string());
         swarm
             .behaviour_mut()
             .kademlia
@@ -315,6 +317,14 @@ pub fn handle_presence_message(
         } else {
             announced += 1;
         }
+    }
+
+    if !discovered_addresses.is_empty() {
+        record_peer_discovery(
+            remote_peer_id.to_string(),
+            "presence",
+            discovered_addresses,
+        );
     }
 
     if announced > 0 {
