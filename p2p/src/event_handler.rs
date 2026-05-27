@@ -23,6 +23,11 @@ pub async fn handle_swarm_event(
                 info!("mDNS discovered a new peer: {peer_id}\n{multiaddr}");
                 let peer_id_label = peer_id.to_string();
                 let address_with_p2p = multiaddr_with_peer_id(&multiaddr, &peer_id);
+                crate::embedded_network::record_peer_discovery(
+                    peer_id.to_string(),
+                    "mdns",
+                    vec![address_with_p2p.to_string()],
+                );
                 swarm
                     .behaviour_mut()
                     .kademlia
@@ -129,8 +134,9 @@ pub async fn handle_swarm_event(
                 ..
             } => {
                 for registration in registrations {
+                    let peer = registration.record.peer_id();
+                    let mut discovered_addresses = Vec::new();
                     for address in registration.record.addresses() {
-                        let peer = registration.record.peer_id();
                         let p2p_suffix = Protocol::P2p(peer);
                         let address_with_p2p = if address.ends_with(&Multiaddr::empty().with(p2p_suffix.clone())) {
                             address.clone()
@@ -138,11 +144,19 @@ pub async fn handle_swarm_event(
                             address.clone().with(p2p_suffix)
                         };
 
+                        discovered_addresses.push(address_with_p2p.to_string());
                         info!("Rendezvous discovered peer {peer} at {address_with_p2p}");
                         if let Err(error) = swarm.dial(address_with_p2p) {
                             crate::embedded_network::log_line(format!("failed to dial rendezvous peer {peer}: {error:?}"));
                             warn!("Failed to dial rendezvous peer {peer}: {error:?}");
                         }
+                    }
+                    if !discovered_addresses.is_empty() {
+                        crate::embedded_network::record_peer_discovery(
+                            peer.to_string(),
+                            "rendezvous",
+                            discovered_addresses,
+                        );
                     }
                 }
             }
