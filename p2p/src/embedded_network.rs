@@ -167,6 +167,7 @@ pub fn peers() -> String {
 
 pub const DISCOVERY_TOPIC: &str = "gnostr/p2p/presence";
 const DISCOVERY_KEY: &[u8] = b"gnostr/p2p/presence";
+pub const CHAT_TOPIC: &str = "gnostr-dev";
 const DISCOVERY_REFRESH_SECS: u64 = 20;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -182,6 +183,10 @@ fn discovery_topic() -> IdentTopic {
 
 fn discovery_key() -> KadKey {
     KadKey::new(&DISCOVERY_KEY)
+}
+
+fn chat_topic() -> IdentTopic {
+    IdentTopic::new(CHAT_TOPIC)
 }
 
 fn timestamp_secs() -> u64 {
@@ -239,6 +244,13 @@ pub fn subscribe_to_discovery_topic(
     Ok(())
 }
 
+pub fn subscribe_to_chat_topic(
+    swarm: &mut libp2p::Swarm<crate::behaviour::Behaviour>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    swarm.behaviour_mut().gossipsub.subscribe(&chat_topic())?;
+    Ok(())
+}
+
 pub fn bootstrap_public_dht(
     swarm: &mut libp2p::Swarm<crate::behaviour::Behaviour>,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -274,6 +286,7 @@ pub fn refresh_wide_area_discovery(
     peer_id: PeerId,
 ) -> Result<(), Box<dyn std::error::Error>> {
     subscribe_to_discovery_topic(swarm)?;
+    subscribe_to_chat_topic(swarm)?;
     bootstrap_public_dht(swarm)?;
     publish_presence(swarm, peer_id)?;
     swarm.behaviour_mut().kademlia.get_providers(discovery_key());
