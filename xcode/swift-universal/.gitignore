@@ -1,9 +1,8 @@
 #swiftyapp
 swiftyapp/Shared/Lib/swiftyrustlib/artifacts/RustyCore.xcframework/Info.plist
 #rustylib
+rustylib/out/
 rustylib/rustylib_framework.xcframework/
-rustylib/rustylib_framework.xcframework/Info.plist
-rustylib/out/rustylib.swift
 
 # Xcode
 #
