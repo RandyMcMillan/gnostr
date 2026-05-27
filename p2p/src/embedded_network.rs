@@ -353,7 +353,12 @@ fn decrypt_chat_topics(
             msg: &combined,
             aad: &[],
         },
-    )?;
+    ).map_err(|error| {
+        std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            format!("chat topic decryption failed: {error}"),
+        )
+    })?;
 
     let topics: Vec<String> = serde_json::from_slice(&plaintext)?;
     let mut seen = HashSet::new();
