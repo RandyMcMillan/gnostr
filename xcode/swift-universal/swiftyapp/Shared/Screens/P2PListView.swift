@@ -3,7 +3,7 @@
 //  Universal App
 //
 
-import RustyLib
+import Foundation
 import SwiftUI
 
 struct P2PListView: View {
@@ -78,14 +78,33 @@ struct P2PListView: View {
 
         let updated = chatTopics + [topic]
         chatTopicsRaw = updated.joined(separator: "\n")
-        _ = p2pChatRegisterTopic(topic)
+        persistChatTopics()
         topicDraft = ""
     }
 
     private func syncChatTopics() {
-        for topic in chatTopics {
-            _ = p2pChatRegisterTopic(topic)
+        persistChatTopics()
+    }
+
+    private func persistChatTopics() {
+        guard let url = chatTopicsFileURL() else { return }
+
+        let contents = chatTopics.joined(separator: "\n")
+        do {
+            try FileManager.default.createDirectory(
+                at: url.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            try contents.write(to: url, atomically: true, encoding: .utf8)
+        } catch {
+            print("Failed to persist chat topics: \(error)")
         }
+    }
+
+    private func chatTopicsFileURL() -> URL? {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
+            .appendingPathComponent("gnostr", isDirectory: true)
+            .appendingPathComponent("p2p-chat-topics.txt")
     }
 }
 

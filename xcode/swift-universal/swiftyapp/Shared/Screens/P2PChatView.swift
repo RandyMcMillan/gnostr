@@ -43,6 +43,7 @@ struct P2PChatView: View {
         }
         .navigationTitle("Chat")
         .onAppear {
+            registerChatTopic()
             refreshNetworkSnapshot()
         }
         .onReceive(Timer.publish(every: 1.0, on: .main, in: .common).autoconnect()) { _ in
@@ -152,6 +153,36 @@ struct P2PChatView: View {
         networkStatus = p2pNetworkStatus()
         networkLogs = p2pNetworkLogs()
         ingestChatLogs(networkLogs)
+    }
+
+    private func registerChatTopic() {
+        let topicsURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
+            .appendingPathComponent("gnostr", isDirectory: true)
+            .appendingPathComponent("p2p-chat-topics.txt")
+        guard let topicsURL else { return }
+
+        let existingTopics = (try? String(contentsOf: topicsURL, encoding: .utf8))
+            .map { contents in
+                contents
+                    .split(whereSeparator: { $0 == "\n" || $0 == "," })
+                    .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                    .filter { !$0.isEmpty }
+            } ?? []
+
+        var topics = existingTopics
+        if !topics.contains(chatTopic) {
+            topics.append(chatTopic)
+        }
+
+        do {
+            try FileManager.default.createDirectory(
+                at: topicsURL.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            try topics.joined(separator: "\n").write(to: topicsURL, atomically: true, encoding: .utf8)
+        } catch {
+            print("Failed to register chat topic: \(error)")
+        }
     }
 
     private func scrollToLatestLog(using proxy: ScrollViewProxy) {
