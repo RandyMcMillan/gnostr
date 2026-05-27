@@ -11,6 +11,8 @@ import SwiftUI
 struct P2PChatView: View {
     @State private var networkStatus = p2pNetworkStatus()
     @State private var networkLogs = p2pNetworkLogs()
+    @State private var chatEntries: [P2PChatMessage] = []
+    @State private var seenChatLogLines: Set<String> = []
     @State private var logFontSize: CGFloat = 12
 
     var body: some View {
@@ -29,7 +31,7 @@ struct P2PChatView: View {
                 .onAppear {
                     scrollToLatestLog(using: proxy)
                 }
-                .onChange(of: networkLogs) { _ in
+                .onChange(of: chatEntries.count) { _ in
                     scrollToLatestLog(using: proxy)
                 }
             }
@@ -109,12 +111,12 @@ struct P2PChatView: View {
 
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 4) {
-                    if chatMessages.isEmpty {
+                    if chatEntries.isEmpty {
                         Text("No chat messages yet.")
                             .font(logFont)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     } else {
-                        ForEach(Array(chatMessages.enumerated()), id: \.element.id) { index, message in
+                        ForEach(Array(chatEntries.enumerated()), id: \.element.id) { index, message in
                             chatBubble(message)
                                 .id(index)
                         }
@@ -128,13 +130,6 @@ struct P2PChatView: View {
         }
     }
 
-    private var chatMessages: [P2PChatMessage] {
-        networkLogs
-            .split(separator: "\n", omittingEmptySubsequences: false)
-            .map(String.init)
-            .compactMap(P2PChatMessage.parse(from:))
-    }
-
     private var logFont: Font {
         .system(size: logFontSize, weight: .regular, design: .monospaced)
     }
@@ -142,10 +137,11 @@ struct P2PChatView: View {
     private func refreshNetworkSnapshot() {
         networkStatus = p2pNetworkStatus()
         networkLogs = p2pNetworkLogs()
+        ingestChatLogs(networkLogs)
     }
 
     private func scrollToLatestLog(using proxy: ScrollViewProxy) {
-        guard let lastIndex = chatMessages.indices.last else { return }
+        guard let lastIndex = chatEntries.indices.last else { return }
         DispatchQueue.main.async {
             proxy.scrollTo(lastIndex, anchor: .bottom)
         }
@@ -185,6 +181,17 @@ struct P2PChatView: View {
         }
         .padding(12)
         .background(message.isLocal ? Color.blue.opacity(0.14) : Color.primary.opacity(0.08), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    private func ingestChatLogs(_ logs: String) {
+        for line in logs.split(separator: "\n", omittingEmptySubsequences: false).map(String.init) {
+            guard !seenChatLogLines.contains(line),
+                  let message = P2PChatMessage.parse(from: line) else {
+                continue
+            }
+            seenChatLogLines.insert(line)
+            chatEntries.append(message)
+        }
     }
 }
 
