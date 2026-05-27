@@ -7391,6 +7391,8 @@ dependencies = [
  "ansi_term",
  "anyhow",
  "async-std",
+ "base64 0.22.1",
+ "chacha20poly1305",
  "chrono",
  "clap 4.6.1",
  "futures",
