@@ -3,20 +3,40 @@
 //  Universal App
 //
 
+import RustyLib
 import SwiftUI
 
 struct P2PListView: View {
-    @AppStorage("P2PChatTopic") private var chatTopic: String = "gnostr-dev"
+    @AppStorage("P2PChatTopics") private var chatTopicsRaw: String = "gnostr-dev"
+    @State private var topicDraft: String = ""
 
     var body: some View {
         List {
             Section("CHAT") {
-                TextField("Topic", text: $chatTopic)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
+                HStack(spacing: 8) {
+                    TextField("Topic", text: $topicDraft)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
 
-                NavigationLink(destination: P2PChatView(topic: chatTopic)) {
-                    Label("Chat", systemImage: "message.fill")
+                    Button(action: addTopic) {
+                        Image(systemName: "plus.circle.fill")
+                            .foregroundStyle(.green)
+                    }
+                    .accessibilityLabel("Add topic")
+                    .disabled(normalizedDraft.isEmpty || chatTopics.contains(normalizedDraft))
+                }
+
+                ForEach(chatTopics, id: \.self) { topic in
+                    NavigationLink(destination: P2PChatView(topic: topic)) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(topic)
+                            if topic == "gnostr-dev" {
+                                Text("default")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
                 }
             }
 
@@ -31,9 +51,41 @@ struct P2PListView: View {
             }
         }
         .navigationTitle("P2P")
+        .onAppear {
+            syncChatTopics()
+        }
         #if os(macOS)
         .listStyle(SidebarListStyle())
         #endif
+    }
+
+    private var chatTopics: [String] {
+        let topics = chatTopicsRaw
+            .split(whereSeparator: { $0 == "\n" || $0 == "," })
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+
+        return topics.isEmpty ? ["gnostr-dev"] : topics
+    }
+
+    private var normalizedDraft: String {
+        topicDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func addTopic() {
+        let topic = normalizedDraft
+        guard !topic.isEmpty, !chatTopics.contains(topic) else { return }
+
+        let updated = chatTopics + [topic]
+        chatTopicsRaw = updated.joined(separator: "\n")
+        _ = p2pChatRegisterTopic(topic)
+        topicDraft = ""
+    }
+
+    private func syncChatTopics() {
+        for topic in chatTopics {
+            _ = p2pChatRegisterTopic(topic)
+        }
     }
 }
 
