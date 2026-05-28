@@ -843,30 +843,33 @@ mod tests {
             let actual_now = Utc::now();
             println!("  pre-consensus:");
             println!(
-                "    - identity=blockheight_relay\n      node_id={}\n      {:<12} = {}\n      {:<12} = {}\n      status={:?}",
+                "    - identity=blockheight_relay\n      node_id={}\n      {:<13}= {}\n      {:<13}= {}\n      {:<13}= {:?}",
                 blockheight_peer_id,
                 "thinks_it_is",
                 pre_blockheight.to_rfc3339(),
                 "actual",
                 actual_now.to_rfc3339(),
+                "status",
                 blockheight_state.status
             );
             println!(
-                "    - identity=weeble_relay\n      node_id={}\n      {:<12} = {}\n      {:<12} = {}\n      status={:?}",
+                "    - identity=weeble_relay\n      node_id={}\n      {:<13}= {}\n      {:<13}= {}\n      {:<13}= {:?}",
                 weeble_peer_id,
                 "thinks_it_is",
                 pre_weeble.to_rfc3339(),
                 "actual",
                 actual_now.to_rfc3339(),
+                "status",
                 weeble_state.status
             );
             println!(
-                "    - identity=wobble_relay\n      node_id={}\n      {:<12} = {}\n      {:<12} = {}\n      status={:?}",
+                "    - identity=wobble_relay\n      node_id={}\n      {:<13}= {}\n      {:<13}= {}\n      {:<13}= {:?}",
                 wobble_peer_id,
                 "thinks_it_is",
                 pre_wobble.to_rfc3339(),
                 "actual",
                 actual_now.to_rfc3339(),
+                "status",
                 wobble_state.status
             );
 
@@ -877,12 +880,17 @@ mod tests {
                 .unwrap_or(0);
             println!("  post-consensus:");
             println!(
-                "    - identity=blockheight_relay\n      node_id={}\n      utc={}\n      delta={}ms\n      status={:?}\n      slew_rate={:.6}\n      pending_alert={:?}",
+                "    - identity=blockheight_relay\n      node_id={}\n      {:<13}= {}\n      {:<13}= {}ms\n      {:<13}= {:?}\n      {:<13}= {:.6}\n      {:<13}= {:?}",
                 blockheight_peer_id,
+                "utc",
                 now_blockheight.to_rfc3339(),
+                "delta",
                 blockheight_delta,
+                "status",
                 blockheight_state.status,
+                "slew_rate",
                 blockheight_state.slew_rate,
+                "pending_alert",
                 blockheight_state.pending_alert
             );
             if round_idx < 3 {
@@ -904,12 +912,17 @@ mod tests {
                 .map(|last| now_weeble.signed_duration_since(last).num_milliseconds())
                 .unwrap_or(0);
             println!(
-                "    - identity=weeble_relay\n      node_id={}\n      utc={}\n      delta={}ms\n      status={:?}\n      slew_rate={:.6}\n      pending_alert={:?}",
+                "    - identity=weeble_relay\n      node_id={}\n      {:<13}= {}\n      {:<13}= {}ms\n      {:<13}= {:?}\n      {:<13}= {:.6}\n      {:<13}= {:?}",
                 weeble_peer_id,
+                "utc",
                 now_weeble.to_rfc3339(),
+                "delta",
                 weeble_delta,
+                "status",
                 weeble_state.status,
+                "slew_rate",
                 weeble_state.slew_rate,
+                "pending_alert",
                 weeble_state.pending_alert
             );
             if round_idx < 3 {
@@ -931,8 +944,18 @@ mod tests {
                 .map(|last| now_wobble.signed_duration_since(last).num_milliseconds())
                 .unwrap_or(0);
             println!(
-                "    - identity=wobble_relay node_id={} utc={} delta={}ms status={:?} slew_rate={:.6} pending_alert={:?}",
-                wobble_peer_id, now_wobble.to_rfc3339(), wobble_delta, wobble_state.status, wobble_state.slew_rate, wobble_state.pending_alert
+                "    - identity=wobble_relay\n      node_id={}\n      {:<13}= {}\n      {:<13}= {}ms\n      {:<13}= {:?}\n      {:<13}= {:.6}\n      {:<13}= {:?}",
+                wobble_peer_id,
+                "utc",
+                now_wobble.to_rfc3339(),
+                "delta",
+                wobble_delta,
+                "status",
+                wobble_state.status,
+                "slew_rate",
+                wobble_state.slew_rate,
+                "pending_alert",
+                wobble_state.pending_alert
             );
             if round_idx < 3 {
                 assert_eq!(wobble_state.status, ClockStatus::Init);
