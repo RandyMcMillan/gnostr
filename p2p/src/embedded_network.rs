@@ -32,6 +32,7 @@ use crate::{
     utils::multiaddr_with_peer_id,
 };
 use gnostr_asyncgit::blockheight::blockheight_sync;
+use gnostr_asyncgit::weeble::weeble_sync;
 
 struct EmbeddedNetwork {
     status: Arc<Mutex<String>>,
@@ -573,6 +574,8 @@ pub fn start() -> String {
             let peer_id = keypair.public().to_peer_id();
             let identity_label = if explicit_seed.is_some() {
                 "explicit"
+            } else if matches!(relay_kind_from_env().as_deref(), Some("weeble")) {
+                "weeble_relay"
             } else {
                 "blockheight_relay"
             };
@@ -716,21 +719,47 @@ fn private_key_seed_from_env() -> Option<String> {
         .filter(|value| !value.is_empty())
 }
 
+fn padded_metric_identity(metric: &str) -> String {
+    format!("{:0>64}", metric.trim())
+}
+
 fn padded_blockheight_identity(blockheight: &str) -> String {
-    format!("{:0>64}", blockheight.trim())
+    padded_metric_identity(blockheight)
+}
+
+fn padded_weeble_identity(weeble: &str) -> String {
+    padded_metric_identity(weeble)
 }
 
 fn blockheight_relay_seed() -> String {
     padded_blockheight_identity(&blockheight_sync())
 }
 
+fn weeble_relay_seed() -> String {
+    padded_weeble_identity(&weeble_sync().unwrap_or(0.0).to_string())
+}
+
+fn relay_kind_from_env() -> Option<String> {
+    std::env::var("GNOSTR_RELAY_KIND")
+        .ok()
+        .map(|value| value.trim().to_lowercase())
+        .filter(|value| !value.is_empty())
+}
+
 fn relay_identity_seed() -> String {
-    private_key_seed_from_env().unwrap_or_else(blockheight_relay_seed)
+    if let Some(seed) = private_key_seed_from_env() {
+        return seed;
+    }
+
+    match relay_kind_from_env().as_deref() {
+        Some("weeble") => weeble_relay_seed(),
+        _ => blockheight_relay_seed(),
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::padded_blockheight_identity;
+    use super::{padded_blockheight_identity, padded_weeble_identity};
 
     #[test]
     fn padded_blockheight_identity_is_sha256_length() {
@@ -738,5 +767,13 @@ mod tests {
         assert_eq!(identity.len(), 64);
         assert!(identity.ends_with("12345"));
         assert!(identity.chars().take(59).all(|c| c == '0'));
+    }
+
+    #[test]
+    fn padded_weeble_identity_is_sha256_length() {
+        let identity = padded_weeble_identity("9876.5");
+        assert_eq!(identity.len(), 64);
+        assert!(identity.ends_with("9876.5"));
+        assert!(identity.chars().take(58).all(|c| c == '0'));
     }
 }
