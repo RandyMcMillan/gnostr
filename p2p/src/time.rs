@@ -773,7 +773,7 @@ mod tests {
             Estimation { d: 0.250, a: 0.001 },
         ];
         let mut rounds = vec![warmup_round; warmup_rounds];
-        rounds.extend(vec![round; 9950]);
+        rounds.extend(vec![round.clone(); 9950]);
         let blockheight_node_id = relay_node_id(
             "blockheight_relay",
             padded_metric_identity(&blockheight_sync()),
@@ -990,6 +990,180 @@ mod tests {
             }
         }
 
+        println!("\n\n\n======================================================================");
+        println!("======================================================================");
+        println!("======================================================================");
+        println!("======================================================================");
+        println!("======================================================================");
+        println!("======================================================================");
+        println!("======================================================================");
+        println!("phase 2: wobble relay changes value");
+        println!("======================================================================");
+        println!("======================================================================");
+        println!("======================================================================");
+        println!("======================================================================");
+        println!("======================================================================");
+        println!("======================================================================\n\n\n");
+        let wobble_shift_checkpoint = NamedTempFile::new().expect("wobble shift checkpoint");
+        let mut wobble_shift_state =
+            SyncState::new(1, &wobble_shift_checkpoint.path().to_string_lossy());
+        let wobble_shift_rounds: Vec<Vec<Estimation>> = (0..10)
+            .map(|step| {
+                let target = 0.030 + (step as f64 * 0.002);
+                vec![
+                    Estimation { d: target - 0.015, a: 0.005 },
+                    Estimation { d: target - 0.010, a: 0.005 },
+                    Estimation { d: target, a: 0.005 },
+                    Estimation { d: target + 0.010, a: 0.005 },
+                    Estimation { d: target + 0.015, a: 0.005 },
+                ]
+            })
+            .collect();
+
+        for (round_idx, estimates) in wobble_shift_rounds.clone().into_iter().enumerate() {
+            println!("----------------------------------------------------------------------");
+            println!("\nwobble shift round {round_idx}: {} samples", estimates.len());
+            let wobble_target = 0.030 + (round_idx as f64 * 0.002);
+            let wobble_shift_peer_id = keypair_from_seed(Some(
+                padded_metric_identity(&wobble_target.to_string()),
+            ))
+            .public()
+            .to_peer_id();
+
+            let pre_blockheight = blockheight_state.get_logical_utc();
+            let pre_weeble = weeble_state.get_logical_utc();
+            let pre_wobble = wobble_state.get_logical_utc();
+            let pre_wobble_shift = wobble_shift_state.get_logical_utc();
+            let actual_now = Utc::now();
+            println!("  pre-shift:");
+            println!(
+                "    - identity=blockheight_relay\n      node_id={}\n      {:<13}= {}\n      {:<13}= {}\n      {:<13}= {:?}",
+                blockheight_peer_id,
+                "thinks_it_is",
+                pre_blockheight.to_rfc3339(),
+                "actual",
+                actual_now.to_rfc3339(),
+                "status",
+                blockheight_state.status
+            );
+            println!(
+                "    - identity=weeble_relay\n      node_id={}\n      {:<13}= {}\n      {:<13}= {}\n      {:<13}= {:?}",
+                weeble_peer_id,
+                "thinks_it_is",
+                pre_weeble.to_rfc3339(),
+                "actual",
+                actual_now.to_rfc3339(),
+                "status",
+                weeble_state.status
+            );
+            println!(
+                "    - old identity=wobble_relay\n      node_id={}\n      {:<13}= {}\n      {:<13}= {}\n      {:<13}= {:?}",
+                wobble_peer_id,
+                "thinks_it_is",
+                pre_wobble.to_rfc3339(),
+                "actual",
+                actual_now.to_rfc3339(),
+                "status",
+                wobble_state.status
+            );
+            println!(
+                "    - new identity=wobble_relay\n      node_id={}\n      target      = {:.3}\n      {:<13}= {}\n      {:<13}= {}\n      {:<13}= {:?}",
+                wobble_shift_peer_id,
+                wobble_target,
+                "thinks_it_is",
+                pre_wobble_shift.to_rfc3339(),
+                "actual",
+                actual_now.to_rfc3339(),
+                "status",
+                wobble_shift_state.status
+            );
+
+            blockheight_state.apply_bft_sync(round.clone());
+            weeble_state.apply_bft_sync(round.clone());
+            wobble_shift_state.apply_bft_sync(estimates);
+
+            let now_blockheight = blockheight_state.get_logical_utc();
+            let now_weeble = weeble_state.get_logical_utc();
+            let now_wobble_shift = wobble_shift_state.get_logical_utc();
+            println!("  post-shift:");
+            println!(
+                "    - identity=blockheight_relay\n      node_id={}\n      {:<13}= {}\n      {:<13}= {}ms\n      {:<13}= {:?}\n      {:<13}= {:.6}\n      {:<13}= {:?}",
+                blockheight_peer_id,
+                "utc",
+                now_blockheight.to_rfc3339(),
+                "delta",
+                now_blockheight
+                    .signed_duration_since(pre_blockheight)
+                    .num_milliseconds(),
+                "status",
+                blockheight_state.status,
+                "slew_rate",
+                blockheight_state.slew_rate,
+                "pending_alert",
+                blockheight_state.pending_alert
+            );
+            println!(
+                "    - identity=weeble_relay\n      node_id={}\n      {:<13}= {}\n      {:<13}= {}ms\n      {:<13}= {:?}\n      {:<13}= {:.6}\n      {:<13}= {:?}",
+                weeble_peer_id,
+                "utc",
+                now_weeble.to_rfc3339(),
+                "delta",
+                now_weeble
+                    .signed_duration_since(pre_weeble)
+                    .num_milliseconds(),
+                "status",
+                weeble_state.status,
+                "slew_rate",
+                weeble_state.slew_rate,
+                "pending_alert",
+                weeble_state.pending_alert
+            );
+            println!(
+                "    - old identity=wobble_relay\n      node_id={}\n      {:<13}= {}\n      {:<13}= {}ms\n      {:<13}= {:?}\n      {:<13}= {:.6}\n      {:<13}= {:?}",
+                wobble_peer_id,
+                "utc",
+                pre_wobble.to_rfc3339(),
+                "delta",
+                pre_wobble
+                    .signed_duration_since(pre_wobble)
+                    .num_milliseconds(),
+                "status",
+                wobble_state.status,
+                "slew_rate",
+                wobble_state.slew_rate,
+                "pending_alert",
+                wobble_state.pending_alert
+            );
+            println!(
+                "    - new identity=wobble_relay\n      node_id={}\n      target      = {:.3}\n      {:<13}= {}\n      {:<13}= {}ms\n      {:<13}= {:?}\n      {:<13}= {:.6}\n      {:<13}= {:?}",
+                wobble_shift_peer_id,
+                wobble_target,
+                "utc",
+                now_wobble_shift.to_rfc3339(),
+                "delta",
+                now_wobble_shift
+                    .signed_duration_since(pre_wobble_shift)
+                    .num_milliseconds(),
+                "status",
+                wobble_shift_state.status,
+                "slew_rate",
+                wobble_shift_state.slew_rate,
+                "pending_alert",
+                wobble_shift_state.pending_alert
+            );
+
+            assert!(matches!(blockheight_state.status, ClockStatus::Synced | ClockStatus::Slewing));
+            assert!(matches!(weeble_state.status, ClockStatus::Synced | ClockStatus::Slewing));
+            assert_eq!(wobble_state.get_logical_utc(), pre_wobble);
+            assert!(matches!(wobble_shift_state.status, ClockStatus::Synced | ClockStatus::Slewing));
+            assert!(wobble_shift_state.get_logical_utc() != pre_wobble_shift);
+            assert!(wobble_shift_state.slew_rate >= 1.0);
+            println!("----------------------------------------------------------------------");
+        }
+
+        println!("======================================================================");
         println!("relay triad consensus maintained across {} rounds", rounds.len());
+        println!("wobble relay changed value across {} shift rounds", wobble_shift_rounds.len());
+        println!("======================================================================");
     }
 }
