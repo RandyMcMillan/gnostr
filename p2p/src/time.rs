@@ -957,6 +957,20 @@ mod tests {
                 "pending_alert",
                 wobble_state.pending_alert
             );
+            let consensus_times = [now_blockheight, now_weeble, now_wobble];
+            let consensus_min = consensus_times.iter().min().copied().unwrap();
+            let consensus_max = consensus_times.iter().max().copied().unwrap();
+            let consensus_spread_ms = consensus_max
+                .signed_duration_since(consensus_min)
+                .num_microseconds()
+                .unwrap_or(0) as f64
+                / 1000.0;
+            println!(
+                "  consensus spread: min={} max={} spread={:.3}ms",
+                consensus_min.to_rfc3339(),
+                consensus_max.to_rfc3339(),
+                consensus_spread_ms
+            );
             if round_idx < 3 {
                 assert_eq!(wobble_state.status, ClockStatus::Init);
                 assert!(wobble_state.pending_alert.is_none());
@@ -965,6 +979,7 @@ mod tests {
                 assert!(matches!(wobble_state.status, ClockStatus::Synced | ClockStatus::Slewing));
                 assert!(wobble_state.pending_alert.is_none());
                 assert!((wobble_state.slew_rate - 1.0).abs() <= 0.005);
+                assert!(consensus_spread_ms <= 1.0, "consensus spread too large: {consensus_spread_ms:.3}ms");
                 if let Some(last) = last_wobble.replace(now_wobble) {
                     assert!(now_wobble > last);
                 }
