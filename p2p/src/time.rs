@@ -574,7 +574,7 @@ mod tests {
 
             state.apply_bft_sync(estimates);
 
-            let now = state.get_logical_utc();
+            let now: DateTime<Utc> = state.get_logical_utc();
             let logical_delta = now - last_time;
             println!(
                 "after round {label}: utc={} delta={}ms status={:?} slew_rate={:.6} pending_alert={:?}",
@@ -798,7 +798,7 @@ mod tests {
                 state.apply_bft_sync(estimates.clone());
                 let now = state.get_logical_utc();
                 let logical_delta = if let Some(last) = last_times.get(relay_name) {
-                    (now - *last).num_milliseconds()
+                    now.signed_duration_since(*last).num_milliseconds()
                 } else {
                     0
                 };
