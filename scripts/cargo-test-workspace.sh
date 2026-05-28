@@ -15,7 +15,17 @@ export RUST_LOG="${RUST_LOG:+$RUST_LOG,}ureq=off,serial_test=off,mio=off,tungste
 
 cargo_jobs() {
   local jobs
-  jobs="$(sysctl -n hw.logicalcpu 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || nproc 2>/dev/null || echo 1)"
+  case "$(uname -s 2>/dev/null || echo unknown)" in
+    MINGW*|MSYS*|CYGWIN*|Windows_NT)
+      jobs="${NUMBER_OF_PROCESSORS:-}"
+      if [[ -z "$jobs" ]] && command -v powershell.exe >/dev/null 2>&1; then
+        jobs="$(powershell.exe -NoProfile -Command "[Environment]::ProcessorCount" 2>/dev/null || echo 1)"
+      fi
+      ;;
+    *)
+      jobs="$(sysctl -n hw.logicalcpu 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || nproc 2>/dev/null || echo 1)"
+      ;;
+  esac
   jobs=$((jobs - 1))
   if [ "$jobs" -lt 1 ]; then
     jobs=1
