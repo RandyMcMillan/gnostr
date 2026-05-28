@@ -5120,6 +5120,7 @@ dependencies = [
  "libc",
  "libgit2-sys",
  "log",
+ "openssl-sys",
  "url",
 ]
 
@@ -6706,7 +6707,7 @@ dependencies = [
  "gag",
  "getopts",
  "gh-emoji",
- "git2 0.20.4",
+ "git2 0.21.0",
  "gitui",
  "gix 0.66.0",
  "globset",
@@ -6933,7 +6934,7 @@ dependencies = [
  "futures-util",
  "fuzzy-matcher",
  "git-version",
- "git2 0.20.4",
+ "git2 0.21.0",
  "gix 0.66.0",
  "gnostr-git2-hooks",
  "gnostr-grammar",
@@ -7178,7 +7179,7 @@ dependencies = [
  "dns-lookup",
  "env_logger 0.11.10",
  "futures",
- "git2 0.20.4",
+ "git2 0.21.0",
  "gnostr-asyncgit",
  "gnostr-filetreelist",
  "indicatif 0.14.0",
@@ -7259,7 +7260,7 @@ name = "gnostr-git2-testing"
 version = "949455.1873.486970"
 dependencies = [
  "env_logger 0.11.10",
- "git2 0.20.4",
+ "git2 0.21.0",
  "log",
  "tempfile",
 ]
@@ -7468,7 +7469,7 @@ dependencies = [
  "flate2",
  "futures",
  "futures-util",
- "git2 0.20.4",
+ "git2 0.21.0",
  "gix 0.66.0",
  "gnostr-relay",
  "handlebars",
