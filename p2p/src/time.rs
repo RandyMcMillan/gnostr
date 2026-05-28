@@ -765,7 +765,7 @@ mod tests {
             ("wobble_relay", &wobble_state),
         ] {
             println!(
-                "initial {relay_name}: status={:?} slew_rate={:.6}",
+                "identity={relay_name} initial status={:?} slew_rate={:.6}",
                 state.status, state.slew_rate
             );
         }
@@ -791,7 +791,7 @@ mod tests {
                 .map(|last| now_blockheight.signed_duration_since(last).num_milliseconds())
                 .unwrap_or(0);
             println!(
-                "blockheight_relay:\nround={round_idx}\nutc={}\ndelta={}ms\nstatus={:?}\nslew_rate={:.6}\npending_alert={:?}",
+                "identity=blockheight_relay\nround={round_idx}\nutc={}\ndelta={}ms\nstatus={:?}\nslew_rate={:.6}\npending_alert={:?}",
                 now_blockheight.to_rfc3339(),
                 blockheight_delta,
                 blockheight_state.status,
@@ -811,7 +811,7 @@ mod tests {
                 .map(|last| now_weeble.signed_duration_since(last).num_milliseconds())
                 .unwrap_or(0);
             println!(
-                "weeble_relay:\nround={round_idx}\nutc={}\ndelta={}ms\nstatus={:?}\nslew_rate={:.6}\npending_alert={:?}",
+                "identity=weeble_relay\nround={round_idx}\nutc={}\ndelta={}ms\nstatus={:?}\nslew_rate={:.6}\npending_alert={:?}",
                 now_weeble.to_rfc3339(),
                 weeble_delta,
                 weeble_state.status,
@@ -831,7 +831,7 @@ mod tests {
                 .map(|last| now_wobble.signed_duration_since(last).num_milliseconds())
                 .unwrap_or(0);
             println!(
-                "wobble_relay:\nround={round_idx}\nutc={}\ndelta={}ms\nstatus={:?}\nslew_rate={:.6}\npending_alert={:?}",
+                "identity=wobble_relay\nround={round_idx}\nutc={}\ndelta={}ms\nstatus={:?}\nslew_rate={:.6}\npending_alert={:?}",
                 now_wobble.to_rfc3339(),
                 wobble_delta,
                 wobble_state.status,
