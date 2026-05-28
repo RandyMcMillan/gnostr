@@ -730,6 +730,16 @@ mod tests {
 
     #[test]
     fn test_relay_triad_time_consensus_maintains_stability() {
+
+    // "Never go to sea with two chronometers; take one or three."
+    // Our three chronometers are:
+    //   - System clock
+    //   - Median of other server's clocks
+    //   - NTP servers
+    //
+    // note: NTP isn't implemented yet, so until then we just use
+    // the median of other nodes clocks to correct ours.
+
         let checkpoint_blockheight = NamedTempFile::new().expect("blockheight checkpoint");
         let checkpoint_weeble = NamedTempFile::new().expect("weeble checkpoint");
         let checkpoint_wobble = NamedTempFile::new().expect("wobble checkpoint");
