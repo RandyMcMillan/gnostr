@@ -764,6 +764,7 @@ mod tests {
             Estimation { d: 0.005, a: 0.001 },
             Estimation { d: 0.007, a: 0.001 },
         ];
+        let warmup_rounds = 50;
         let round = vec![
             Estimation { d: 0.005, a: 0.001 },
             Estimation { d: 0.005, a: 0.001 },
@@ -771,8 +772,8 @@ mod tests {
             Estimation { d: 0.007, a: 0.001 },
             Estimation { d: 0.250, a: 0.001 },
         ];
-        let mut rounds = vec![warmup_round; 3];
-        rounds.extend(vec![round; 997]);
+        let mut rounds = vec![warmup_round; warmup_rounds];
+        rounds.extend(vec![round; 950]);
         let blockheight_node_id = relay_node_id(
             "blockheight_relay",
             padded_metric_identity(&blockheight_sync()),
@@ -893,7 +894,7 @@ mod tests {
                 "pending_alert",
                 blockheight_state.pending_alert
             );
-            if round_idx < 3 {
+            if round_idx < warmup_rounds {
                 assert_eq!(blockheight_state.status, ClockStatus::Init);
                 assert!(blockheight_state.pending_alert.is_none());
                 assert_eq!(blockheight_state.slew_rate, 1.0);
@@ -925,7 +926,7 @@ mod tests {
                 "pending_alert",
                 weeble_state.pending_alert
             );
-            if round_idx < 3 {
+            if round_idx < warmup_rounds {
                 assert_eq!(weeble_state.status, ClockStatus::Init);
                 assert!(weeble_state.pending_alert.is_none());
                 assert_eq!(weeble_state.slew_rate, 1.0);
@@ -971,7 +972,7 @@ mod tests {
                 consensus_max.to_rfc3339(),
                 consensus_spread_ms
             );
-            if round_idx < 3 {
+            if round_idx < warmup_rounds {
                 assert_eq!(wobble_state.status, ClockStatus::Init);
                 assert!(wobble_state.pending_alert.is_none());
                 assert_eq!(wobble_state.slew_rate, 1.0);
