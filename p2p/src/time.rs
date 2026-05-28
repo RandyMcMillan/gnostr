@@ -727,4 +727,100 @@ mod tests {
             state.slew_rate
         );
     }
+
+    #[test]
+    fn test_relay_triad_time_consensus_maintains_stability() {
+        let checkpoint_blockheight = NamedTempFile::new().expect("blockheight checkpoint");
+        let checkpoint_weeble = NamedTempFile::new().expect("weeble checkpoint");
+        let checkpoint_wobble = NamedTempFile::new().expect("wobble checkpoint");
+
+        let mut relays = vec![
+            (
+                "blockheight_relay",
+                SyncState::new(1, &checkpoint_blockheight.path().to_string_lossy()),
+            ),
+            (
+                "weeble_relay",
+                SyncState::new(1, &checkpoint_weeble.path().to_string_lossy()),
+            ),
+            (
+                "wobble_relay",
+                SyncState::new(1, &checkpoint_wobble.path().to_string_lossy()),
+            ),
+        ];
+
+        let rounds = vec![
+            vec![
+                Estimation { d: 0.005, a: 0.001 },
+                Estimation { d: 0.005, a: 0.001 },
+                Estimation { d: 0.007, a: 0.001 },
+                Estimation { d: 0.007, a: 0.001 },
+                Estimation { d: 0.250, a: 0.001 },
+            ],
+            vec![
+                Estimation { d: 0.005, a: 0.001 },
+                Estimation { d: 0.005, a: 0.001 },
+                Estimation { d: 0.007, a: 0.001 },
+                Estimation { d: 0.007, a: 0.001 },
+                Estimation { d: 0.250, a: 0.001 },
+            ],
+            vec![
+                Estimation { d: 0.005, a: 0.001 },
+                Estimation { d: 0.005, a: 0.001 },
+                Estimation { d: 0.007, a: 0.001 },
+                Estimation { d: 0.007, a: 0.001 },
+                Estimation { d: 0.250, a: 0.001 },
+            ],
+        ];
+
+        println!("==================== relay triad consensus ====================");
+        for (relay_name, state) in &mut relays {
+            println!(
+                "initial {relay_name}: status={:?} slew_rate={:.6}",
+                state.status, state.slew_rate
+            );
+        }
+
+        let mut last_times = std::collections::HashMap::new();
+
+        for (round_idx, estimates) in rounds.into_iter().enumerate() {
+            println!("round {round_idx}: {} samples", estimates.len());
+
+            let mut d_overs: Vec<f64> = estimates.iter().map(|e| e.d + e.a).collect();
+            let mut d_unders: Vec<f64> = estimates.iter().map(|e| e.d - e.a).collect();
+            d_overs.sort_by(|a, b| a.partial_cmp(b).unwrap());
+            d_unders.sort_by(|a, b| a.partial_cmp(b).unwrap());
+            let m_min = d_overs[1];
+            let m_max = d_unders[estimates.len() - 2];
+            println!("round {round_idx}: consensus window m_min={m_min:.6}s m_max={m_max:.6}s");
+
+            for (relay_name, state) in &mut relays {
+                state.apply_bft_sync(estimates.clone());
+                let now = state.get_logical_utc();
+                let logical_delta = last_times
+                    .get(relay_name)
+                    .map(|last| now - *last)
+                    .map(|delta| delta.num_milliseconds())
+                    .unwrap_or(0);
+
+                println!(
+                    "{relay_name}: round={round_idx} utc={} delta={}ms status={:?} slew_rate={:.6} pending_alert={:?}",
+                    now.to_rfc3339(),
+                    logical_delta,
+                    state.status,
+                    state.slew_rate,
+                    state.pending_alert
+                );
+
+                assert!(matches!(state.status, ClockStatus::Synced | ClockStatus::Slewing));
+                assert!(state.pending_alert.is_none());
+                assert!((state.slew_rate - 1.0).abs() <= 0.005);
+                if let Some(last) = last_times.insert(relay_name, now) {
+                    assert!(now > last);
+                }
+            }
+        }
+
+        println!("relay triad consensus maintained across 3 rounds");
+    }
 }
