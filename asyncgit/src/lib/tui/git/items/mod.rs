@@ -287,7 +287,15 @@ pub fn log(
                             .filter(|(commit, _)| commit.id() == oid)
                             .map(|(_, name)| name.clone()),
                     )
-                    .chain([commit.summary().unwrap_or("").to_string().into()]),
+                            .chain([
+                                commit
+                                    .summary()
+                                    .ok()
+                                    .flatten()
+                                    .unwrap_or("")
+                                    .to_string()
+                                    .into(),
+                            ]),
                 Span::raw(" "),
             )
             .collect::<Vec<_>>();
