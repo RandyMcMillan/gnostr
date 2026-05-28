@@ -1009,13 +1009,13 @@ mod tests {
             SyncState::new(1, &wobble_shift_checkpoint.path().to_string_lossy());
         let wobble_shift_rounds: Vec<Vec<Estimation>> = (0..10)
             .map(|step| {
-                let target = 0.030 + (step as f64 * 0.002);
+                let target = 0.050 + (step as f64 * 0.050);
                 vec![
-                    Estimation { d: target - 0.015, a: 0.005 },
-                    Estimation { d: target - 0.010, a: 0.005 },
+                    Estimation { d: target - 0.040, a: 0.010 },
+                    Estimation { d: target - 0.020, a: 0.010 },
                     Estimation { d: target, a: 0.005 },
-                    Estimation { d: target + 0.010, a: 0.005 },
-                    Estimation { d: target + 0.015, a: 0.005 },
+                    Estimation { d: target + 0.020, a: 0.010 },
+                    Estimation { d: target + 0.040, a: 0.010 },
                 ]
             })
             .collect();
