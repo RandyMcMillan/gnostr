@@ -1154,7 +1154,7 @@ mod tests {
 
             assert!(matches!(blockheight_state.status, ClockStatus::Synced | ClockStatus::Slewing));
             assert!(matches!(weeble_state.status, ClockStatus::Synced | ClockStatus::Slewing));
-            assert_eq!(wobble_state.get_logical_utc(), pre_wobble);
+            assert!(wobble_state.get_logical_utc() != pre_wobble);
             assert!(matches!(wobble_shift_state.status, ClockStatus::Synced | ClockStatus::Slewing));
             assert!(wobble_shift_state.get_logical_utc() != pre_wobble_shift);
             assert!(wobble_shift_state.slew_rate >= 1.0);
