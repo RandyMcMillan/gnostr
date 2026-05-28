@@ -797,11 +797,11 @@ mod tests {
             for (relay_name, state) in &mut relays {
                 state.apply_bft_sync(estimates.clone());
                 let now = state.get_logical_utc();
-                let logical_delta = last_times
-                    .get(relay_name)
-                    .map(|last| now - *last)
-                    .map(|delta| delta.num_milliseconds())
-                    .unwrap_or(0);
+                let logical_delta = if let Some(last) = last_times.get(relay_name) {
+                    (now - *last).num_milliseconds()
+                } else {
+                    0
+                };
 
                 println!(
                     "{relay_name}: round={round_idx} utc={} delta={}ms status={:?} slew_rate={:.6} pending_alert={:?}",
