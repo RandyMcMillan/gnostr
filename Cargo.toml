@@ -150,7 +150,7 @@ flate2 = "1.1.8"
 function_name = "0.3.0"
 futures = { version = "0.3.31" }
 futures-util = "0.3.31"
-git2 = { version = "^0.20", default-features = false }
+git2 = { version = "^0.21", default-features = false }
 git2-hooks = { path = "git2-hooks", package = "gnostr-git2-hooks", version = ">=949455.1873.486970" }
 git2-testing = { path = "git2-testing", package = "gnostr-git2-testing", version = ">=949455.1873.486970" }
 # Keep the root workspace dependency on the current local asyncgit version during publish.
