@@ -967,9 +967,12 @@ mod tests {
                 .unwrap_or(0) as f64
                 / 1000.0;
             println!(
-                "  consensus spread: min={} max={} spread={:.3}ms",
+                "  consensus spread:\n    {:<6}= {}\n    {:<6}= {}\n    {:<6}= {:.3}ms",
+                "min",
                 consensus_min.to_rfc3339(),
+                "max",
                 consensus_max.to_rfc3339(),
+                "spread",
                 consensus_spread_ms
             );
             if round_idx < warmup_rounds {
