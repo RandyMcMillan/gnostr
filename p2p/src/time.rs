@@ -739,29 +739,14 @@ mod tests {
         let mut weeble_state = SyncState::new(1, &checkpoint_weeble.path().to_string_lossy());
         let mut wobble_state = SyncState::new(1, &checkpoint_wobble.path().to_string_lossy());
 
-        let rounds = vec![
-            vec![
-                Estimation { d: 0.005, a: 0.001 },
-                Estimation { d: 0.005, a: 0.001 },
-                Estimation { d: 0.007, a: 0.001 },
-                Estimation { d: 0.007, a: 0.001 },
-                Estimation { d: 0.250, a: 0.001 },
-            ],
-            vec![
-                Estimation { d: 0.005, a: 0.001 },
-                Estimation { d: 0.005, a: 0.001 },
-                Estimation { d: 0.007, a: 0.001 },
-                Estimation { d: 0.007, a: 0.001 },
-                Estimation { d: 0.250, a: 0.001 },
-            ],
-            vec![
-                Estimation { d: 0.005, a: 0.001 },
-                Estimation { d: 0.005, a: 0.001 },
-                Estimation { d: 0.007, a: 0.001 },
-                Estimation { d: 0.007, a: 0.001 },
-                Estimation { d: 0.250, a: 0.001 },
-            ],
+        let round = vec![
+            Estimation { d: 0.005, a: 0.001 },
+            Estimation { d: 0.005, a: 0.001 },
+            Estimation { d: 0.007, a: 0.001 },
+            Estimation { d: 0.007, a: 0.001 },
+            Estimation { d: 0.250, a: 0.001 },
         ];
+        let rounds = vec![round; 1000];
 
         println!("==================== relay triad consensus ====================");
         for (relay_name, state) in [
