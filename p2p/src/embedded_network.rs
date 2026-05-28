@@ -28,6 +28,7 @@ use crate::{
     cli,
     event_handler,
     keypair_from_seed,
+    time::run_time_sync_daemon,
     swarm_builder,
     utils::multiaddr_with_peer_id,
 };
@@ -569,18 +570,16 @@ pub fn start() -> String {
             .expect("tokio runtime");
 
         runtime.block_on(async move {
-            let explicit_seed = private_key_seed_from_env();
+            tokio::spawn(async {
+                if let Err(error) = run_time_sync_daemon().await {
+                    push_log(format!("p2p time sync daemon failed: {error}"));
+                }
+            });
+
             let identity_seed = relay_identity_seed();
             let keypair = keypair_from_seed(Some(identity_seed.clone()));
             let peer_id = keypair.public().to_peer_id();
-            let identity_label = if explicit_seed.is_some() {
-                "explicit"
-            } else if matches!(relay_kind_from_env().as_deref(), Some("weeble")) {
-                "weeble_relay"
-            } else {
-                "blockheight_relay"
-            };
-            push_log(format!("relay identity {identity_label} peer={peer_id}"));
+            push_log(format!("relay identity {} peer={peer_id}", relay_identity_label()));
             push_log(format!("p2p network starting peer={peer_id}"));
 
             {
@@ -764,6 +763,18 @@ fn relay_identity_seed() -> String {
         Some("wobble") => wobble_relay_seed(),
         Some("weeble") => weeble_relay_seed(),
         _ => blockheight_relay_seed(),
+    }
+}
+
+fn relay_identity_label() -> &'static str {
+    if private_key_seed_from_env().is_some() {
+        "explicit"
+    } else {
+        match relay_kind_from_env().as_deref() {
+            Some("wobble") => "wobble_relay",
+            Some("weeble") => "weeble_relay",
+            _ => "blockheight_relay",
+        }
     }
 }
 
