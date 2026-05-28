@@ -746,7 +746,7 @@ mod tests {
             Estimation { d: 0.007, a: 0.001 },
             Estimation { d: 0.250, a: 0.001 },
         ];
-        let rounds = vec![round; 1000];
+        let rounds = vec![round; 10000];
 
         println!("==================== relay triad consensus ====================");
         for (relay_name, state) in [
@@ -764,7 +764,7 @@ mod tests {
         let mut last_weeble: Option<DateTime<Utc>> = None;
         let mut last_wobble: Option<DateTime<Utc>> = None;
 
-        for (round_idx, estimates) in rounds.into_iter().enumerate() {
+        for (round_idx, estimates) in rounds.clone().into_iter().enumerate() {
             println!("round {round_idx}: {} samples", estimates.len());
 
             let mut d_overs: Vec<f64> = estimates.iter().map(|e| e.d + e.a).collect();
@@ -781,7 +781,7 @@ mod tests {
                 .map(|last| now_blockheight.signed_duration_since(last).num_milliseconds())
                 .unwrap_or(0);
             println!(
-                "blockheight_relay: round={round_idx} utc={} delta={}ms status={:?} slew_rate={:.6} pending_alert={:?}",
+                "blockheight_relay:\nround={round_idx}\nutc={}\ndelta={}ms\nstatus={:?}\nslew_rate={:.6}\npending_alert={:?}",
                 now_blockheight.to_rfc3339(),
                 blockheight_delta,
                 blockheight_state.status,
@@ -801,7 +801,7 @@ mod tests {
                 .map(|last| now_weeble.signed_duration_since(last).num_milliseconds())
                 .unwrap_or(0);
             println!(
-                "weeble_relay: round={round_idx} utc={} delta={}ms status={:?} slew_rate={:.6} pending_alert={:?}",
+                "weeble_relay:\nround={round_idx}\nutc={}\ndelta={}ms\nstatus={:?}\nslew_rate={:.6}\npending_alert={:?}",
                 now_weeble.to_rfc3339(),
                 weeble_delta,
                 weeble_state.status,
@@ -821,7 +821,7 @@ mod tests {
                 .map(|last| now_wobble.signed_duration_since(last).num_milliseconds())
                 .unwrap_or(0);
             println!(
-                "wobble_relay: round={round_idx} utc={} delta={}ms status={:?} slew_rate={:.6} pending_alert={:?}",
+                "wobble_relay:\nround={round_idx}\nutc={}\ndelta={}ms\nstatus={:?}\nslew_rate={:.6}\npending_alert={:?}",
                 now_wobble.to_rfc3339(),
                 wobble_delta,
                 wobble_state.status,
@@ -836,6 +836,6 @@ mod tests {
             }
         }
 
-        println!("relay triad consensus maintained across 3 rounds");
+        println!("relay triad consensus maintained across {} rounds", rounds.len());
     }
 }
