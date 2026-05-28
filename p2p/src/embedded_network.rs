@@ -33,6 +33,7 @@ use crate::{
 };
 use gnostr_asyncgit::blockheight::blockheight_sync;
 use gnostr_asyncgit::weeble::weeble_sync;
+use gnostr_asyncgit::wobble::wobble_sync;
 
 struct EmbeddedNetwork {
     status: Arc<Mutex<String>>,
@@ -731,12 +732,20 @@ fn padded_weeble_identity(weeble: &str) -> String {
     padded_metric_identity(weeble)
 }
 
+fn padded_wobble_identity(wobble: &str) -> String {
+    padded_metric_identity(wobble)
+}
+
 fn blockheight_relay_seed() -> String {
     padded_blockheight_identity(&blockheight_sync())
 }
 
 fn weeble_relay_seed() -> String {
     padded_weeble_identity(&weeble_sync().unwrap_or(0.0).to_string())
+}
+
+fn wobble_relay_seed() -> String {
+    padded_wobble_identity(&wobble_sync().unwrap_or(0.0).to_string())
 }
 
 fn relay_kind_from_env() -> Option<String> {
@@ -752,6 +761,7 @@ fn relay_identity_seed() -> String {
     }
 
     match relay_kind_from_env().as_deref() {
+        Some("wobble") => wobble_relay_seed(),
         Some("weeble") => weeble_relay_seed(),
         _ => blockheight_relay_seed(),
     }
@@ -759,7 +769,7 @@ fn relay_identity_seed() -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{padded_blockheight_identity, padded_weeble_identity};
+    use super::{padded_blockheight_identity, padded_weeble_identity, padded_wobble_identity};
 
     #[test]
     fn padded_blockheight_identity_is_sha256_length() {
@@ -775,5 +785,13 @@ mod tests {
         assert_eq!(identity.len(), 64);
         assert!(identity.ends_with("9876.5"));
         assert!(identity.chars().take(58).all(|c| c == '0'));
+    }
+
+    #[test]
+    fn padded_wobble_identity_is_sha256_length() {
+        let identity = padded_wobble_identity("123.456");
+        assert_eq!(identity.len(), 64);
+        assert!(identity.ends_with("123.456"));
+        assert!(identity.chars().take(57).all(|c| c == '0'));
     }
 }
