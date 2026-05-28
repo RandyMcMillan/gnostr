@@ -785,6 +785,7 @@ mod tests {
     #[test]
     fn padded_blockheight_identity_is_sha256_length() {
         let identity = padded_blockheight_identity("12345");
+        println!("blockheight identity seed: {identity}");
         assert_eq!(identity.len(), 64);
         assert!(identity.ends_with("12345"));
         assert!(identity.chars().take(59).all(|c| c == '0'));
@@ -793,6 +794,7 @@ mod tests {
     #[test]
     fn padded_weeble_identity_is_sha256_length() {
         let identity = padded_weeble_identity("9876.5");
+        println!("weeble identity seed: {identity}");
         assert_eq!(identity.len(), 64);
         assert!(identity.ends_with("9876.5"));
         assert!(identity.chars().take(58).all(|c| c == '0'));
@@ -801,6 +803,7 @@ mod tests {
     #[test]
     fn padded_wobble_identity_is_sha256_length() {
         let identity = padded_wobble_identity("123.456");
+        println!("wobble identity seed: {identity}");
         assert_eq!(identity.len(), 64);
         assert!(identity.ends_with("123.456"));
         assert!(identity.chars().take(57).all(|c| c == '0'));
