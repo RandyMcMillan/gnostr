@@ -197,12 +197,16 @@ pub fn stash_list(config: &Config, repo: &Repository, limit: usize) -> Res<Vec<I
         .enumerate()
         .map(|(i, stash)| -> Res<Item> {
             let spans = itertools::intersperse(
-                iter::once(Span::styled(format!("stash@{i}"), &style.hash)).chain([stash
-                    .message()
-                    .unwrap_or("")
-                    .to_string()
-                    .into()]),
-                Span::raw(" "),
+                iter::once(Span::styled(format!("stash@{i}"), &style.hash)).chain([
+                    stash
+                        .message()
+                        .ok()
+                        .flatten()
+                        .unwrap_or("")
+                        .to_string()
+                        .into(),
+                ]),
+            Span::raw(" "),
             )
             .collect::<Vec<_>>();
 
@@ -291,6 +295,7 @@ pub fn log(
                                 commit
                                     .summary()
                                     .ok()
+                                    .flatten()
                                     .unwrap_or("")
                                     .to_string()
                                     .into(),
