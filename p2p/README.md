@@ -4,6 +4,11 @@
 
 The p2p tests load crawler relay buckets and publish attestation events through the relay bridge so the syndication path stays wired to the crawler-discovered relay list.
 
+## Features
+
+- `js` keeps the browser-side bundle enabled by default.
+- `tor` adds the local `libp2p-tor` transport to the swarm builder.
+
 ## Testing help
 
 - Use `--nocapture` so the printed attestation payload and relay destinations stay visible.

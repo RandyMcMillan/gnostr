@@ -20,11 +20,10 @@ use tracing::info;
 
 use crate::p2p::{behaviour::Behaviour, network_config::IPFS_PROTO_NAME};
 
-pub async fn build_swarm(keypair: identity::Keypair) -> Result<Swarm<Behaviour>, Box<dyn Error>> {
-    let peer_id = PeerId::from(keypair.public());
-    crate::embedded_network::log_line(format!("local peer id: {peer_id}"));
-    info!("Local PeerId: {}", peer_id);
-
+fn build_behaviour(
+    key: &identity::Keypair,
+    relay_client: libp2p::relay::client::Behaviour,
+) -> Result<Behaviour, Box<dyn Error + Send + Sync>> {
     let message_id_fn = |message: &gossipsub::Message| {
         let mut s = DefaultHasher::new();
         message.data.hash(&mut s);
@@ -50,6 +49,58 @@ pub async fn build_swarm(keypair: identity::Keypair) -> Result<Swarm<Behaviour>,
         .build()
         .map_err(|msg| io::Error::other(msg))?;
 
+    let local_peer_id = key.public().to_peer_id();
+    let kad_store_config = MemoryStoreConfig {
+        max_provided_keys: usize::MAX,
+        max_providers_per_key: usize::MAX,
+        max_records: usize::MAX,
+        max_value_bytes: usize::MAX,
+    };
+    let mut kad_config = KadConfig::new(IPFS_PROTO_NAME.clone());
+    kad_config.set_query_timeout(Duration::from_secs(120));
+    kad_config.set_replication_factor(std::num::NonZeroUsize::new(20).unwrap());
+    kad_config.set_publication_interval(Some(Duration::from_secs(10)));
+    kad_config.disjoint_query_paths(false);
+    let kad_store = MemoryStore::with_config(local_peer_id, kad_store_config);
+    let mut ipfs_cfg = KadConfig::new(IPFS_PROTO_NAME);
+    ipfs_cfg.set_query_timeout(Duration::from_secs(5 * 60));
+    let ipfs_store = MemoryStore::new(local_peer_id);
+
+    let relay_server = relay::Behaviour::new(local_peer_id, Default::default());
+    let rendezvous_client = rendezvous::client::Behaviour::new(key.clone());
+    let rendezvous_server = rendezvous::server::Behaviour::new(rendezvous::server::Config::default());
+
+    Ok(Behaviour {
+        relay_client,
+        relay_server,
+        autonat: autonat::Behaviour::new(local_peer_id, autonat::Config::default()),
+        dcutr: dcutr::Behaviour::new(local_peer_id),
+        gossipsub: gossipsub::Behaviour::new(
+            gossipsub::MessageAuthenticity::Signed(key.clone()),
+            gossipsub_config,
+        )
+        .expect("Valid gossipsub config"),
+        ipfs: kad::Behaviour::with_config(local_peer_id, ipfs_store, ipfs_cfg),
+        kademlia: kad::Behaviour::with_config(local_peer_id, kad_store, kad_config),
+        identify: identify::Behaviour::new(identify::Config::new(
+            "/yamux/1.0.0".to_string(),
+            key.public(),
+        )),
+        rendezvous_client,
+        rendezvous: rendezvous_server,
+        ping: ping::Behaviour::new(ping::Config::new().with_interval(Duration::from_secs(5))),
+        mdns: mdns::tokio::Behaviour::new(mdns::Config::default(), local_peer_id)?,
+    })
+}
+
+pub async fn build_swarm(keypair: identity::Keypair) -> Result<Swarm<Behaviour>, Box<dyn Error>> {
+    let peer_id = PeerId::from(keypair.public());
+    crate::embedded_network::log_line(format!("local peer id: {peer_id}"));
+    info!("Local PeerId: {}", peer_id);
+
+    #[cfg(feature = "tor")]
+    let tor_transport = crate::tor::build_transport(&keypair).await?;
+
     let builder = libp2p::SwarmBuilder::with_existing_identity(keypair)
         .with_tokio()
         .with_tcp(
@@ -59,60 +110,8 @@ pub async fn build_swarm(keypair: identity::Keypair) -> Result<Swarm<Behaviour>,
         )?
         .with_quic();
 
-    #[cfg(target_os = "ios")]
-    crate::embedded_network::log_line("skipping DNS and WebSocket transport setup on iOS");
-
-    #[cfg(target_os = "ios")]
-    let swarm = builder
-        .with_relay_client(noise::Config::new, yamux::Config::default)?
-        .with_behaviour(move |key, relay_client| {
-            let local_peer_id = key.public().to_peer_id();
-            let kad_store_config = MemoryStoreConfig {
-                max_provided_keys: usize::MAX,
-                max_providers_per_key: usize::MAX,
-                max_records: usize::MAX,
-                max_value_bytes: usize::MAX,
-            };
-            let mut kad_config = KadConfig::new(IPFS_PROTO_NAME.clone());
-            kad_config.set_query_timeout(Duration::from_secs(120));
-            kad_config.set_replication_factor(std::num::NonZeroUsize::new(20).unwrap());
-            kad_config.set_publication_interval(Some(Duration::from_secs(10)));
-            kad_config.disjoint_query_paths(false);
-            let kad_store = MemoryStore::with_config(local_peer_id, kad_store_config);
-            let mut ipfs_cfg = KadConfig::new(IPFS_PROTO_NAME);
-            ipfs_cfg.set_query_timeout(Duration::from_secs(5 * 60));
-            let ipfs_store = MemoryStore::new(local_peer_id);
-
-            let relay_server = relay::Behaviour::new(local_peer_id, Default::default());
-            let rendezvous_client = rendezvous::client::Behaviour::new(key.clone());
-            let rendezvous_server =
-                rendezvous::server::Behaviour::new(rendezvous::server::Config::default());
-
-            Ok(Behaviour {
-                relay_client,
-                relay_server,
-                autonat: autonat::Behaviour::new(local_peer_id, autonat::Config::default()),
-                dcutr: dcutr::Behaviour::new(local_peer_id),
-                gossipsub: gossipsub::Behaviour::new(
-                    gossipsub::MessageAuthenticity::Signed(key.clone()),
-                    gossipsub_config,
-                )
-                .expect("Valid gossipsub config"),
-                ipfs: kad::Behaviour::with_config(local_peer_id, ipfs_store, ipfs_cfg),
-                kademlia: kad::Behaviour::with_config(local_peer_id, kad_store, kad_config),
-                identify: identify::Behaviour::new(identify::Config::new(
-                    "/yamux/1.0.0".to_string(),
-                    key.public(),
-                )),
-                rendezvous_client,
-                rendezvous: rendezvous_server,
-                ping: ping::Behaviour::new(
-                    ping::Config::new().with_interval(Duration::from_secs(5)),
-                ),
-                mdns: mdns::tokio::Behaviour::new(mdns::Config::default(), local_peer_id)?,
-            })
-        })?
-        .build();
+    #[cfg(feature = "tor")]
+    let builder = builder.with_other_transport(move |_| tor_transport)?;
 
     #[cfg(not(target_os = "ios"))]
     let swarm = builder
@@ -120,53 +119,13 @@ pub async fn build_swarm(keypair: identity::Keypair) -> Result<Swarm<Behaviour>,
         .with_websocket(noise::Config::new, yamux::Config::default)
         .await?
         .with_relay_client(noise::Config::new, yamux::Config::default)?
-        .with_behaviour(move |key, relay_client| {
-            let local_peer_id = key.public().to_peer_id();
-            let kad_store_config = MemoryStoreConfig {
-                max_provided_keys: usize::MAX,
-                max_providers_per_key: usize::MAX,
-                max_records: usize::MAX,
-                max_value_bytes: usize::MAX,
-            };
-            let mut kad_config = KadConfig::new(IPFS_PROTO_NAME.clone());
-            kad_config.set_query_timeout(Duration::from_secs(120));
-            kad_config.set_replication_factor(std::num::NonZeroUsize::new(20).unwrap());
-            kad_config.set_publication_interval(Some(Duration::from_secs(10)));
-            kad_config.disjoint_query_paths(false);
-            let kad_store = MemoryStore::with_config(local_peer_id, kad_store_config);
-            let mut ipfs_cfg = KadConfig::new(IPFS_PROTO_NAME);
-            ipfs_cfg.set_query_timeout(Duration::from_secs(5 * 60));
-            let ipfs_store = MemoryStore::new(local_peer_id);
+        .with_behaviour(|key, relay_client| build_behaviour(key, relay_client))?
+        .build();
 
-            let relay_server = relay::Behaviour::new(local_peer_id, Default::default());
-            let rendezvous_client = rendezvous::client::Behaviour::new(key.clone());
-            let rendezvous_server =
-                rendezvous::server::Behaviour::new(rendezvous::server::Config::default());
-
-            Ok(Behaviour {
-                relay_client,
-                relay_server,
-                autonat: autonat::Behaviour::new(local_peer_id, autonat::Config::default()),
-                dcutr: dcutr::Behaviour::new(local_peer_id),
-                gossipsub: gossipsub::Behaviour::new(
-                    gossipsub::MessageAuthenticity::Signed(key.clone()),
-                    gossipsub_config,
-                )
-                .expect("Valid gossipsub config"),
-                ipfs: kad::Behaviour::with_config(local_peer_id, ipfs_store, ipfs_cfg),
-                kademlia: kad::Behaviour::with_config(local_peer_id, kad_store, kad_config),
-                identify: identify::Behaviour::new(identify::Config::new(
-                    "/yamux/1.0.0".to_string(),
-                    key.public(),
-                )),
-                rendezvous_client,
-                rendezvous: rendezvous_server,
-                ping: ping::Behaviour::new(
-                    ping::Config::new().with_interval(Duration::from_secs(5)),
-                ),
-                mdns: mdns::tokio::Behaviour::new(mdns::Config::default(), local_peer_id)?,
-            })
-        })?
+    #[cfg(target_os = "ios")]
+    let swarm = builder
+        .with_relay_client(noise::Config::new, yamux::Config::default)?
+        .with_behaviour(|key, relay_client| build_behaviour(key, relay_client))?
         .build();
 
     Ok(swarm)

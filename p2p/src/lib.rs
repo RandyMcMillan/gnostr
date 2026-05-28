@@ -42,6 +42,9 @@ pub mod bridge;
 #[cfg(not(doc))]
 #[cfg(feature = "js")]
 pub mod js;
+#[cfg(not(doc))]
+#[cfg(feature = "tor")]
+pub mod tor;
 pub mod crawler_broadcast;
 #[cfg(not(doc))]
 pub mod message;
@@ -94,6 +97,8 @@ fn seed_bytes(seed: &str) -> [u8; 32] {
 pub use bridge::{asset_content_type, asset_response, shell_html};
 #[cfg(all(not(doc), feature = "js"))]
 pub use js::get_js_assets;
+#[cfg(all(not(doc), feature = "tor"))]
+pub use tor::{build_transport as build_tor_transport, AddressConversion, TorError, TorTransport, TorTransportError, TokioTorStream};
 #[cfg(not(doc))]
 pub use message::*;
 pub use repo_state::{RepoStateQuorum, RepoStateRefs, RepoStateSnapshot};
@@ -136,4 +141,6 @@ pub mod p2p {
     };
     #[cfg(not(doc))]
     pub use crate::{message, relay_bridge};
+    #[cfg(feature = "tor")]
+    pub use crate::tor;
 }
