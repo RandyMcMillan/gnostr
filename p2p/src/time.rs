@@ -383,7 +383,18 @@ pub async fn run_time_sync_daemon() -> Result<(), Box<dyn std::error::Error + Se
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::keypair_from_seed;
+    use gnostr_asyncgit::{blockheight::blockheight_sync, weeble::weeble_sync, wobble::wobble_sync};
     use tempfile::NamedTempFile;
+
+    fn padded_metric_identity(metric: &str) -> String {
+        format!("{:0>64}", metric.trim())
+    }
+
+    fn relay_node_id(label: &str, seed: String) -> String {
+        let peer_id = keypair_from_seed(Some(seed)).public().to_peer_id();
+        format!("{label} node_id={peer_id}")
+    }
 
     #[test]
     fn test_sync_state_new() {
@@ -749,6 +760,10 @@ mod tests {
         let mut weeble_state = SyncState::new(1, &checkpoint_weeble.path().to_string_lossy());
         let mut wobble_state = SyncState::new(1, &checkpoint_wobble.path().to_string_lossy());
 
+        let warmup_round = vec![
+            Estimation { d: 0.005, a: 0.001 },
+            Estimation { d: 0.007, a: 0.001 },
+        ];
         let round = vec![
             Estimation { d: 0.005, a: 0.001 },
             Estimation { d: 0.005, a: 0.001 },
@@ -756,18 +771,55 @@ mod tests {
             Estimation { d: 0.007, a: 0.001 },
             Estimation { d: 0.250, a: 0.001 },
         ];
-        let rounds = vec![round; 10000];
+        let mut rounds = vec![warmup_round; 3];
+        rounds.extend(vec![round; 997]);
+        let blockheight_node_id = relay_node_id(
+            "blockheight_relay",
+            padded_metric_identity(&blockheight_sync()),
+        );
+        let weeble_node_id = relay_node_id(
+            "weeble_relay",
+            padded_metric_identity(&weeble_sync().unwrap_or(0.0).to_string()),
+        );
+        let wobble_node_id = relay_node_id(
+            "wobble_relay",
+            padded_metric_identity(&wobble_sync().unwrap_or(0.0).to_string()),
+        );
+        let blockheight_peer_id = blockheight_node_id
+            .split_once("node_id=")
+            .map(|(_, id)| id)
+            .unwrap_or("unknown");
+        let weeble_peer_id = weeble_node_id
+            .split_once("node_id=")
+            .map(|(_, id)| id)
+            .unwrap_or("unknown");
+        let wobble_peer_id = wobble_node_id
+            .split_once("node_id=")
+            .map(|(_, id)| id)
+            .unwrap_or("unknown");
 
         println!("==================== relay triad consensus ====================");
+        println!("{blockheight_node_id}");
+        println!("{weeble_node_id}");
+        println!("{wobble_node_id}");
+        println!("before round 0: all relays should still be Init");
         for (relay_name, state) in [
             ("blockheight_relay", &blockheight_state),
             ("weeble_relay", &weeble_state),
             ("wobble_relay", &wobble_state),
         ] {
             println!(
-                "identity={relay_name} initial status={:?} slew_rate={:.6}",
-                state.status, state.slew_rate
+                "identity={relay_name} node_id={node_id} initial status={:?} slew_rate={:.6}",
+                state.status,
+                state.slew_rate,
+                node_id = match relay_name {
+                    "blockheight_relay" => blockheight_peer_id,
+                    "weeble_relay" => weeble_peer_id,
+                    _ => wobble_peer_id,
+                }
             );
+            assert!(matches!(state.status, ClockStatus::Init));
+            assert_eq!(state.slew_rate, 1.0);
         }
 
         let mut last_blockheight: Option<DateTime<Utc>> = None;
@@ -775,7 +827,7 @@ mod tests {
         let mut last_wobble: Option<DateTime<Utc>> = None;
 
         for (round_idx, estimates) in rounds.clone().into_iter().enumerate() {
-            println!("round {round_idx}: {} samples", estimates.len());
+            println!("\nround {round_idx}: {} samples", estimates.len());
 
             let mut d_overs: Vec<f64> = estimates.iter().map(|e| e.d + e.a).collect();
             let mut d_unders: Vec<f64> = estimates.iter().map(|e| e.d - e.a).collect();
@@ -783,26 +835,67 @@ mod tests {
             d_unders.sort_by(|a, b| a.partial_cmp(b).unwrap());
             let m_min = d_overs[1];
             let m_max = d_unders[estimates.len() - 2];
-            println!("round {round_idx}: consensus window m_min={m_min:.6}s m_max={m_max:.6}s");
+            println!("  consensus window: m_min={m_min:.6}s m_max={m_max:.6}s");
+
+            let pre_blockheight = blockheight_state.get_logical_utc();
+            let pre_weeble = weeble_state.get_logical_utc();
+            let pre_wobble = wobble_state.get_logical_utc();
+            let actual_now = Utc::now();
+            println!("  pre-consensus:");
+            println!(
+                "    - identity=blockheight_relay\n      node_id={}\n      {:<12} = {}\n      {:<12} = {}\n      status={:?}",
+                blockheight_peer_id,
+                "thinks_it_is",
+                pre_blockheight.to_rfc3339(),
+                "actual",
+                actual_now.to_rfc3339(),
+                blockheight_state.status
+            );
+            println!(
+                "    - identity=weeble_relay\n      node_id={}\n      {:<12} = {}\n      {:<12} = {}\n      status={:?}",
+                weeble_peer_id,
+                "thinks_it_is",
+                pre_weeble.to_rfc3339(),
+                "actual",
+                actual_now.to_rfc3339(),
+                weeble_state.status
+            );
+            println!(
+                "    - identity=wobble_relay\n      node_id={}\n      {:<12} = {}\n      {:<12} = {}\n      status={:?}",
+                wobble_peer_id,
+                "thinks_it_is",
+                pre_wobble.to_rfc3339(),
+                "actual",
+                actual_now.to_rfc3339(),
+                wobble_state.status
+            );
 
             blockheight_state.apply_bft_sync(estimates.clone());
             let now_blockheight: DateTime<Utc> = blockheight_state.get_logical_utc();
             let blockheight_delta = last_blockheight
                 .map(|last| now_blockheight.signed_duration_since(last).num_milliseconds())
                 .unwrap_or(0);
+            println!("  post-consensus:");
             println!(
-                "identity=blockheight_relay\nround={round_idx}\nutc={}\ndelta={}ms\nstatus={:?}\nslew_rate={:.6}\npending_alert={:?}",
+                "    - identity=blockheight_relay\n      node_id={}\n      utc={}\n      delta={}ms\n      status={:?}\n      slew_rate={:.6}\n      pending_alert={:?}",
+                blockheight_peer_id,
                 now_blockheight.to_rfc3339(),
                 blockheight_delta,
                 blockheight_state.status,
                 blockheight_state.slew_rate,
                 blockheight_state.pending_alert
             );
-            assert!(matches!(blockheight_state.status, ClockStatus::Synced | ClockStatus::Slewing));
-            assert!(blockheight_state.pending_alert.is_none());
-            assert!((blockheight_state.slew_rate - 1.0).abs() <= 0.005);
-            if let Some(last) = last_blockheight.replace(now_blockheight) {
-                assert!(now_blockheight > last);
+            if round_idx < 3 {
+                assert_eq!(blockheight_state.status, ClockStatus::Init);
+                assert!(blockheight_state.pending_alert.is_none());
+                assert_eq!(blockheight_state.slew_rate, 1.0);
+            } else {
+                assert!(matches!(blockheight_state.status, ClockStatus::Synced | ClockStatus::Slewing));
+                assert!(blockheight_state.pending_alert.is_none());
+                assert!((blockheight_state.slew_rate - 1.0).abs() <= 0.005);
+                if let Some(last) = last_blockheight.replace(now_blockheight) {
+                    assert!(now_blockheight > last);
+                }
             }
 
             weeble_state.apply_bft_sync(estimates.clone());
@@ -811,18 +904,25 @@ mod tests {
                 .map(|last| now_weeble.signed_duration_since(last).num_milliseconds())
                 .unwrap_or(0);
             println!(
-                "identity=weeble_relay\nround={round_idx}\nutc={}\ndelta={}ms\nstatus={:?}\nslew_rate={:.6}\npending_alert={:?}",
+                "    - identity=weeble_relay\n      node_id={}\n      utc={}\n      delta={}ms\n      status={:?}\n      slew_rate={:.6}\n      pending_alert={:?}",
+                weeble_peer_id,
                 now_weeble.to_rfc3339(),
                 weeble_delta,
                 weeble_state.status,
                 weeble_state.slew_rate,
                 weeble_state.pending_alert
             );
-            assert!(matches!(weeble_state.status, ClockStatus::Synced | ClockStatus::Slewing));
-            assert!(weeble_state.pending_alert.is_none());
-            assert!((weeble_state.slew_rate - 1.0).abs() <= 0.005);
-            if let Some(last) = last_weeble.replace(now_weeble) {
-                assert!(now_weeble > last);
+            if round_idx < 3 {
+                assert_eq!(weeble_state.status, ClockStatus::Init);
+                assert!(weeble_state.pending_alert.is_none());
+                assert_eq!(weeble_state.slew_rate, 1.0);
+            } else {
+                assert!(matches!(weeble_state.status, ClockStatus::Synced | ClockStatus::Slewing));
+                assert!(weeble_state.pending_alert.is_none());
+                assert!((weeble_state.slew_rate - 1.0).abs() <= 0.005);
+                if let Some(last) = last_weeble.replace(now_weeble) {
+                    assert!(now_weeble > last);
+                }
             }
 
             wobble_state.apply_bft_sync(estimates);
@@ -831,18 +931,20 @@ mod tests {
                 .map(|last| now_wobble.signed_duration_since(last).num_milliseconds())
                 .unwrap_or(0);
             println!(
-                "identity=wobble_relay\nround={round_idx}\nutc={}\ndelta={}ms\nstatus={:?}\nslew_rate={:.6}\npending_alert={:?}",
-                now_wobble.to_rfc3339(),
-                wobble_delta,
-                wobble_state.status,
-                wobble_state.slew_rate,
-                wobble_state.pending_alert
+                "    - identity=wobble_relay node_id={} utc={} delta={}ms status={:?} slew_rate={:.6} pending_alert={:?}",
+                wobble_peer_id, now_wobble.to_rfc3339(), wobble_delta, wobble_state.status, wobble_state.slew_rate, wobble_state.pending_alert
             );
-            assert!(matches!(wobble_state.status, ClockStatus::Synced | ClockStatus::Slewing));
-            assert!(wobble_state.pending_alert.is_none());
-            assert!((wobble_state.slew_rate - 1.0).abs() <= 0.005);
-            if let Some(last) = last_wobble.replace(now_wobble) {
-                assert!(now_wobble > last);
+            if round_idx < 3 {
+                assert_eq!(wobble_state.status, ClockStatus::Init);
+                assert!(wobble_state.pending_alert.is_none());
+                assert_eq!(wobble_state.slew_rate, 1.0);
+            } else {
+                assert!(matches!(wobble_state.status, ClockStatus::Synced | ClockStatus::Slewing));
+                assert!(wobble_state.pending_alert.is_none());
+                assert!((wobble_state.slew_rate - 1.0).abs() <= 0.005);
+                if let Some(last) = last_wobble.replace(now_wobble) {
+                    assert!(now_wobble > last);
+                }
             }
         }
 
