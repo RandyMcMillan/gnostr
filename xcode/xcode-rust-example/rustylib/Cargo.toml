@@ -3,8 +3,6 @@ name = "rustylib"
 version = "0.1.0"
 edition = "2021"
 
-[workspace]
-
 [lib]
 crate-type = ["cdylib", "staticlib"]
 name = "rustylib"
@@ -18,3 +16,5 @@ uniffi = { version = "0.28.0", features = [ "cli" ] }
 
 [build-dependencies]
 uniffi = { version = "0.28.0", features = [ "build" ] }
+
+[workspace]
