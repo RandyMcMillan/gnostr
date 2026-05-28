@@ -1161,9 +1161,123 @@ mod tests {
             println!("----------------------------------------------------------------------");
         }
 
+        println!("\n======================================================================");
+        println!("phase 3: five wobble relays struggle to converge");
+        println!("======================================================================");
+        let wobble_fleet_checkpoints: Vec<NamedTempFile> = (0..5)
+            .map(|_| NamedTempFile::new().expect("wobble fleet checkpoint"))
+            .collect();
+        let mut wobble_fleet_states: Vec<SyncState> = wobble_fleet_checkpoints
+            .iter()
+            .map(|checkpoint| SyncState::new(1, checkpoint.path().to_string_lossy().as_ref()))
+            .collect();
+        let wobble_fleet_labels = [
+            "wobble_fleet_0",
+            "wobble_fleet_1",
+            "wobble_fleet_2",
+            "wobble_fleet_3",
+            "wobble_fleet_4",
+        ];
+        let wobble_fleet_peer_ids: Vec<_> = [0.220, 0.260, 0.300, 0.340, 0.380]
+            .into_iter()
+            .map(|target| {
+                keypair_from_seed(Some(padded_metric_identity(&target.to_string())))
+                    .public()
+                    .to_peer_id()
+            })
+            .collect();
+        let wobble_fleet_baseline = 0.200;
+        let wobble_fleet_rounds = 8;
+        let mut last_fleet_times: Vec<Option<DateTime<Utc>>> = vec![None; wobble_fleet_states.len()];
+
+        for round_idx in 0..wobble_fleet_rounds {
+            let round_target = wobble_fleet_baseline + (round_idx as f64 * 0.020);
+            let spread_scale = 1.0 - (round_idx as f64 / wobble_fleet_rounds as f64);
+            println!("----------------------------------------------------------------------");
+            println!(
+                "\nphase 3 round {round_idx}: five fresh wobble relays with spread_scale={spread_scale:.3}"
+            );
+            let actual_now = Utc::now();
+
+            for (idx, (state, peer_id)) in wobble_fleet_states
+                .iter_mut()
+                .zip(wobble_fleet_peer_ids.iter())
+                .enumerate()
+            {
+                let label = wobble_fleet_labels[idx];
+                let pre_now = state.get_logical_utc();
+                let node_shift = (idx as f64 - 2.0) * 0.060 * spread_scale;
+                let target = round_target + node_shift;
+                let estimates = vec![
+                    Estimation { d: target - 0.030, a: 0.010 },
+                    Estimation { d: target - 0.010, a: 0.008 },
+                    Estimation { d: target, a: 0.006 },
+                    Estimation { d: target + 0.010, a: 0.008 },
+                    Estimation { d: target + 0.030, a: 0.010 },
+                ];
+
+                println!("  pre-consensus:");
+                println!(
+                    "    - identity={label}\n      node_id={}\n      {:<13}= {}\n      {:<13}= {}\n      {:<13}= {:?}",
+                    peer_id,
+                    "thinks_it_is",
+                    pre_now.to_rfc3339(),
+                    "actual",
+                    actual_now.to_rfc3339(),
+                    "status",
+                    state.status
+                );
+
+                state.apply_bft_sync(estimates);
+                let now = state.get_logical_utc();
+                let delta = last_fleet_times[idx]
+                    .map(|last| now.signed_duration_since(last).num_milliseconds())
+                    .unwrap_or(0);
+                println!("  post-consensus:");
+                println!(
+                    "    - identity={label}\n      node_id={}\n      {:<13}= {}\n      {:<13}= {}ms\n      {:<13}= {:?}\n      {:<13}= {:.6}\n      {:<13}= {:?}",
+                    peer_id,
+                    "utc",
+                    now.to_rfc3339(),
+                    "delta",
+                    delta,
+                    "status",
+                    state.status,
+                    "slew_rate",
+                    state.slew_rate,
+                    "pending_alert",
+                    state.pending_alert
+                );
+                last_fleet_times[idx] = Some(now);
+            }
+
+            let fleet_times: Vec<DateTime<Utc>> = wobble_fleet_states
+                .iter_mut()
+                .map(|state| state.get_logical_utc())
+                .collect();
+            let fleet_min = fleet_times.iter().min().copied().unwrap();
+            let fleet_max = fleet_times.iter().max().copied().unwrap();
+            let fleet_spread_ms = fleet_max
+                .signed_duration_since(fleet_min)
+                .num_microseconds()
+                .unwrap_or(0) as f64
+                / 1000.0;
+            println!(
+                "  fleet spread:\n    {:<13}= {}\n    {:<13}= {}\n    {:<13}= {:.3}ms",
+                "min",
+                fleet_min.to_rfc3339(),
+                "max",
+                fleet_max.to_rfc3339(),
+                "spread",
+                fleet_spread_ms
+            );
+            assert!(fleet_spread_ms <= 500.0, "fleet spread too large: {fleet_spread_ms:.3}ms");
+        }
+
         println!("======================================================================");
         println!("relay triad consensus maintained across {} rounds", rounds.len());
         println!("wobble relay changed value across {} shift rounds", wobble_shift_rounds.len());
+        println!("five wobble relays converged across {} rounds", wobble_fleet_rounds);
         println!("======================================================================");
     }
 }
