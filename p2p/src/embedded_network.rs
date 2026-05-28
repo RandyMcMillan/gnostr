@@ -31,6 +31,7 @@ use crate::{
     swarm_builder,
     utils::multiaddr_with_peer_id,
 };
+use gnostr_asyncgit::blockheight::blockheight_sync;
 
 struct EmbeddedNetwork {
     status: Arc<Mutex<String>>,
@@ -566,8 +567,16 @@ pub fn start() -> String {
             .expect("tokio runtime");
 
         runtime.block_on(async move {
-            let keypair = keypair_from_seed(private_key_seed_from_env());
+            let explicit_seed = private_key_seed_from_env();
+            let identity_seed = relay_identity_seed();
+            let keypair = keypair_from_seed(Some(identity_seed.clone()));
             let peer_id = keypair.public().to_peer_id();
+            let identity_label = if explicit_seed.is_some() {
+                "explicit"
+            } else {
+                "blockheight_relay"
+            };
+            push_log(format!("relay identity {identity_label} peer={peer_id}"));
             push_log(format!("p2p network starting peer={peer_id}"));
 
             {
@@ -705,4 +714,29 @@ fn private_key_seed_from_env() -> Option<String> {
         .ok()
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty())
+}
+
+fn padded_blockheight_identity(blockheight: &str) -> String {
+    format!("{:0>64}", blockheight.trim())
+}
+
+fn blockheight_relay_seed() -> String {
+    padded_blockheight_identity(&blockheight_sync())
+}
+
+fn relay_identity_seed() -> String {
+    private_key_seed_from_env().unwrap_or_else(blockheight_relay_seed)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::padded_blockheight_identity;
+
+    #[test]
+    fn padded_blockheight_identity_is_sha256_length() {
+        let identity = padded_blockheight_identity("12345");
+        assert_eq!(identity.len(), 64);
+        assert!(identity.ends_with("12345"));
+        assert!(identity.chars().take(59).all(|c| c == '0'));
+    }
 }
