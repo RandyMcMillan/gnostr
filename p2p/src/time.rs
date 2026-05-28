@@ -734,20 +734,10 @@ mod tests {
         let checkpoint_weeble = NamedTempFile::new().expect("weeble checkpoint");
         let checkpoint_wobble = NamedTempFile::new().expect("wobble checkpoint");
 
-        let mut relays = vec![
-            (
-                "blockheight_relay",
-                SyncState::new(1, &checkpoint_blockheight.path().to_string_lossy()),
-            ),
-            (
-                "weeble_relay",
-                SyncState::new(1, &checkpoint_weeble.path().to_string_lossy()),
-            ),
-            (
-                "wobble_relay",
-                SyncState::new(1, &checkpoint_wobble.path().to_string_lossy()),
-            ),
-        ];
+        let mut blockheight_state =
+            SyncState::new(1, &checkpoint_blockheight.path().to_string_lossy());
+        let mut weeble_state = SyncState::new(1, &checkpoint_weeble.path().to_string_lossy());
+        let mut wobble_state = SyncState::new(1, &checkpoint_wobble.path().to_string_lossy());
 
         let rounds = vec![
             vec![
@@ -774,14 +764,20 @@ mod tests {
         ];
 
         println!("==================== relay triad consensus ====================");
-        for (relay_name, state) in &mut relays {
+        for (relay_name, state) in [
+            ("blockheight_relay", &blockheight_state),
+            ("weeble_relay", &weeble_state),
+            ("wobble_relay", &wobble_state),
+        ] {
             println!(
                 "initial {relay_name}: status={:?} slew_rate={:.6}",
                 state.status, state.slew_rate
             );
         }
 
-        let mut last_times = std::collections::HashMap::new();
+        let mut last_blockheight: Option<DateTime<Utc>> = None;
+        let mut last_weeble: Option<DateTime<Utc>> = None;
+        let mut last_wobble: Option<DateTime<Utc>> = None;
 
         for (round_idx, estimates) in rounds.into_iter().enumerate() {
             println!("round {round_idx}: {} samples", estimates.len());
@@ -794,30 +790,64 @@ mod tests {
             let m_max = d_unders[estimates.len() - 2];
             println!("round {round_idx}: consensus window m_min={m_min:.6}s m_max={m_max:.6}s");
 
-            for (relay_name, state) in &mut relays {
-                state.apply_bft_sync(estimates.clone());
-                let now = state.get_logical_utc();
-                let logical_delta = if let Some(last) = last_times.get(relay_name) {
-                    now.signed_duration_since(*last).num_milliseconds()
-                } else {
-                    0
-                };
+            blockheight_state.apply_bft_sync(estimates.clone());
+            let now_blockheight: DateTime<Utc> = blockheight_state.get_logical_utc();
+            let blockheight_delta = last_blockheight
+                .map(|last| now_blockheight.signed_duration_since(last).num_milliseconds())
+                .unwrap_or(0);
+            println!(
+                "blockheight_relay: round={round_idx} utc={} delta={}ms status={:?} slew_rate={:.6} pending_alert={:?}",
+                now_blockheight.to_rfc3339(),
+                blockheight_delta,
+                blockheight_state.status,
+                blockheight_state.slew_rate,
+                blockheight_state.pending_alert
+            );
+            assert!(matches!(blockheight_state.status, ClockStatus::Synced | ClockStatus::Slewing));
+            assert!(blockheight_state.pending_alert.is_none());
+            assert!((blockheight_state.slew_rate - 1.0).abs() <= 0.005);
+            if let Some(last) = last_blockheight.replace(now_blockheight) {
+                assert!(now_blockheight > last);
+            }
 
-                println!(
-                    "{relay_name}: round={round_idx} utc={} delta={}ms status={:?} slew_rate={:.6} pending_alert={:?}",
-                    now.to_rfc3339(),
-                    logical_delta,
-                    state.status,
-                    state.slew_rate,
-                    state.pending_alert
-                );
+            weeble_state.apply_bft_sync(estimates.clone());
+            let now_weeble: DateTime<Utc> = weeble_state.get_logical_utc();
+            let weeble_delta = last_weeble
+                .map(|last| now_weeble.signed_duration_since(last).num_milliseconds())
+                .unwrap_or(0);
+            println!(
+                "weeble_relay: round={round_idx} utc={} delta={}ms status={:?} slew_rate={:.6} pending_alert={:?}",
+                now_weeble.to_rfc3339(),
+                weeble_delta,
+                weeble_state.status,
+                weeble_state.slew_rate,
+                weeble_state.pending_alert
+            );
+            assert!(matches!(weeble_state.status, ClockStatus::Synced | ClockStatus::Slewing));
+            assert!(weeble_state.pending_alert.is_none());
+            assert!((weeble_state.slew_rate - 1.0).abs() <= 0.005);
+            if let Some(last) = last_weeble.replace(now_weeble) {
+                assert!(now_weeble > last);
+            }
 
-                assert!(matches!(state.status, ClockStatus::Synced | ClockStatus::Slewing));
-                assert!(state.pending_alert.is_none());
-                assert!((state.slew_rate - 1.0).abs() <= 0.005);
-                if let Some(last) = last_times.insert(relay_name, now) {
-                    assert!(now > last);
-                }
+            wobble_state.apply_bft_sync(estimates);
+            let now_wobble: DateTime<Utc> = wobble_state.get_logical_utc();
+            let wobble_delta = last_wobble
+                .map(|last| now_wobble.signed_duration_since(last).num_milliseconds())
+                .unwrap_or(0);
+            println!(
+                "wobble_relay: round={round_idx} utc={} delta={}ms status={:?} slew_rate={:.6} pending_alert={:?}",
+                now_wobble.to_rfc3339(),
+                wobble_delta,
+                wobble_state.status,
+                wobble_state.slew_rate,
+                wobble_state.pending_alert
+            );
+            assert!(matches!(wobble_state.status, ClockStatus::Synced | ClockStatus::Slewing));
+            assert!(wobble_state.pending_alert.is_none());
+            assert!((wobble_state.slew_rate - 1.0).abs() <= 0.005);
+            if let Some(last) = last_wobble.replace(now_wobble) {
+                assert!(now_wobble > last);
             }
         }
 
