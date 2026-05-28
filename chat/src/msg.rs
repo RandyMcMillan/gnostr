@@ -5,8 +5,8 @@
 
 use std::fmt::Display;
 
-use git2::Oid;
 use gnostr_asyncgit::sync::CommitId;
+use gnostr_asyncgit::git2::Oid;
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 
