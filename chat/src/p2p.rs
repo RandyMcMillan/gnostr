@@ -30,6 +30,7 @@ use crate::{
     event::ChatEvent,
     msg::{Msg, MsgKind},
 };
+use gnostr_p2p::build_tor_transport;
 use gnostr_p2p::kvs::{FileRequest, FileResponse};
 use gnostr_p2p::utils::multiaddr_with_peer_id;
 use libp2p::identity;
@@ -122,6 +123,9 @@ impl LocalP2pRelayService {
 }
 
 /// Start an in-process relay-capable peer for chat startup.
+///
+/// The auxiliary peer participates in relay-client hole punching and can dial
+/// through Tor when the Tor transport is enabled.
 pub fn spawn_local_p2p_relay_service() -> Result<LocalP2pRelayService> {
     global_rt().block_on(spawn_local_p2p_relay_service_async())
 }
@@ -154,10 +158,17 @@ async fn run_local_p2p_relay_service(
 ) -> Result<()> {
     #[derive(NetworkBehaviour)]
     struct RelayBehaviour {
+        relay_client: relay::client::Behaviour,
         relay: relay::Behaviour,
+        autonat: autonat::Behaviour,
+        dcutr: dcutr::Behaviour,
         ping: ping::Behaviour,
         identify: identify::Behaviour,
     }
+
+    let tor_transport = build_tor_transport(&keypair)
+        .await
+        .map_err(|error| anyhow!("{error}"))?;
 
     let mut swarm = libp2p::SwarmBuilder::with_existing_identity(keypair)
         .with_tokio()
@@ -167,8 +178,13 @@ async fn run_local_p2p_relay_service(
             yamux::Config::default,
         )?
         .with_quic()
-        .with_behaviour(|key| RelayBehaviour {
+        .with_other_transport(move |_| tor_transport)?
+        .with_relay_client(noise::Config::new, yamux::Config::default)?
+        .with_behaviour(|key, relay_client| RelayBehaviour {
+            relay_client,
             relay: relay::Behaviour::new(key.public().to_peer_id(), Default::default()),
+            autonat: autonat::Behaviour::new(key.public().to_peer_id(), autonat::Config::default()),
+            dcutr: dcutr::Behaviour::new(key.public().to_peer_id()),
             ping: ping::Behaviour::new(ping::Config::new()),
             identify: identify::Behaviour::new(identify::Config::new(
                 "/ipfs/id/1.0.0".to_string(),
