@@ -16,9 +16,9 @@ use expectrl::{
 };
 use futures::executor::block_on;
 pub use nostr_0_34_1::{self, nips::nip65::RelayMetadata, Event, Kind, Tag};
-use nostr_database_0_34_0::{nostr, NostrDatabase, Order};
-use nostr_sdk_0_34_0::prelude::*;
-use nostr_sqlite_0_34_0::SQLiteDatabase;
+use nostr_database::{nostr, NostrDatabase, Order};
+use nostr_lmdb::NostrLMDB;
+use nostr_sdk::prelude::*;
 use once_cell::sync::Lazy;
 use strip_ansi_escapes::strip_str;
 use tokio::runtime::Handle;
@@ -1116,10 +1116,9 @@ fn sanatize(s: String) -> String {
 }
 
 /** copied from client.rs */
-async fn get_local_cache_database(git_repo_path: &Path) -> Result<SQLiteDatabase> {
-    SQLiteDatabase::open(git_repo_path.join(".git/nostr-cache.sqlite"))
-        .await
-        .context("cannot open or create nostr cache database at .git/nostr-cache.sqlite")
+async fn get_local_cache_database(git_repo_path: &Path) -> Result<NostrLMDB> {
+    NostrLMDB::open(git_repo_path.join(".git/nostr-cache.lmdb"))
+        .context("cannot open or create nostr cache database at .git/nostr-cache.lmdb")
 }
 
 /** copied from client.rs */
@@ -1132,7 +1131,7 @@ pub async fn get_events_from_cache(
         .query(filters.clone(), Order::Asc)
         .await
         .context(
-            "cannot execute query on opened git repo nostr cache database .git/nostr-cache.sqlite",
+            "cannot execute query on opened git repo nostr cache database .git/nostr-cache.lmdb",
         )
 }
 
