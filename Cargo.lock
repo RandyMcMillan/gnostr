@@ -4842,16 +4842,6 @@ checksum = "5baebc0774151f905a1a2cc41989300b1e6fbb29aff0ceffa1064fdd3088d582"
 
 [[package]]
 name = "flatbuffers"
-version = "23.5.26"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4dac53e22462d78c16d64a1cd22371b54cc3fe94aa15e7886a2fa6e5d1ab8640"
-dependencies = [
- "bitflags 1.3.2",
- "rustc_version",
-]
-
-[[package]]
-name = "flatbuffers"
 version = "25.12.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "35f6839d7b3b98adde531effaf34f0c2badc6f4735d26fe74709d8e513a96ef3"
@@ -7135,7 +7125,6 @@ dependencies = [
  "nostr-sdk 0.37.0",
  "nostr-sdk 0.44.1",
  "nostr-signer",
- "nostr-sqlite",
  "notify 6.1.1",
  "notify-debouncer-mini 0.4.1",
  "num-bigint",
@@ -12191,7 +12180,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1926ef55392f3eea1bbe4a1358b64bbf12dd6eb554f40f483941a102c6263fc6"
 dependencies = [
  "async-trait",
- "flatbuffers 23.5.26",
  "lru 0.12.5",
  "nostr 0.34.1",
  "thiserror 1.0.69",
@@ -12219,7 +12207,7 @@ version = "0.44.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7462c9d8ae5ef6a28d66a192d399ad2530f1f2130b13186296dbb11bdef5b3d1"
 dependencies = [
- "flatbuffers 25.12.19",
+ "flatbuffers",
  "lru 0.16.4",
  "nostr 0.44.2",
  "tokio",
@@ -12437,21 +12425,6 @@ dependencies = [
  "async-utility 0.2.0",
  "nostr 0.34.1",
  "nostr-relay-pool 0.34.1",
- "thiserror 1.0.69",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "nostr-sqlite"
-version = "0.34.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0b634d2a908feccd7b6b2e8d2cea47bc4061b350b7a120cd6c6f2520e4e1fc1a"
-dependencies = [
- "async-trait",
- "nostr 0.34.1",
- "nostr-database 0.34.0",
- "rusqlite",
  "thiserror 1.0.69",
  "tokio",
  "tracing",
