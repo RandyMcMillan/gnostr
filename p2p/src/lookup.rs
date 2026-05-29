@@ -13,6 +13,7 @@ use log::debug;
 use thiserror::Error;
 
 use crate::p2p::network_config::Network;
+use crate::p2p::network_config::IPFS_PROTO_NAME;
 
 fn print_key(k: &str, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     writeln!(f, "{}:", Style::new().bold().paint(k))
@@ -64,6 +65,14 @@ impl std::fmt::Display for Peer {
 
 impl LookupClient {
     pub fn new(network: Option<Network>) -> Self {
+        Self::new_with_protocol(network, None, None)
+    }
+
+    pub fn new_with_protocol(
+        network: Option<Network>,
+        protocol: Option<String>,
+        protocol_version: Option<String>,
+    ) -> Self {
         // Create a random key for ourselves.
         let local_key = Keypair::generate_ed25519();
         let local_peer_id = PeerId::from(local_key.public());
@@ -87,9 +96,7 @@ impl LookupClient {
 
                 // Create a Kademlia behaviour.
                 let store = MemoryStore::new(local_peer_id);
-                let protocol_name = network
-                    .and_then(|n| n.protocol())
-                    .unwrap_or_else(|| "/ipfs/kad/1.0.0".to_string());
+                let protocol_name = resolve_protocol_name(network, protocol, protocol_version);
                 let kademlia_config = libp2p::kad::Config::new(
                     StreamProtocol::try_from_owned(protocol_name).unwrap(),
                 );
@@ -147,6 +154,54 @@ impl LookupClient {
                         } => {
                             if address == dst_addr {
                                 return self.wait_for_identify(peer_id).await;
+                            }
+
+                            fn resolve_protocol_name(
+                                network: Option<Network>,
+                                protocol: Option<String>,
+                                protocol_version: Option<String>,
+                            ) -> String {
+                                let protocol_name = protocol
+                                    .or_else(|| network.and_then(|n| n.protocol()))
+                                    .unwrap_or_else(|| IPFS_PROTO_NAME.to_string());
+
+                                match protocol_version {
+                                    Some(version) => match protocol_name.rsplit_once('/') {
+                                        Some((base, _)) if !base.is_empty() => format!("{base}/{version}"),
+                                        _ => format!("{protocol_name}/{version}"),
+                                    },
+                                    None => protocol_name,
+                                }
+                            }
+
+                            #[cfg(test)]
+                            mod tests {
+                                use super::resolve_protocol_name;
+                                use crate::p2p::network_config::Network;
+
+                                #[test]
+                                fn resolve_protocol_name_keeps_defaults() {
+                                    assert_eq!(
+                                        resolve_protocol_name(None, None, None),
+                                        "/ipfs/kad/1.0.0"
+                                    );
+                                    assert_eq!(
+                                        resolve_protocol_name(Some(Network::Ursa), None, None),
+                                        "/ursa/kad/0.0.1"
+                                    );
+                                }
+
+                                #[test]
+                                fn resolve_protocol_name_replaces_last_segment() {
+                                    assert_eq!(
+                                        resolve_protocol_name(Some(Network::Ipfs), Some("/ipfs/kad".to_string()), Some("0.0.1".to_string())),
+                                        "/ipfs/kad/0.0.1"
+                                    );
+                                    assert_eq!(
+                                        resolve_protocol_name(None, Some("/custom/protocol/1.2.3".to_string()), Some("9.9.9".to_string())),
+                                        "/custom/protocol/9.9.9"
+                                    );
+                                }
                             }
                         }
                         ConnectedPoint::Listener { .. } => {}
