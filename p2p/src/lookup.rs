@@ -155,54 +155,6 @@ impl LookupClient {
                             if address == dst_addr {
                                 return self.wait_for_identify(peer_id).await;
                             }
-
-                            fn resolve_protocol_name(
-                                network: Option<Network>,
-                                protocol: Option<String>,
-                                protocol_version: Option<String>,
-                            ) -> String {
-                                let protocol_name = protocol
-                                    .or_else(|| network.and_then(|n| n.protocol()))
-                                    .unwrap_or_else(|| IPFS_PROTO_NAME.to_string());
-
-                                match protocol_version {
-                                    Some(version) => match protocol_name.rsplit_once('/') {
-                                        Some((base, _)) if !base.is_empty() => format!("{base}/{version}"),
-                                        _ => format!("{protocol_name}/{version}"),
-                                    },
-                                    None => protocol_name,
-                                }
-                            }
-
-                            #[cfg(test)]
-                            mod tests {
-                                use super::resolve_protocol_name;
-                                use crate::p2p::network_config::Network;
-
-                                #[test]
-                                fn resolve_protocol_name_keeps_defaults() {
-                                    assert_eq!(
-                                        resolve_protocol_name(None, None, None),
-                                        "/ipfs/kad/1.0.0"
-                                    );
-                                    assert_eq!(
-                                        resolve_protocol_name(Some(Network::Ursa), None, None),
-                                        "/ursa/kad/0.0.1"
-                                    );
-                                }
-
-                                #[test]
-                                fn resolve_protocol_name_replaces_last_segment() {
-                                    assert_eq!(
-                                        resolve_protocol_name(Some(Network::Ipfs), Some("/ipfs/kad".to_string()), Some("0.0.1".to_string())),
-                                        "/ipfs/kad/0.0.1"
-                                    );
-                                    assert_eq!(
-                                        resolve_protocol_name(None, Some("/custom/protocol/1.2.3".to_string()), Some("9.9.9".to_string())),
-                                        "/custom/protocol/9.9.9"
-                                    );
-                                }
-                            }
                         }
                         ConnectedPoint::Listener { .. } => {}
                     }
@@ -303,6 +255,65 @@ impl LookupClient {
                 e => debug!("{e:?}"),
             }
         }
+    }
+}
+
+fn resolve_protocol_name(
+    network: Option<Network>,
+    protocol: Option<String>,
+    protocol_version: Option<String>,
+) -> String {
+    let protocol_name = protocol
+        .or_else(|| network.and_then(|n| n.protocol()))
+        .unwrap_or_else(|| IPFS_PROTO_NAME.to_string());
+
+    match protocol_version {
+        Some(version) => match protocol_name.rsplit_once('/') {
+            Some((base, last)) if !base.is_empty() && looks_like_version(last) => {
+                format!("{base}/{version}")
+            }
+            _ => format!("{protocol_name}/{version}"),
+        },
+        None => protocol_name,
+    }
+}
+
+fn looks_like_version(segment: &str) -> bool {
+    !segment.is_empty() && segment.chars().all(|c| c.is_ascii_digit() || c == '.')
+}
+
+#[cfg(test)]
+mod tests {
+    use super::resolve_protocol_name;
+    use crate::p2p::network_config::Network;
+
+    #[test]
+    fn resolve_protocol_name_keeps_defaults() {
+        assert_eq!(resolve_protocol_name(None, None, None), "/ipfs/kad/1.0.0");
+        assert_eq!(
+            resolve_protocol_name(Some(Network::Ursa), None, None),
+            "/ursa/kad/0.0.1"
+        );
+    }
+
+    #[test]
+    fn resolve_protocol_name_replaces_last_segment() {
+        assert_eq!(
+            resolve_protocol_name(
+                Some(Network::Ipfs),
+                Some("/ipfs/kad".to_string()),
+                Some("0.0.1".to_string())
+            ),
+            "/ipfs/kad/0.0.1"
+        );
+        assert_eq!(
+            resolve_protocol_name(
+                None,
+                Some("/custom/protocol/1.2.3".to_string()),
+                Some("9.9.9".to_string())
+            ),
+            "/custom/protocol/9.9.9"
+        );
     }
 }
 
