@@ -1,11 +1,11 @@
-//! `gnostr-p2p` owns the libp2p transport namespace.
+//! `gnostr-p2p` owns the libp2p transport namespace and swarm composition.
 //!
 //! It re-exports the shared asyncgit-backed Nostr wire types for downstream
-//! crates, and it keeps relay bucket and quorum-time helpers local so the
-//! dependency graph stays one-way: `types -> asyncgit -> p2p`.
+//! crates, and it keeps relay bucket, command handling, and quorum-time helpers
+//! local so the dependency graph stays one-way: `types -> asyncgit -> p2p`.
 //!
-//! The browser-side pure JavaScript implementation lives under `src/js/` and
-//! is available behind the `js` feature.
+//! The crate builds the node transport stack, exposes browser-side assets under
+//! the `js` feature, and adds the optional local Tor transport under `tor`.
 //!
 //! Attestation syndication follows the same deterministic structure used by
 //! `asyncgit`: mined commit, signed attestation event, mined git note, and a
