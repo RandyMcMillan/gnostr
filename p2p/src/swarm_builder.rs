@@ -93,7 +93,9 @@ fn build_behaviour(
     })
 }
 
-pub async fn build_swarm(keypair: identity::Keypair) -> Result<Swarm<Behaviour>, Box<dyn Error>> {
+pub async fn build_swarm(
+    keypair: identity::Keypair,
+) -> Result<Swarm<Behaviour>, Box<dyn Error + Send + Sync>> {
     let peer_id = PeerId::from(keypair.public());
     crate::embedded_network::log_line(format!("local peer id: {peer_id}"));
     info!("Local PeerId: {}", peer_id);
