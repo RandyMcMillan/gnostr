@@ -30,6 +30,22 @@ fn is_shitlisted(url: &str) -> bool {
     SHITLIST_RELAYS.iter().any(|relay| url.contains(relay))
 }
 
+fn normalize_relay_entry(relay: &str) -> Option<String> {
+    let relay = relay
+        .trim()
+        .trim_start_matches("- ")
+        .trim_start_matches('-')
+        .trim_matches('\'')
+        .trim_matches('"')
+        .trim();
+
+    if relay.is_empty() {
+        None
+    } else {
+        Some(relay.to_string())
+    }
+}
+
 pub fn load_relay_bucket_from_dir(dir: &Path) -> Result<RelayBucket, Box<dyn Error>> {
     let nip = dir
         .file_name()
@@ -48,7 +64,13 @@ pub fn load_relay_bucket_from_dir(dir: &Path) -> Result<RelayBucket, Box<dyn Err
         Vec::new()
     };
 
-    Ok(RelayBucket { nip, relays })
+    Ok(RelayBucket {
+        nip,
+        relays: relays
+            .into_iter()
+            .filter_map(|relay| normalize_relay_entry(&relay))
+            .collect(),
+    })
 }
 
 pub fn load_relay_buckets(config_dir: &Path) -> Result<Vec<RelayBucket>, Box<dyn Error>> {
@@ -134,12 +156,14 @@ async fn fetch_live_crawler_relays() -> anyhow::Result<Option<Vec<String>>> {
                 relays
                     .lines()
                     .map(str::trim)
-                    .map(|relay| relay.trim_start_matches("- ").trim_matches('\'').trim_matches('"').trim())
-                    .filter(|relay| !relay.is_empty())
-                    .map(|relay| relay.to_string())
+                    .filter_map(normalize_relay_entry)
                     .collect(),
             )
         })?;
+    let relays = relays
+        .into_iter()
+        .filter_map(|relay| normalize_relay_entry(&relay))
+        .collect::<Vec<_>>();
 
     if relays.is_empty() {
         Ok(None)
@@ -179,6 +203,7 @@ pub async fn bootstrap_crawler_relay_buckets(
     };
     let relays: Vec<String> = relays
         .into_iter()
+        .filter_map(|relay| normalize_relay_entry(&relay))
         .filter(|relay| {
             if is_shitlisted(relay) {
                 warn!("bootstrap_crawler_relay_buckets: skipping shitlisted relay {}", relay);
