@@ -17,7 +17,7 @@ use gnostr::{
     login::get_curent_user,
     repo_ref,
 };
-use nostr_0_34_1::hashes::sha1::Hash as Sha1Hash;
+use gnostr::types::Sha1Hash;
 use repo_ref::RepoRef;
 
 use crate::{
