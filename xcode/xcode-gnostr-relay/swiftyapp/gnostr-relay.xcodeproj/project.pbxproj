@@ -12,6 +12,7 @@
 		291DE5382C3DE74F007F9706 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 291DE5372C3DE74F007F9706 /* Assets.xcassets */; };
 		291DE53B2C3DE74F007F9706 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 291DE53A2C3DE74F007F9706 /* Preview Assets.xcassets */; };
 		2986A2E32C3F8FA200D13583 /* RustyLib in Frameworks */ = {isa = PBXBuildFile; productRef = 2986A2E22C3F8FA200D13583 /* RustyLib */; };
+		4BA045532FC3D20000FE5E85 /* Crawler in Frameworks */ = {isa = PBXBuildFile; productRef = 4BA045572FC3D20000FE5E85 /* Crawler */; };
 		4BA045512FC3CFAC00FE5E85 /* swiftyrustlib in Resources */ = {isa = PBXBuildFile; fileRef = 2986A2E02C3F8F9800D13583 /* swiftyrustlib */; };
 		4BA045522FC3D11F00FE5E85 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2986A2E52C3F8FA200D13583 /* SystemConfiguration.framework */; };
 /* End PBXBuildFile section */
@@ -33,6 +34,7 @@
 			files = (
 				4BA045522FC3D11F00FE5E85 /* SystemConfiguration.framework in Frameworks */,
 				2986A2E32C3F8FA200D13583 /* RustyLib in Frameworks */,
+				4BA045532FC3D20000FE5E85 /* Crawler in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -110,6 +112,7 @@
 			name = "gnostr-relay";
 			packageProductDependencies = (
 				2986A2E22C3F8FA200D13583 /* RustyLib */,
+				4BA045572FC3D20000FE5E85 /* Crawler */,
 			);
 			productName = swiftyapp;
 			productReference = 291DE5302C3DE74F007F9706 /* gnostr-relay.app */;
@@ -141,6 +144,7 @@
 			mainGroup = 291DE5272C3DE74F007F9706;
 			packageReferences = (
 				2986A2E62C3F8FA200D13583 /* XCLocalSwiftPackageReference "../Lib/swiftyrustlib" */,
+				4BA045562FC3D20000FE5E85 /* XCLocalSwiftPackageReference "../../../swift-gnostr-crawler" */,
 			);
 			productRefGroup = 291DE5312C3DE74F007F9706 /* Products */;
 			projectDirPath = "";
@@ -424,6 +428,15 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 2986A2E62C3F8FA200D13583 /* XCLocalSwiftPackageReference "../Lib/swiftyrustlib" */;
 			productName = RustyLib;
+		};
+		4BA045572FC3D20000FE5E85 /* Crawler */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 4BA045562FC3D20000FE5E85 /* XCLocalSwiftPackageReference "../../../swift-gnostr-crawler" */;
+			productName = Crawler;
+		};
+		4BA045562FC3D20000FE5E85 /* XCLocalSwiftPackageReference "../../../swift-gnostr-crawler" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../../../swift-gnostr-crawler;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
