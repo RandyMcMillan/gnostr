@@ -545,6 +545,7 @@ mod tests {
                     timestamp: OffsetDateTime::from_unix_timestamp(0).unwrap(),
                 },
             )?;
+            println!("[p2p] mined commit={commit_id}");
 
             let attestation_target = Id::try_from_hex_string(&format!("{:0>64}", commit_id.to_string()))
                 .map_err(|err| anyhow::anyhow!(err.to_string()))?;
@@ -911,6 +912,7 @@ mod tests {
             &secret_key,
             5,
         );
+        println!("[p2p] created attestation={}", attestation.id.as_hex_string());
         let note_message = append_public_attestation_log(
             None,
             3234,
@@ -927,6 +929,7 @@ mod tests {
             5,
             Some("0"),
         )?;
+        println!("[p2p] mined note={note_id}");
         let note = show_note(repo_path, commit_id, Some(notes_ref))?.expect("note exists");
         let relay_message = RelayMessage::Event(
             SubscriptionId(attestation.id.as_hex_string()),
@@ -952,13 +955,12 @@ mod tests {
             }))?
         );
 
+        println!("[p2p] broadcasting attestation to crawler relays");
         let published = crate::crawler_broadcast::broadcast_event_to_crawler_relays(
             &config_dir,
             &attestation,
         )
         .await?;
-        println!("[p2p] broadcast complete published={published}");
-        println!("[p2p] broadcast complete published={published}");
         println!("[p2p] broadcast complete published={published}");
         assert!(published >= 1);
 
