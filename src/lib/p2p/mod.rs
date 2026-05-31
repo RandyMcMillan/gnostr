@@ -124,7 +124,7 @@ pub async fn evt_loop(
     mut send: tokio::sync::mpsc::Receiver<Msg>,
     recv: tokio::sync::mpsc::Sender<Msg>,
     topic: gossipsub::IdentTopic,
-) -> Result<(), Box<dyn Error>> {
+) -> Result<(), Box<dyn Error + Send + Sync>> {
     let keypair: identity::Keypair =
         crate::p2p::utils::generate_ed25519(args.nsec.clone().map(|s| s.as_bytes()[0]));
     let public_key = keypair.public();
@@ -375,7 +375,7 @@ fn service_announcement_record(service_name: &str, service_url: &str, peer_id: P
 pub async fn advertise_service(
     service_name: String,
     service_url: String,
-) -> Result<(), Box<dyn Error>> {
+) -> Result<(), Box<dyn Error + Send + Sync>> {
     let keypair = identity::Keypair::generate_ed25519();
     let mut swarm = crate::p2p::swarm_builder::build_swarm(keypair).await?;
     let peer_id = *swarm.local_peer_id();
