@@ -1158,9 +1158,11 @@ pub fn get_proposal_branch_name_from_events(
 ) -> Result<String> {
     for event in events {
         if event.tags.iter().any(|t| {
-            !t.to_vec()[1].eq("revision-root")
+            let tag = t.clone().to_vec();
+            !tag[1].eq("revision-root")
                 && event.tags.iter().any(|t| {
-                    t.to_vec()[0].eq("branch-name") && t.to_vec()[1].eq(branch_name_in_event)
+                    let tag = t.clone().to_vec();
+                    tag[0].eq("branch-name") && tag[1].eq(branch_name_in_event)
                 })
         }) {
             return Ok(format!(
@@ -1439,9 +1441,10 @@ fn get_first_proposal_event_id() -> Result<nostr_db::EventId> {
     let proposal_1_id = proposals
         .iter()
         .find(|e| {
-            e.tags
-                .iter()
-                .any(|t| t.to_vec()[1].eq(&FEATURE_BRANCH_NAME_1))
+            e.tags.iter().any(|t| {
+                let tag = t.clone().to_vec();
+                tag[1].eq(&FEATURE_BRANCH_NAME_1)
+            })
         })
         .unwrap()
         .id;
