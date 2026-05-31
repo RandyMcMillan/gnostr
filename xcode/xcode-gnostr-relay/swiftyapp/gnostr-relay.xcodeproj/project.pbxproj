@@ -434,9 +434,9 @@
 			package = 4BA045562FC3D20000FE5E85 /* XCLocalSwiftPackageReference "../../../swift-gnostr-crawler" */;
 			productName = Crawler;
 		};
-		4BA045562FC3D20000FE5E85 /* XCLocalSwiftPackageReference "../../../swift-gnostr-crawler" */ = {
+		4BA045562FC3D20000FE5E85 /* XCLocalSwiftPackageReference "../../swift-gnostr-crawler" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = ../../../swift-gnostr-crawler;
+			relativePath = ../../swift-gnostr-crawler;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

@@ -8,14 +8,17 @@
 import Foundation
 import Combine
 import SwiftUI
+import Crawler
 import RustyLib
 
 struct ContentView: View {
     @State private var networkStatus = p2pNetworkStatus()
     @State private var networkLogs = p2pNetworkLogs()
     @State private var showingNetworkPanel = false
+    @State private var showingCrawlerPanel = false
     @State private var didAutoStartNetwork = false
     @State private var logFontSize: CGFloat = 12
+    @StateObject private var crawlerStore = CrawlerNetworkStore()
 
     var body: some View {
         VStack(spacing: 0) {
@@ -48,6 +51,20 @@ struct ContentView: View {
             }
 
             Spacer()
+
+            Button {
+                showingCrawlerPanel = true
+            } label: {
+                Image(systemName: "network")
+                    .font(.title3.weight(.semibold))
+                    .padding(10)
+                    .background(.thinMaterial, in: Circle())
+                    .shadow(radius: 2)
+            }
+            .accessibilityLabel("Crawler network")
+            .fullScreenCover(isPresented: $showingCrawlerPanel) {
+                CrawlerNetworkDashboard(store: crawlerStore)
+            }
 
             Button {
                 showingNetworkPanel = true
