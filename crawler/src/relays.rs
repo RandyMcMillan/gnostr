@@ -1,4 +1,4 @@
-use crate::preprocess_line;
+use crate::relay_io::normalize_relay_entry;
 use crate::processor::BOOTSTRAP_RELAYS;
 use anyhow::Result;
 use directories::ProjectDirs;
@@ -115,26 +115,6 @@ pub fn write_kinds_serve_files() -> std::io::Result<PathBuf> {
     Ok(txt_path)
 }
 
-fn sanitize_relay_entry(line: &str) -> Option<String> {
-    let mut final_line = crate::preprocess_line(line);
-    if final_line.is_empty() {
-        return None;
-    }
-
-    if !final_line.contains("://") {
-        let potential_url = format!("wss://{}", final_line);
-        if let Ok(url) = Url::parse(&potential_url) {
-            final_line = url.to_string();
-        }
-    }
-
-    if final_line.starts_with("wss://") || final_line.starts_with("ws://") {
-        Url::parse(&final_line).ok().map(|url| url.to_string())
-    } else {
-        None
-    }
-}
-
 fn collect_relays_from_content(path: &Path, content: &str, relays: &mut Vec<String>) {
     let mut record_relay = |relay: String| {
         info!(
@@ -149,7 +129,7 @@ fn collect_relays_from_content(path: &Path, content: &str, relays: &mut Vec<Stri
         Some("json") => {
             if let Ok(values) = serde_json::from_str::<Vec<String>>(content) {
                 for value in values {
-                    if let Some(relay) = sanitize_relay_entry(&value) {
+                    if let Some(relay) = normalize_relay_entry(&value) {
                         record_relay(relay);
                     }
                 }
@@ -159,7 +139,7 @@ fn collect_relays_from_content(path: &Path, content: &str, relays: &mut Vec<Stri
         Some("yaml") | Some("yml") => {
             if let Ok(values) = serde_yaml::from_str::<Vec<String>>(content) {
                 for value in values {
-                    if let Some(relay) = sanitize_relay_entry(&value) {
+                    if let Some(relay) = normalize_relay_entry(&value) {
                         record_relay(relay);
                     }
                 }
@@ -168,7 +148,7 @@ fn collect_relays_from_content(path: &Path, content: &str, relays: &mut Vec<Stri
         }
         Some("txt") => {
             for value in content.split_whitespace() {
-                if let Some(relay) = sanitize_relay_entry(value) {
+                if let Some(relay) = normalize_relay_entry(value) {
                     record_relay(relay);
                 }
             }
@@ -178,7 +158,7 @@ fn collect_relays_from_content(path: &Path, content: &str, relays: &mut Vec<Stri
     }
 
     for line in content.lines() {
-        if let Some(relay) = sanitize_relay_entry(line) {
+        if let Some(relay) = normalize_relay_entry(line) {
             record_relay(relay);
         }
     }
@@ -448,64 +428,7 @@ pub async fn fetch_online_relays(url: &str) -> Result<Vec<String>> {
 
     let relays: Vec<String> = text
         .lines()
-        .filter_map(|line| {
-            let preprocessed_line = preprocess_line(line);
-
-            if preprocessed_line.is_empty() {
-                return None;
-            }
-
-            let mut final_line = preprocessed_line;
-
-            // Attempt to prepend wss:// if it looks like a hostname without a scheme
-
-            if !final_line.contains("://") {
-                let potential_url = format!("wss://{}", final_line);
-
-                match Url::parse(&potential_url) {
-                    Ok(url) => {
-                        debug!("Prepended 'wss://' to form valid URL: {}", url);
-
-                        final_line = url.to_string();
-                    }
-
-                    Err(_) => {
-                        // If prepending wss:// doesn't form a valid URL, keep the original line
-
-                        // and let the next checks handle it as a non-URL line.
-
-                        debug!(
-                            "Attempted to prepend 'wss://' but it's still not a valid URL: {}",
-                            potential_url
-                        );
-                    }
-                }
-            }
-
-            if final_line.starts_with("wss://") || final_line.starts_with("ws://") {
-                match Url::parse(&final_line) {
-                    Ok(url) => Some(url.to_string()),
-
-                    Err(_) => {
-                        warn!("Skipping invalid WEBSOCKET URL format: {}", final_line);
-
-                        None
-                    }
-                }
-            } else if final_line.contains(":://") {
-                // It's a URL, but not a websocket URL
-
-                warn!("Skipping non-websocket URL scheme: {}", final_line);
-
-                None
-            } else {
-                // It's not a URL at all (e.g., "Relay URL")
-
-                debug!("Silently skipping non-URL line: {}", final_line);
-
-                None
-            }
-        })
+        .filter_map(normalize_relay_entry)
         .collect();
 
     debug!("Fetched {} online relays", relays.len());

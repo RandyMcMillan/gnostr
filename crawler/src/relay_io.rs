@@ -20,7 +20,49 @@ pub fn preprocess_line(line: &str) -> String {
     trimmed_line
 }
 
-fn normalize_relay_entry(line: &str) -> Option<String> {
+fn relay_host(relay: &str) -> Option<&str> {
+    let relay = relay.trim();
+    let relay = relay
+        .strip_prefix("wss://")
+        .or_else(|| relay.strip_prefix("ws://"))?;
+    let authority = relay.split('/').next().unwrap_or("");
+    let authority = authority.rsplit('@').next().unwrap_or(authority);
+    if authority.starts_with('[') {
+        Some(authority)
+    } else {
+        Some(authority.split(':').next().unwrap_or(authority))
+    }
+}
+
+fn is_private_ipv4_relay(relay: &str) -> bool {
+    let host = match relay_host(relay) {
+        Some(host) => host,
+        None => return false,
+    };
+
+    let mut octets = host.split('.');
+    let first = match octets.next().and_then(|part| part.parse::<u8>().ok()) {
+        Some(first) => first,
+        None => return false,
+    };
+    let second = match octets.next().and_then(|part| part.parse::<u8>().ok()) {
+        Some(second) => second,
+        None => return false,
+    };
+
+    (first == 10)
+        || (first == 172 && (16..=31).contains(&second))
+        || (first == 192 && second == 168)
+        || (first == 100 && (64..=127).contains(&second))
+}
+
+fn is_loopback_relay(relay: &str) -> bool {
+    relay_host(relay)
+        .map(|host| host == "localhost" || host == "127.0.0.1")
+        .unwrap_or(false)
+}
+
+pub(crate) fn normalize_relay_entry(line: &str) -> Option<String> {
     let mut final_line = preprocess_line(line);
     if final_line.is_empty() {
         return None;
@@ -34,16 +76,35 @@ fn normalize_relay_entry(line: &str) -> Option<String> {
         }
     }
 
-    if final_line.starts_with("wss://") || final_line.starts_with("ws://") {
-        match Url::parse(&final_line) {
-            Ok(url) => Some(url.to_string()),
-            Err(_) => {
-                trace!("Skipping invalid WEBSOCKET URL: {}", final_line);
-                None
+    if !final_line.starts_with("wss://") && !final_line.starts_with("ws://") {
+        return None;
+    }
+
+    match Url::parse(&final_line) {
+        Ok(url) => {
+            let normalized = url.to_string();
+            if is_loopback_relay(&normalized) {
+                return Some(normalized);
             }
+
+            if let Some(host) = relay_host(&normalized) {
+                if host.starts_with('-') {
+                    warn!("Skipping invalid relay host: {}", normalized);
+                    return None;
+                }
+            }
+
+            if is_private_ipv4_relay(&normalized) {
+                warn!("Skipping private relay URL: {}", normalized);
+                return None;
+            }
+
+            Some(normalized)
         }
-    } else {
-        None
+        Err(_) => {
+            trace!("Skipping invalid WEBSOCKET URL: {}", final_line);
+            None
+        }
     }
 }
 
@@ -148,6 +209,22 @@ mod tests {
             vec![
                 "wss://relay.example/".to_string(),
                 "wss://relay2.example/".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn rejects_private_relay_entries_but_allows_loopback() {
+        let entries = parse_relay_entries(
+            "wss://10.0.0.21:4848/\nws://100.71.217.147:4848/\nwss://-auth.nostr1.com/\nwss://localhost:4848/\nws://127.0.0.1:4848/\nwss://relay.example/\n",
+        );
+
+        assert_eq!(
+            entries,
+            vec![
+                "wss://localhost:4848/".to_string(),
+                "ws://127.0.0.1:4848/".to_string(),
+                "wss://relay.example/".to_string(),
             ]
         );
     }
