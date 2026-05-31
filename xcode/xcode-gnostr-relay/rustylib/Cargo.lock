@@ -828,7 +828,7 @@ dependencies = [
  "dirs 6.0.0",
  "easy-cast",
  "fuzzy-matcher",
- "git2 0.21.0",
+ "git2",
  "git2-hooks",
  "gix 0.78.0",
  "log",
@@ -3094,21 +3094,6 @@ dependencies = [
 
 [[package]]
 name = "git2"
-version = "0.20.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7b88256088d75a56f8ecfa070513a775dd9107f6530ef14919dac831af9cfe2b"
-dependencies = [
- "bitflags 2.11.1",
- "libc",
- "libgit2-sys",
- "log",
- "openssl-probe 0.1.6",
- "openssl-sys",
- "url",
-]
-
-[[package]]
-name = "git2"
 version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ddddbf932745a6be37109b6112d3ee09696106f848449069d3a57bba937ab82e"
@@ -3124,7 +3109,7 @@ dependencies = [
 name = "git2-hooks"
 version = "0.7.0"
 dependencies = [
- "git2 0.21.0",
+ "git2",
  "gix-path 0.11.3",
  "log",
  "shellexpand",
@@ -4603,7 +4588,7 @@ dependencies = [
  "futures-util",
  "fuzzy-matcher",
  "git-version",
- "git2 0.20.4",
+ "git2",
  "gix 0.66.0",
  "gnostr-git2-hooks",
  "gnostr-grammar",
@@ -4642,6 +4627,7 @@ dependencies = [
  "rkyv 0.8.16",
  "rsass",
  "rust-ini",
+ "rustls",
  "scrypt",
  "sd-notify",
  "secp256k1",
@@ -4711,7 +4697,7 @@ dependencies = [
  "dns-lookup",
  "env_logger 0.11.10",
  "futures",
- "git2 0.20.4",
+ "git2",
  "gnostr-asyncgit",
  "gnostr-filetreelist",
  "indicatif",
@@ -4810,6 +4796,8 @@ dependencies = [
  "ansi_term",
  "anyhow",
  "async-std",
+ "base64 0.22.1",
+ "chacha20poly1305",
  "chrono",
  "clap 4.6.1",
  "futures",
@@ -4884,7 +4872,7 @@ dependencies = [
  "flate2",
  "futures",
  "futures-util",
- "git2 0.20.4",
+ "git2",
  "gix 0.66.0",
  "handlebars",
  "hex",
@@ -6100,9 +6088,7 @@ checksum = "9b26f66f35e1871b22efcf7191564123d2a446ca0538cde63c23adfefa9b15b7"
 dependencies = [
  "cc",
  "libc",
- "libssh2-sys",
  "libz-sys",
- "openssl-sys",
  "pkg-config",
 ]
 
@@ -6845,20 +6831,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "libssh2-sys"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "220e4f05ad4a218192533b300327f5150e809b54c4ec83b5a1d91833601811b9"
-dependencies = [
- "cc",
- "libc",
- "libz-sys",
- "openssl-sys",
- "pkg-config",
- "vcpkg",
-]
-
-[[package]]
 name = "libz-sys"
 version = "1.1.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7290,7 +7262,7 @@ dependencies = [
  "libc",
  "log",
  "openssl",
- "openssl-probe 0.2.1",
+ "openssl-probe",
  "openssl-sys",
  "schannel",
  "security-framework",
@@ -7854,12 +7826,6 @@ dependencies = [
  "quote",
  "syn 2.0.117",
 ]
-
-[[package]]
-name = "openssl-probe"
-version = "0.1.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d05e27ee213611ffe7d6348b942e8f942b37114c00cc03cec254295a4a17852e"
 
 [[package]]
 name = "openssl-probe"
