@@ -30,6 +30,26 @@ fn is_shitlisted(url: &str) -> bool {
     SHITLIST_RELAYS.iter().any(|relay| url.contains(relay))
 }
 
+fn relay_host(relay: &str) -> Option<&str> {
+    let relay = relay.trim();
+    let relay = relay
+        .strip_prefix("wss://")
+        .or_else(|| relay.strip_prefix("ws://"))?;
+    let authority = relay.split('/').next().unwrap_or("");
+    let authority = authority.rsplit('@').next().unwrap_or(authority);
+    if authority.starts_with('[') {
+        Some(authority)
+    } else {
+        Some(authority.split(':').next().unwrap_or(authority))
+    }
+}
+
+fn is_valid_relay_url(relay: &str) -> bool {
+    relay_host(relay)
+        .map(|host| !host.is_empty() && !host.starts_with('-'))
+        .unwrap_or(false)
+}
+
 fn normalize_relay_entry(relay: &str) -> Option<String> {
     let relay = relay
         .trim()
@@ -204,6 +224,21 @@ pub async fn bootstrap_crawler_relay_buckets(
     let relays: Vec<String> = relays
         .into_iter()
         .filter_map(|relay| normalize_relay_entry(&relay))
+        .filter_map(|relay| {
+            if is_valid_relay_url(&relay) {
+                Some(relay)
+            } else {
+                warn!(
+                    "bootstrap_crawler_relay_buckets: rejecting invalid relay_url={}",
+                    relay
+                );
+                println!(
+                    "pretty_print_attestations relay_rejected relay_url={} reason=invalid host",
+                    relay
+                );
+                None
+            }
+        })
         .filter(|relay| {
             if is_shitlisted(relay) {
                 warn!("bootstrap_crawler_relay_buckets: skipping shitlisted relay {}", relay);
@@ -238,6 +273,17 @@ pub async fn broadcast_event_to_crawler_relays(
 
     for bucket in buckets {
         for relay_url in bucket.relays {
+            if !is_valid_relay_url(&relay_url) {
+                warn!(
+                    "broadcast_event_to_crawler_relays: rejecting invalid relay_url={}",
+                    relay_url
+                );
+                println!(
+                    "pretty_print_attestations relay_rejected nip={} relay_url={} reason=invalid host",
+                    bucket.nip, relay_url
+                );
+                continue;
+            }
             println!(
                 "pretty_print_attestations relays_sent_to nip={} relay_url={}",
                 bucket.nip, relay_url
@@ -349,5 +395,12 @@ mod tests {
         assert_eq!(buckets.len(), 1);
         assert_eq!(buckets[0].nip, 23);
         assert_eq!(buckets[0].relays, vec!["wss://relay.example"]);
+    }
+
+    #[test]
+    fn rejects_invalid_relay_hostnames() {
+        assert!(!is_valid_relay_url("wss://-auth.nostr1.com/"));
+        assert!(!is_valid_relay_url("wss://-pub.wellorder.net/"));
+        assert!(is_valid_relay_url("wss://relay.example/"));
     }
 }
