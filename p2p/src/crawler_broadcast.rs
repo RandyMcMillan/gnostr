@@ -63,6 +63,7 @@ fn is_private_ipv4_relay(relay: &str) -> bool {
     (first == 10)
         || (first == 172 && (16..=31).contains(&second))
         || (first == 192 && second == 168)
+        || (first == 100 && (64..=127).contains(&second))
 }
 
 fn is_valid_relay_url(relay: &str) -> bool {
@@ -474,6 +475,8 @@ mod tests {
         assert!(!is_valid_relay_url("wss://10.0.10.21:4848/"));
         assert!(!is_valid_relay_url("wss://172.16.0.1:4848/"));
         assert!(!is_valid_relay_url("wss://172.31.255.255:4848/"));
+        assert!(!is_valid_relay_url("wss://100.71.217.147:4848/"));
+        assert!(!is_valid_relay_url("wss://100.73.251.113/"));
         assert!(is_loopback_relay("wss://localhost:4848/"));
         assert!(is_loopback_relay("ws://127.0.0.1:4848/"));
         assert!(is_valid_relay_url("wss://relay.example/"));
