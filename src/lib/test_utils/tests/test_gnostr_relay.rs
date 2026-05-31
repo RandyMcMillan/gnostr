@@ -9,7 +9,7 @@ mod tests {
     use futures_util::{SinkExt, StreamExt};
     use gnostr_crawler::processor::BOOTSTRAP_RELAYS;
     use gnostr_relay::App as GnostrRelayApp;
-    use nostr_0_34_1::{EventBuilder, Keys, Kind, Tag};
+    use nostr::{EventBuilder, Keys, Kind, Tag};
     use serde_json::json;
     use tempfile::NamedTempFile;
     use tokio::sync::Mutex as TokioMutex;
@@ -108,11 +108,12 @@ mod tests {
 
         let keys = Keys::generate();
         let tags = vec![
-            Tag::parse(&["t", "gnostr"]).unwrap(),
-            Tag::parse(&["t", "nostr"]).unwrap(),
+            Tag::parse(["t", "gnostr"]).unwrap(),
+            Tag::parse(["t", "nostr"]).unwrap(),
         ];
-        let event = EventBuilder::new(Kind::TextNote, "Hello gostr from test!", tags.into_iter())
-            .to_event(&keys)
+        let event = EventBuilder::new(Kind::TextNote, "Hello gostr from test!")
+            .tags(tags)
+            .sign_with_keys(&keys)
             .unwrap();
 
         let event_json = json!(["EVENT", event]).to_string();

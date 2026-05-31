@@ -9,7 +9,7 @@ use std::{
 
 use anyhow::{Context, Result};
 use git2::{Branch, Oid, RepositoryInitOptions, Signature, Time};
-use super::nostr_0_34_1::{nips::nip01::Coordinate, ToBech32};
+use nostr::{nips::nip01::Coordinate, nips::nip19::Nip19Coordinate, RelayUrl, ToBech32};
 
 use crate::test_utils::{generate_repo_ref_event, Kind};
 
@@ -22,13 +22,15 @@ pub struct GitTestRepo {
 impl Default for GitTestRepo {
     fn default() -> Self {
         let repo_event = generate_repo_ref_event();
-        let coordinate = Coordinate {
-            kind: Kind::GitRepoAnnouncement,
-            public_key: repo_event.author(),
-            identifier: repo_event.identifier().unwrap().to_string(),
+        let coordinate = Nip19Coordinate {
+            coordinate: Coordinate {
+                kind: Kind::GitRepoAnnouncement,
+                public_key: repo_event.pubkey,
+                identifier: repo_event.tags.identifier().unwrap().to_string(),
+            },
             relays: vec![
-                "ws://localhost:8055".to_string(),
-                "ws://localhost:8056".to_string(),
+                RelayUrl::parse("ws://localhost:8055").unwrap(),
+                RelayUrl::parse("ws://localhost:8056").unwrap(),
             ],
         };
 
