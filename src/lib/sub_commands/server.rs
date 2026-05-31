@@ -14,9 +14,7 @@ pub struct ServerSubCommand {
 }
 
 /// Launch the Blossom server wrapper.
-pub async fn server(
-    args: &ServerSubCommand,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+pub async fn server(args: &ServerSubCommand) -> Result<(), Box<dyn std::error::Error>> {
     if args.help {
         crate::server::print_help()?;
         return Ok(());
