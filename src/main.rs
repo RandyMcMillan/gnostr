@@ -12,6 +12,7 @@ use gnostr::{
     cli::{get_app_cache_path, GnostrCli, GnostrCommands},
     sub_commands,
     types::{Keys, PrivateKey, PublicKey},
+    utils::install_rustls_crypto_provider,
     weeble, wobble,
 };
 use gnostr_asyncgit::sync::{repo_open_error, resolve_repo_path, RepoPath};
@@ -19,10 +20,6 @@ use sha2::{Digest, Sha256};
 use tracing::{debug, /* info, */ trace};
 use tracing_core::metadata::LevelFilter;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Registry}; // Import the anyhow macro
-
-fn install_rustls_crypto_provider() {
-    let _ = rustls::crypto::ring::default_provider().install_default();
-}
 
 struct SharedFileWriter(Arc<Mutex<std::fs::File>>);
 

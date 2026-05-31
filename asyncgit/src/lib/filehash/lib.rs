@@ -38,7 +38,7 @@ pub const CARGO_PKG_NAME: &str = env!("CARGO_PKG_NAME");
 /// The version of the package as specified in Cargo.toml.
 pub const CARGO_PKG_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-fn install_rustls_crypto_provider() {
+pub fn install_rustls_crypto_provider() {
     let _ = rustls::crypto::ring::default_provider().install_default();
 }
 

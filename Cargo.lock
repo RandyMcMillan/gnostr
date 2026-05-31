@@ -7337,6 +7337,7 @@ dependencies = [
  "rocksdb",
  "rsass",
  "rust-ini",
+ "rustls 0.23.39",
  "scrypt",
  "sd-notify",
  "secp256k1 0.29.1",
