@@ -28,6 +28,7 @@ pub mod args;
 pub mod cli;
 pub mod behaviour;
 pub mod embedded_network;
+pub mod fractal;
 pub mod command_handler;
 pub mod event_handler;
 pub mod git_integration;
@@ -104,6 +105,7 @@ pub use message::*;
 pub use repo_state::{RepoStateQuorum, RepoStateRefs, RepoStateSnapshot};
 #[cfg(not(doc))]
 pub use relay_bridge::{RelayBridgeCommand, RelayBridgeNotification, RelayBridgeSession, NostrRelayConnection};
+pub use fractal::{build_fractal_swarm, run_fractal_engine, FractalBehaviour, FractalBehaviourEvent, IntegrityManager, ProtocolSlice};
 #[cfg(all(not(doc), feature = "js"))]
 pub use template_html::{get_template_assets, TemplateHtml};
 
@@ -137,6 +139,7 @@ pub mod p2p {
     pub use crate::{
         args, behaviour, cli, command_handler, event_handler, git_integration, git_publisher, kvs,
         keypair_from_seed, lookup, network_config, opt, repo_state, relay_paths, time, crawler_broadcast,
+        fractal,
         swarm_builder, utils,
     };
     #[cfg(not(doc))]
