@@ -46,7 +46,7 @@ fn relay_host(relay: &str) -> Option<&str> {
 
 fn is_valid_relay_url(relay: &str) -> bool {
     relay_host(relay)
-        .map(|host| !host.is_empty() && !host.starts_with('-'))
+        .map(|host| !host.is_empty() && !host.starts_with('-') && !host.starts_with("192.168."))
         .unwrap_or(false)
 }
 
@@ -236,7 +236,7 @@ pub async fn bootstrap_crawler_relay_buckets(
                     relay
                 );
                 println!(
-                    "pretty_print_attestations relay_rejected relay_url={} reason=invalid host",
+                    "pretty_print_attestations relay_rejected relay_url={} reason=invalid or private host",
                     relay
                 );
                 None
@@ -282,7 +282,7 @@ pub async fn broadcast_event_to_crawler_relays(
                     relay_url
                 );
                 println!(
-                    "pretty_print_attestations relay_rejected nip={} relay_url={} reason=invalid host",
+                    "pretty_print_attestations relay_rejected nip={} relay_url={} reason=invalid or private host",
                     bucket.nip, relay_url
                 );
                 continue;
@@ -437,6 +437,8 @@ mod tests {
     fn rejects_invalid_relay_hostnames() {
         assert!(!is_valid_relay_url("wss://-auth.nostr1.com/"));
         assert!(!is_valid_relay_url("wss://-pub.wellorder.net/"));
+        assert!(!is_valid_relay_url("wss://192.168.1.133:4848/"));
+        assert!(!is_valid_relay_url("wss://192.168.100.190:7777/"));
         assert!(is_valid_relay_url("wss://relay.example/"));
     }
 }
