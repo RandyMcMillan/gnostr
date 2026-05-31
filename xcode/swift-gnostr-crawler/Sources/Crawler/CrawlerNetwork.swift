@@ -1,0 +1,468 @@
+import Foundation
+import SwiftUI
+import GnostrTypes
+
+public struct CrawlerNetworkBucketSnapshot: Codable, Hashable, Sendable, Identifiable {
+    public var source: String
+    public var bucket: String
+    public var relays: [String]
+
+    public var id: String { "\(self.source):\(self.bucket)" }
+
+    public init(source: String, bucket: String, relays: [String]) {
+        self.source = source
+        self.bucket = bucket
+        self.relays = relays
+    }
+}
+
+public struct CrawlerNetworkSourceSnapshot: Codable, Hashable, Sendable {
+    public var name: String
+    public var rootRelays: [String]
+    public var buckets: [CrawlerNetworkBucketSnapshot]
+
+    public init(name: String, rootRelays: [String], buckets: [CrawlerNetworkBucketSnapshot]) {
+        self.name = name
+        self.rootRelays = rootRelays
+        self.buckets = buckets
+    }
+}
+
+public struct CrawlerNetworkSnapshot: Codable, Hashable, Sendable {
+    public var refreshedAt: Date
+    public var crawlerRuntime: RelayProcessState?
+    public var crawlerCrawl: RelayProcessState?
+    public var relayDiscovery: [RelayDiscoveryEntry]
+    public var crawler: CrawlerNetworkSourceSnapshot
+    public var p2p: CrawlerNetworkSourceSnapshot
+    public var errors: [String]
+
+    public init(
+        refreshedAt: Date,
+        crawlerRuntime: RelayProcessState?,
+        crawlerCrawl: RelayProcessState?,
+        relayDiscovery: [RelayDiscoveryEntry],
+        crawler: CrawlerNetworkSourceSnapshot,
+        p2p: CrawlerNetworkSourceSnapshot,
+        errors: [String]
+    ) {
+        self.refreshedAt = refreshedAt
+        self.crawlerRuntime = crawlerRuntime
+        self.crawlerCrawl = crawlerCrawl
+        self.relayDiscovery = relayDiscovery
+        self.crawler = crawler
+        self.p2p = p2p
+        self.errors = errors
+    }
+
+    public static var empty: CrawlerNetworkSnapshot {
+        CrawlerNetworkSnapshot(
+            refreshedAt: Date(timeIntervalSince1970: 0),
+            crawlerRuntime: nil,
+            crawlerCrawl: nil,
+            relayDiscovery: [],
+            crawler: .init(name: "crawler", rootRelays: [], buckets: []),
+            p2p: .init(name: "p2p", rootRelays: [], buckets: []),
+            errors: []
+        )
+    }
+}
+
+@MainActor
+public final class CrawlerNetworkStore: ObservableObject {
+    @Published public private(set) var snapshot: CrawlerNetworkSnapshot = .empty
+    @Published public private(set) var isPolling: Bool = false
+
+    private let crawlerClient: CrawlerClient
+    private let refreshIntervalNanoseconds: UInt64
+    private let crawlerConfigRoot: URL
+    private let p2pConfigRoot: URL
+    private var pollingTask: Task<Void, Never>?
+
+    public init(
+        baseURL: URL = URL(string: "http://127.0.0.1:3030")!,
+        session: URLSession = .shared,
+        refreshIntervalNanoseconds: UInt64 = 5_000_000_000,
+        crawlerConfigRoot: URL = CrawlerNetworkFileSystem.crawlerConfigDirectory(),
+        p2pConfigRoot: URL = CrawlerNetworkFileSystem.p2pConfigDirectory()
+    ) {
+        self.crawlerClient = CrawlerClient(baseURL: baseURL, session: session)
+        self.refreshIntervalNanoseconds = refreshIntervalNanoseconds
+        self.crawlerConfigRoot = crawlerConfigRoot
+        self.p2pConfigRoot = p2pConfigRoot
+    }
+
+    deinit {
+        self.pollingTask?.cancel()
+    }
+
+    public func refresh() async {
+        var errors: [String] = []
+        let crawlerRuntime = RustCrawlerBridge.shared.crawlerRuntimeStatus()
+        let crawlerCrawl = RustCrawlerBridge.shared.crawlerCrawlStatus()
+        let relayDiscovery: [RelayDiscoveryEntry]
+        do {
+            relayDiscovery = try await self.crawlerClient.relayDiscovery()
+        } catch {
+            relayDiscovery = []
+            errors.append("crawler discovery: \(error.localizedDescription)")
+        }
+
+        let crawlerRootRelays = await self.loadCrawlerRootRelays(errors: &errors)
+        let p2pRootRelays = CrawlerNetworkFileSystem.loadRelayEntries(
+            in: self.p2pConfigRoot,
+            source: "p2p"
+        )
+
+        self.snapshot = CrawlerNetworkSnapshot(
+            refreshedAt: Date(),
+            crawlerRuntime: crawlerRuntime,
+            crawlerCrawl: crawlerCrawl,
+            relayDiscovery: relayDiscovery,
+            crawler: .init(
+                name: "crawler",
+                rootRelays: crawlerRootRelays,
+                buckets: CrawlerNetworkFileSystem.loadRelayBuckets(in: self.crawlerConfigRoot, source: "crawler")
+            ),
+            p2p: .init(
+                name: "p2p",
+                rootRelays: p2pRootRelays,
+                buckets: CrawlerNetworkFileSystem.loadRelayBuckets(in: self.p2pConfigRoot, source: "p2p")
+            ),
+            errors: errors
+        )
+    }
+
+    public func startPolling() {
+        guard self.pollingTask == nil else { return }
+        self.isPolling = true
+        self.pollingTask = Task { [weak self] in
+            guard let self else { return }
+            await self.pollLoop()
+        }
+    }
+
+    public func stopPolling() {
+        self.pollingTask?.cancel()
+        self.pollingTask = nil
+        self.isPolling = false
+    }
+
+    private func pollLoop() async {
+        while !Task.isCancelled {
+            await self.refresh()
+            if Task.isCancelled {
+                break
+            }
+            try? await Task.sleep(nanoseconds: self.refreshIntervalNanoseconds)
+        }
+    }
+
+    private func loadCrawlerRootRelays(errors: inout [String]) async -> [String] {
+        var relays = Set<String>()
+
+        do {
+            let jsonRelays = try await self.crawlerClient.relaysJSON()
+            relays.formUnion(jsonRelays)
+        } catch {
+            errors.append("crawler relays.json: \(error.localizedDescription)")
+        }
+
+        do {
+            let yamlRelays = try await self.crawlerClient.relaysYAML()
+            relays.formUnion(CrawlerNetworkFileSystem.parseRelayEntries(
+                from: yamlRelays,
+                fileType: "yaml"
+            ))
+        } catch {
+            errors.append("crawler relays.yaml: \(error.localizedDescription)")
+        }
+
+        do {
+            let txtRelays = try await self.crawlerClient.relaysTXT()
+            relays.formUnion(CrawlerNetworkFileSystem.parseRelayEntries(
+                from: txtRelays,
+                fileType: "txt"
+            ))
+        } catch {
+            errors.append("crawler relays.txt: \(error.localizedDescription)")
+        }
+
+        return relays.sorted()
+    }
+}
+
+public enum CrawlerNetworkFileSystem {
+    static func crawlerConfigDirectory() -> URL {
+        self.configDirectory(product: "crawler")
+    }
+
+    static func p2pConfigDirectory() -> URL {
+        self.configDirectory(product: "p2p")
+    }
+
+    static func configDirectory(product: String) -> URL {
+        let env = ProcessInfo.processInfo.environment
+        if let xdg = env["XDG_CONFIG_HOME"], !xdg.isEmpty {
+            return URL(fileURLWithPath: xdg, isDirectory: true)
+                .appendingPathComponent("gnostr", isDirectory: true)
+                .appendingPathComponent(product, isDirectory: true)
+        }
+        if let home = env["HOME"], !home.isEmpty {
+            return URL(fileURLWithPath: home, isDirectory: true)
+                .appendingPathComponent(".config", isDirectory: true)
+                .appendingPathComponent("gnostr", isDirectory: true)
+                .appendingPathComponent(product, isDirectory: true)
+        }
+        return URL(fileURLWithPath: ".", isDirectory: true)
+    }
+
+    static func loadRelayEntries(in rootDirectory: URL, source: String) -> [String] {
+        guard let root = self.loadBucket(directory: rootDirectory, bucket: "relays", source: source) else {
+            return []
+        }
+        return root.relays
+    }
+
+    static func loadRelayBuckets(in rootDirectory: URL, source: String) -> [CrawlerNetworkBucketSnapshot] {
+        var buckets: [CrawlerNetworkBucketSnapshot] = []
+
+        if let root = self.loadBucket(directory: rootDirectory, bucket: "relays", source: source) {
+            buckets.append(root)
+        }
+
+        let fileManager = FileManager.default
+        guard let contents = try? fileManager.contentsOfDirectory(
+            at: rootDirectory,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: [.skipsHiddenFiles]
+        ) else {
+            return buckets.sorted { $0.bucket < $1.bucket }
+        }
+
+        for entry in contents {
+            guard (try? entry.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true else {
+                continue
+            }
+            if let bucket = self.loadBucket(directory: entry, bucket: entry.lastPathComponent, source: source) {
+                buckets.append(bucket)
+            }
+        }
+
+        buckets.sort { $0.bucket < $1.bucket }
+        buckets.dedup(by: { $0.id == $1.id })
+        return buckets
+    }
+
+    static func loadBucket(directory: URL, bucket: String, source: String) -> CrawlerNetworkBucketSnapshot? {
+        let relays = self.loadBucketRelays(directory: directory)
+        guard !relays.isEmpty else { return nil }
+        return CrawlerNetworkBucketSnapshot(source: source, bucket: bucket, relays: relays)
+    }
+
+    static func loadBucketRelays(directory: URL) -> [String] {
+        let fileManager = FileManager.default
+        var relays = Set<String>()
+
+        func addRelayList(fileURL: URL, fileType: String) {
+            guard let content = try? String(contentsOf: fileURL, encoding: .utf8) else { return }
+            relays.formUnion(parseRelayEntries(from: content, fileType: fileType))
+        }
+
+        let yamlPath = directory.appendingPathComponent("relays.yaml")
+        let ymlPath = directory.appendingPathComponent("relays.yml")
+        let jsonPath = directory.appendingPathComponent("relays.json")
+        let txtPath = directory.appendingPathComponent("relays.txt")
+
+        if fileManager.fileExists(atPath: yamlPath.path) {
+            addRelayList(fileURL: yamlPath, fileType: "yaml")
+        }
+        if fileManager.fileExists(atPath: ymlPath.path) {
+            addRelayList(fileURL: ymlPath, fileType: "yaml")
+        }
+        if fileManager.fileExists(atPath: jsonPath.path) {
+            addRelayList(fileURL: jsonPath, fileType: "json")
+        }
+        if fileManager.fileExists(atPath: txtPath.path) {
+            addRelayList(fileURL: txtPath, fileType: "txt")
+        }
+
+        guard let contents = try? fileManager.contentsOfDirectory(
+            at: directory,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: [.skipsHiddenFiles]
+        ) else {
+            return relays.sorted()
+        }
+
+        for entry in contents {
+            let isDirectory = (try? entry.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true
+            guard !isDirectory else { continue }
+            let name = entry.lastPathComponent
+            guard name.hasSuffix(".json"), name != "relays.json" else { continue }
+            let host = String(name.dropLast(".json".count))
+            relays.insert(websocketHTTPURL(host))
+        }
+
+        return relays.sorted()
+    }
+
+    static func parseRelayEntries(from content: String, fileType: String) -> [String] {
+        switch fileType {
+        case "json":
+            if let data = content.data(using: .utf8),
+               let values = try? JSONDecoder().decode([String].self, from: data) {
+                return values.compactMap(normalizeRelayEntry)
+            }
+            return []
+        case "txt":
+            return content
+                .split(whereSeparator: { $0.isWhitespace || $0.isNewline })
+                .compactMap { normalizeRelayEntry(String($0)) }
+        default:
+            return content
+                .split(whereSeparator: \.isNewline)
+                .compactMap { normalizeRelayEntry(String($0)) }
+        }
+    }
+
+    static func websocketHTTPURL(_ url: String) -> String {
+        url.replacingOccurrences(of: "wss://", with: "https://")
+            .replacingOccurrences(of: "ws://", with: "http://")
+    }
+
+    private static func normalizeRelayEntry(_ line: String) -> String? {
+        var value = line.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let stripped = value.stripPrefix("- ") {
+            value = stripped.trimmingCharacters(in: .whitespacesAndNewlines)
+        } else if let stripped = value.stripPrefix("-") {
+            value = stripped.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        if let comma = value.firstIndex(of: ",") {
+            value = String(value[..<comma]).trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        if value.isEmpty {
+            return nil
+        }
+        if !value.contains("://") {
+            let potential = "wss://\(value)"
+            if URL(string: potential) != nil {
+                value = potential
+            }
+        }
+        guard value.hasPrefix("wss://") || value.hasPrefix("ws://") else {
+            return nil
+        }
+        guard let url = URL(string: value) else {
+            return nil
+        }
+        return url.absoluteString
+    }
+}
+
+public struct CrawlerNetworkDashboard: View {
+    @ObservedObject private var store: CrawlerNetworkStore
+
+    public init(store: CrawlerNetworkStore) {
+        self._store = ObservedObject(wrappedValue: store)
+    }
+
+    public var body: some View {
+        List {
+            Section(header: Text("Runtime")) {
+                statusRow(title: "crawler runtime", state: self.store.snapshot.crawlerRuntime)
+                statusRow(title: "crawler crawl", state: self.store.snapshot.crawlerCrawl)
+                Text("refreshed \(Self.format(date: self.store.snapshot.refreshedAt))")
+            }
+
+            if !self.store.snapshot.relayDiscovery.isEmpty {
+                Section(header: Text("Discovered relays")) {
+                    ForEach(self.store.snapshot.relayDiscovery, id: \.url) { entry in
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(entry.url)
+                            if let name = entry.name {
+                                Text(name).font(.caption)
+                            }
+                            if let description = entry.description {
+                                Text(description).font(.caption)
+                            }
+                            if !entry.supportedNips.isEmpty {
+                                Text("NIPs \(entry.supportedNips.map(String.init).joined(separator: ", "))")
+                                    .font(.caption)
+                            }
+                        }
+                    }
+                }
+            }
+
+            sourceSection(self.store.snapshot.crawler)
+            sourceSection(self.store.snapshot.p2p)
+
+            if !self.store.snapshot.errors.isEmpty {
+                Section(header: Text("Errors")) {
+                    ForEach(self.store.snapshot.errors, id: \.self) { error in
+                        Text(error).font(.caption)
+                    }
+                }
+            }
+        }
+        .navigationTitle("Dynamic Network")
+        .onAppear {
+            self.store.startPolling()
+            Task { await self.store.refresh() }
+        }
+        .onDisappear {
+            self.store.stopPolling()
+        }
+    }
+
+    @ViewBuilder
+    private func sourceSection(_ source: CrawlerNetworkSourceSnapshot) -> some View {
+        Section(header: Text(source.name)) {
+            if !source.rootRelays.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("root relays")
+                    Text(source.rootRelays.joined(separator: "\n"))
+                        .font(.caption)
+                }
+            }
+
+            ForEach(source.buckets) { bucket in
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(bucket.bucket)
+                    Text(bucket.relays.joined(separator: "\n"))
+                        .font(.caption)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func statusRow(title: String, state: RelayProcessState?) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+            Text(state?.message ?? "unknown")
+                .font(.caption)
+        }
+    }
+
+    private static func format(date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .short
+        formatter.timeStyle = .medium
+        return formatter.string(from: date)
+    }
+}
+
+private extension Array {
+    func dedup(by areEquivalent: (Element, Element) -> Bool) -> [Element] {
+        var result: [Element] = []
+        for element in self {
+            if result.contains(where: { areEquivalent($0, element) }) {
+                continue
+            }
+            result.append(element)
+        }
+        return result
+    }
+}
