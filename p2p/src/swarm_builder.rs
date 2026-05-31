@@ -141,7 +141,7 @@ mod tests {
     #[tokio::test]
     async fn build_swarm_accepts_websocket_listen_address() {
         let keypair = crate::keypair_from_seed(Some(
-            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855".to_string(),
+            gnostr_asyncgit::default_gnostr_private_key_hex(),
         ));
         let mut swarm = build_swarm(keypair).await.expect("swarm");
         let addr: Multiaddr = "/ip4/127.0.0.1/tcp/0/ws".parse().expect("websocket multiaddr");
