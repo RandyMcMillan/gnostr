@@ -90,6 +90,8 @@ public final class CrawlerNetworkStore: ObservableObject {
         self.refreshIntervalNanoseconds = refreshIntervalNanoseconds
         self.crawlerConfigRoot = crawlerConfigRoot
         self.p2pConfigRoot = p2pConfigRoot
+        self.startPolling()
+        Task { await self.refresh() }
     }
 
     deinit {
@@ -395,19 +397,12 @@ public struct CrawlerNetworkDashboard: View {
                 if !self.store.snapshot.relayDiscovery.isEmpty {
                     Section(header: Text("Discovered relays")) {
                         ForEach(self.store.snapshot.relayDiscovery, id: \.url) { entry in
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(entry.url)
-                                if let name = entry.name {
-                                    Text(name).font(.caption)
-                                }
-                                if let description = entry.description {
-                                    Text(description).font(.caption)
-                                }
-                                if !entry.supportedNips.isEmpty {
-                                    Text("NIPs \(entry.supportedNips.map(String.init).joined(separator: ", "))")
-                                        .font(.caption)
-                                }
-                            }
+                            relayCard(
+                                title: entry.url,
+                                subtitle: entry.name,
+                                body: entry.description,
+                                tags: entry.supportedNips.map { "NIP \($0)" }
+                            )
                         }
                     }
                 }
@@ -437,21 +432,53 @@ public struct CrawlerNetworkDashboard: View {
     private func sourceSection(_ source: CrawlerNetworkSourceSnapshot) -> some View {
         Section(header: Text(source.name)) {
             if !source.rootRelays.isEmpty {
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 8) {
                     Text("root relays")
-                    Text(source.rootRelays.joined(separator: "\n"))
-                        .font(.caption)
+                        .font(.headline)
+                    ForEach(source.rootRelays, id: \.self) { relay in
+                        relayCard(title: relay, subtitle: source.name, body: "root relay", tags: [])
+                    }
                 }
             }
 
             ForEach(source.buckets) { bucket in
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 8) {
                     Text(bucket.bucket)
-                    Text(bucket.relays.joined(separator: "\n"))
-                        .font(.caption)
+                        .font(.headline)
+                    ForEach(bucket.relays, id: \.self) { relay in
+                        relayCard(title: relay, subtitle: source.name, body: bucket.bucket, tags: [])
+                    }
                 }
             }
         }
+    }
+
+    @ViewBuilder
+    private func relayCard(title: String, subtitle: String?, body: String?, tags: [String]) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.body.weight(.semibold))
+            if let subtitle {
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            if let body {
+                Text(body)
+                    .font(.caption)
+            }
+            if !tags.isEmpty {
+                Text(tags.joined(separator: " • "))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color.secondary.opacity(0.12))
+        )
     }
 
     @ViewBuilder
