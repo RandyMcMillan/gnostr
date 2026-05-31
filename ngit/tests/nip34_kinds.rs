@@ -50,9 +50,8 @@ async fn repo_announcement_round_trips_through_repo_ref() -> Result<()> {
 async fn cover_letter_and_patch_events_use_git_patch_kind() -> Result<()> {
     let (git_repo, repo) = repo_fixture()?;
     let repo_ref = repo_ref_fixture()?;
-    let head_raw = git_repo.git_repo.head()?.peel_to_commit()?.id();
-    let head = Oid::from_str(&head_raw.to_string())?;
-    let parent = Oid::from_str(&git_repo.git_repo.find_commit(head_raw)?.parent(0)?.id().to_string())?;
+    let head = git_repo.git_repo.head()?.peel_to_commit()?.id();
+    let parent = git_repo.git_repo.find_commit(head)?.parent(0)?.id();
     let root_commit = oid_to_sha1(&parent);
     let root_commit_str = root_commit.to_string();
     let commit = oid_to_sha1(&head);
@@ -103,8 +102,7 @@ async fn pull_request_and_update_events_use_default_signer() -> Result<()> {
     std::fs::write(git_repo.dir.join("feature.md"), "some content")?;
     git_repo.stage_and_commit("add feature.md")?;
 
-    let head_raw = git_repo.git_repo.head()?.peel_to_commit()?.id();
-    let head = Oid::from_str(&head_raw.to_string())?;
+    let head = git_repo.git_repo.head()?.peel_to_commit()?.id();
     let commit = oid_to_sha1(&head);
     let keys = seeded_keys_from_oid(&head)?;
     let signer: Arc<dyn NostrSigner> = Arc::new(keys.clone());
