@@ -44,12 +44,33 @@ fn relay_host(relay: &str) -> Option<&str> {
     }
 }
 
+fn is_private_ipv4_relay(relay: &str) -> bool {
+    let host = match relay_host(relay) {
+        Some(host) => host,
+        None => return false,
+    };
+
+    let mut octets = host.split('.');
+    let first = match octets.next().and_then(|part| part.parse::<u8>().ok()) {
+        Some(first) => first,
+        None => return false,
+    };
+    let second = match octets.next().and_then(|part| part.parse::<u8>().ok()) {
+        Some(second) => second,
+        None => return false,
+    };
+
+    (first == 10)
+        || (first == 172 && (16..=31).contains(&second))
+        || (first == 192 && second == 168)
+}
+
 fn is_valid_relay_url(relay: &str) -> bool {
     relay_host(relay)
         .map(|host| {
             !host.is_empty()
                 && !host.starts_with('-')
-                && !host.starts_with("192.168.")
+                && !is_private_ipv4_relay(relay)
                 && !(host == "localhost" || host == "127.0.0.1")
         })
         .unwrap_or(false)
@@ -450,6 +471,9 @@ mod tests {
         assert!(!is_valid_relay_url("wss://-pub.wellorder.net/"));
         assert!(!is_valid_relay_url("wss://192.168.1.133:4848/"));
         assert!(!is_valid_relay_url("wss://192.168.100.190:7777/"));
+        assert!(!is_valid_relay_url("wss://10.0.10.21:4848/"));
+        assert!(!is_valid_relay_url("wss://172.16.0.1:4848/"));
+        assert!(!is_valid_relay_url("wss://172.31.255.255:4848/"));
         assert!(is_loopback_relay("wss://localhost:4848/"));
         assert!(is_loopback_relay("ws://127.0.0.1:4848/"));
         assert!(is_valid_relay_url("wss://relay.example/"));
