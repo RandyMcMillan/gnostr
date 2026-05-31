@@ -156,6 +156,8 @@ pub async fn run_fractal_engine(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::keypair_from_seed;
+    use libp2p::Multiaddr;
     use tempfile::NamedTempFile;
 
     #[test]
@@ -165,5 +167,27 @@ mod tests {
         let manager = IntegrityManager::new(temp.path());
 
         assert_eq!(manager.read_slice(2, 3).expect("slice"), b"cde");
+    }
+
+    #[test]
+    fn read_slice_errors_when_range_exceeds_file() {
+        let temp = NamedTempFile::new().expect("temp file");
+        std::fs::write(temp.path(), b"abc").expect("write file");
+        let manager = IntegrityManager::new(temp.path());
+
+        assert!(manager.read_slice(1, 4).is_err());
+    }
+
+    #[tokio::test]
+    async fn build_fractal_swarm_accepts_quic_listen_address() {
+        let keypair = keypair_from_seed(Some(
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855".to_string(),
+        ));
+        let mut swarm = build_fractal_swarm(keypair).await.expect("swarm");
+        let addr: Multiaddr = "/ip4/127.0.0.1/udp/0/quic-v1"
+            .parse()
+            .expect("quic multiaddr");
+
+        swarm.listen_on(addr).expect("quic listen");
     }
 }
