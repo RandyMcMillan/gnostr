@@ -6,7 +6,7 @@ use std::{
 };
 
 use anyhow::{Result, anyhow, bail};
-use git2::{Cred, CredentialType, Progress, Repository};
+use gnostr_asyncgit::git2::{Cred, CredentialType, Progress, Repository};
 
 use crate::{
     cli_interactor::count_lines_per_msg_vec,

@@ -15,7 +15,7 @@ use git::{RepoActions, sha1_to_oid};
 use git_events::{
     generate_cover_letter_and_patch_events, generate_patch_event, get_commit_id_from_patch,
 };
-use git2::{Oid, Repository};
+use gnostr_asyncgit::git2::{Oid, Repository};
 use ngit::{
     accept_maintainership::accept_maintainership_with_defaults,
     client::{

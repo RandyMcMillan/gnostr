@@ -8,7 +8,7 @@ use std::{
 };
 
 use anyhow::{Context, Result, anyhow, bail};
-use git2::{Cred, CredentialType};
+use gnostr_asyncgit::git2::{Cred, CredentialType};
 use console::Term;
 use nostr::{
     event::{Event, EventBuilder, Kind, Tag, TagStandard, UnsignedEvent},

@@ -8,7 +8,8 @@ use std::{
 
 use anyhow::{Context, Result, bail};
 use console::{Style, Term};
-use git2::Oid;
+use gnostr_asyncgit::git2;
+use gnostr_asyncgit::git2::Oid;
 use ngit::{
     accept_maintainership::{grasp_servers_from_user_or_fallback, wait_for_grasp_servers},
     cli_interactor::{

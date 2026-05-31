@@ -10,8 +10,9 @@ use std::{
 use anyhow::{Context, Result, bail, ensure};
 use dialoguer::theme::{ColorfulTheme, Theme};
 use futures::{executor::block_on, future::join_all};
+use gnostr_asyncgit::git2;
 use git::GitTestRepo;
-use git2::{Signature, Time};
+use gnostr_asyncgit::git2::{Signature, Time};
 use nostr::{self, Kind, Tag, event::EventId, nips::nip65::RelayMetadata};
 use nostr_database::NostrDatabase;
 use nostr_lmdb::NostrLMDB;

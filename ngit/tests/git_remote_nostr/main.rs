@@ -2,9 +2,10 @@ use std::{collections::HashSet, env::current_dir};
 
 use anyhow::{Context, Result};
 use futures::join;
+use gnostr_asyncgit::git2;
 use nostr::nips::{nip01::Coordinate, nip19::Nip19Coordinate};
 use nostr_sdk::{Event, JsonUtil, Kind, RelayUrl, ToBech32, secp256k1::rand};
-use git2::Oid;
+use gnostr_asyncgit::git2::Oid;
 use relay::Relay;
 use serial_test::serial;
 use test_utils::{git::GitTestRepo, *};
