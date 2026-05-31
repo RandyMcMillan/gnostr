@@ -108,7 +108,8 @@ public final class CrawlerNetworkStore: ObservableObject {
             errors.append("crawler discovery: \(error.localizedDescription)")
         }
 
-        let crawlerRootRelays = await self.loadCrawlerRootRelays(errors: &errors)
+        let (crawlerRootRelays, crawlerErrors) = await self.loadCrawlerRootRelays()
+        errors.append(contentsOf: crawlerErrors)
         let p2pRootRelays = CrawlerNetworkFileSystem.loadRelayEntries(
             in: self.p2pConfigRoot,
             source: "p2p"
@@ -158,8 +159,9 @@ public final class CrawlerNetworkStore: ObservableObject {
         }
     }
 
-    private func loadCrawlerRootRelays(errors: inout [String]) async -> [String] {
+    private func loadCrawlerRootRelays() async -> ([String], [String]) {
         var relays = Set<String>()
+        var errors: [String] = []
 
         do {
             let jsonRelays = try await self.crawlerClient.relaysJSON()
@@ -188,20 +190,20 @@ public final class CrawlerNetworkStore: ObservableObject {
             errors.append("crawler relays.txt: \(error.localizedDescription)")
         }
 
-        return relays.sorted()
+        return (relays.sorted(), errors)
     }
 }
 
 public enum CrawlerNetworkFileSystem {
-    static func crawlerConfigDirectory() -> URL {
+    public static func crawlerConfigDirectory() -> URL {
         self.configDirectory(product: "crawler")
     }
 
-    static func p2pConfigDirectory() -> URL {
+    public static func p2pConfigDirectory() -> URL {
         self.configDirectory(product: "p2p")
     }
 
-    static func configDirectory(product: String) -> URL {
+    public static func configDirectory(product: String) -> URL {
         let env = ProcessInfo.processInfo.environment
         if let xdg = env["XDG_CONFIG_HOME"], !xdg.isEmpty {
             return URL(fileURLWithPath: xdg, isDirectory: true)
@@ -250,8 +252,7 @@ public enum CrawlerNetworkFileSystem {
         }
 
         buckets.sort { $0.bucket < $1.bucket }
-        buckets.dedup(by: { $0.id == $1.id })
-        return buckets
+        return buckets.dedup(by: { $0.id == $1.id })
     }
 
     static func loadBucket(directory: URL, bucket: String, source: String) -> CrawlerNetworkBucketSnapshot? {
@@ -321,22 +322,27 @@ public enum CrawlerNetworkFileSystem {
                 .compactMap { normalizeRelayEntry(String($0)) }
         default:
             return content
-                .split(whereSeparator: \.isNewline)
+                .split(whereSeparator: { $0.isNewline })
                 .compactMap { normalizeRelayEntry(String($0)) }
         }
     }
 
     static func websocketHTTPURL(_ url: String) -> String {
-        url.replacingOccurrences(of: "wss://", with: "https://")
+        if !url.contains("://") {
+            return "https://\(url)"
+        }
+        return url.replacingOccurrences(of: "wss://", with: "https://")
             .replacingOccurrences(of: "ws://", with: "http://")
     }
 
     private static func normalizeRelayEntry(_ line: String) -> String? {
         var value = line.trimmingCharacters(in: .whitespacesAndNewlines)
-        if let stripped = value.stripPrefix("- ") {
-            value = stripped.trimmingCharacters(in: .whitespacesAndNewlines)
-        } else if let stripped = value.stripPrefix("-") {
-            value = stripped.trimmingCharacters(in: .whitespacesAndNewlines)
+        if value.hasPrefix("- ") {
+            value.removeFirst(2)
+            value = value.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+        } else if value.hasPrefix("-") {
+            value.removeFirst()
+            value = value.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
         }
         if let comma = value.firstIndex(of: ",") {
             value = String(value[..<comma]).trimmingCharacters(in: .whitespacesAndNewlines)
@@ -406,7 +412,6 @@ public struct CrawlerNetworkDashboard: View {
                 }
             }
         }
-        .navigationTitle("Dynamic Network")
         .onAppear {
             self.store.startPolling()
             Task { await self.store.refresh() }

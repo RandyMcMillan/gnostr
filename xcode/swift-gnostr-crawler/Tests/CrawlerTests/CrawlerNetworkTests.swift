@@ -34,13 +34,13 @@ private func writeText(_ text: String, to url: URL) throws {
     )
     try writeText(
         "{}",
-        to: p2pRoot.appendingPathComponent("23/wss://relay.example.json")
+        to: p2pRoot.appendingPathComponent("23/relay.example.json")
     )
 
     let crawlerBuckets = CrawlerNetworkFileSystem.loadRelayBuckets(in: crawlerRoot, source: "crawler")
     let p2pBuckets = CrawlerNetworkFileSystem.loadRelayBuckets(in: p2pRoot, source: "p2p")
 
-    #expect(crawlerBuckets.contains(where: { $0.bucket == "relays" && $0.relays == ["wss://relay.example/", "wss://relay.example/"] }))
+    #expect(crawlerBuckets.contains(where: { $0.bucket == "relays" && $0.relays == ["wss://relay.example", "wss://relay.example/"] }))
     #expect(crawlerBuckets.contains(where: { $0.bucket == "34" && $0.relays == ["wss://relay-two/"] }))
     #expect(p2pBuckets.contains(where: { $0.bucket == "relays" && $0.relays == ["wss://root.example/"] }))
     #expect(p2pBuckets.contains(where: { $0.bucket == "23" && $0.relays == ["https://relay.example"] }))
