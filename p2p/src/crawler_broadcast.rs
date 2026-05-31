@@ -50,6 +50,9 @@ fn is_valid_relay_url(relay: &str) -> bool {
         .unwrap_or(false)
 }
 
+const RELAY_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+const RELAY_PUBLISH_TIMEOUT: Duration = Duration::from_secs(10);
+
 fn normalize_relay_entry(relay: &str) -> Option<String> {
     let relay = relay
         .trim()
@@ -288,21 +291,54 @@ pub async fn broadcast_event_to_crawler_relays(
                 "pretty_print_attestations relays_sent_to nip={} relay_url={}",
                 bucket.nip, relay_url
             );
-            match NostrRelayConnection::connect(relay_url.clone()).await {
-                Ok(mut connection) => {
-                    if let Err(err) = connection.publish_event(event.clone()).await {
-                        warn!(
-                            "broadcast_event_to_crawler_relays: skipping {} after publish error: {}",
-                            relay_url, err
-                        );
-                        continue;
-                    }
+            let relay_url_for_task = relay_url.clone();
+            match tokio::time::timeout(
+                RELAY_CONNECT_TIMEOUT + RELAY_PUBLISH_TIMEOUT,
+                async move {
+                    let mut connection = NostrRelayConnection::connect(relay_url_for_task.clone())
+                        .await
+                        .map_err(|err| {
+                            anyhow::anyhow!(
+                                "broadcast_event_to_crawler_relays: connect error for {}: {}",
+                                relay_url_for_task,
+                                err
+                            )
+                        })?;
+
+                    connection
+                        .publish_event(event.clone())
+                        .await
+                        .map_err(|err| {
+                            anyhow::anyhow!(
+                                "broadcast_event_to_crawler_relays: publish error for {}: {}",
+                                relay_url_for_task,
+                                err
+                            )
+                        })?;
+
+                    Ok::<(), anyhow::Error>(())
+                },
+            )
+            .await
+            {
+                Ok(Ok(())) => {
                     published += 1;
                 }
-                Err(err) => {
+                Ok(Err(err)) => {
+                    warn!("{err}");
+                    continue;
+                }
+                Err(_) => {
                     warn!(
-                        "broadcast_event_to_crawler_relays: skipping {} after connect error: {}",
-                        relay_url, err
+                        "broadcast_event_to_crawler_relays: timeout after {:?} for {}",
+                        RELAY_CONNECT_TIMEOUT + RELAY_PUBLISH_TIMEOUT,
+                        relay_url
+                    );
+                    println!(
+                        "pretty_print_attestations relay_timeout nip={} relay_url={} timeout_secs={}",
+                        bucket.nip,
+                        relay_url,
+                        (RELAY_CONNECT_TIMEOUT + RELAY_PUBLISH_TIMEOUT).as_secs()
                     );
                     continue;
                 }
