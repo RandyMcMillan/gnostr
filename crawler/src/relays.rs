@@ -203,9 +203,7 @@ fn collect_relays_from_bucket_tree(root: &Path, relays: &mut Vec<String>) -> std
             continue;
         }
 
-        if path.parent() == Some(root)
-            && matches!(name.as_str(), "relays.yaml" | "relays.json" | "relays.txt")
-        {
+        if path.parent() == Some(root) && matches!(name.as_str(), "relays.json" | "relays.txt") {
             debug!(
                 "write_relays_serve_files: skipping root aggregate file {}",
                 path.display()
