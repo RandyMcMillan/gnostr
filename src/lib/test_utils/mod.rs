@@ -16,11 +16,12 @@ use expectrl::{
 };
 use futures::executor::block_on;
 pub use nostr_0_34_1::{self, nips::nip65::RelayMetadata, Event, Kind, Tag};
-use nostr_database::{nostr, NostrDatabase, Order};
+use nostr_database::{nostr as nostr_db, NostrDatabase};
 use nostr_lmdb::NostrLMDB;
 use nostr_sdk::prelude::*;
 use once_cell::sync::Lazy;
 use strip_ansi_escapes::strip_str;
+use std::sync::Arc;
 use tokio::runtime::Handle;
 
 pub use crate::test_utils::git::GitTestRepo;
@@ -49,23 +50,23 @@ pub static TEST_KEY_1_PUBKEY_HEX: &str =
 pub static TEST_KEY_1_DISPLAY_NAME: &str = "bob";
 pub static TEST_KEY_1_ENCRYPTED: &str = "ncryptsec1qgq77e3uftz8dh3jkjxwdms3v6gwqaqduxyzld82kskas8jcs5xup3sf2pc5tr0erqkqrtu0ptnjgjlgvx8lt7c0d7laryq2u7psfa6zm7mk7ln3ln58468shwatm7cx5wy5wvm7yk74ksrngygwxg74";
 pub static TEST_KEY_1_ENCRYPTED_WEAK: &str = "ncryptsec1qg835almhlrmyxqtqeva44d5ugm9wk2ccmwspxrqv4wjsdpdlud9es5hsrvs0pas7dvsretm0mc26qwfc7v8986mqngnjshcplnqzj62lxf44a0kkdv788f6dh20x2eum96l2j8v37s5grrheu2hgrkf";
-pub static TEST_KEY_1_KEYS: Lazy<nostr::Keys> =
-    Lazy::new(|| nostr::Keys::from_str(TEST_KEY_1_NSEC).unwrap());
+pub static TEST_KEY_1_KEYS: Lazy<nostr_0_34_1::Keys> =
+    Lazy::new(|| nostr_0_34_1::Keys::from_str(TEST_KEY_1_NSEC).unwrap());
 
-pub static TEST_KEY_1_SIGNER: Lazy<NostrSigner> =
-    Lazy::new(|| NostrSigner::Keys(nostr::Keys::from_str(TEST_KEY_1_NSEC).unwrap()));
+pub static TEST_KEY_1_SIGNER: Lazy<Arc<dyn NostrSigner>> =
+    Lazy::new(|| Arc::new(nostr_db::Keys::from_str(TEST_KEY_1_NSEC).unwrap()));
 
-pub fn generate_test_key_1_signer() -> NostrSigner {
-    NostrSigner::Keys(nostr::Keys::from_str(TEST_KEY_1_NSEC).unwrap())
+pub fn generate_test_key_1_signer() -> Arc<dyn NostrSigner> {
+    TEST_KEY_1_SIGNER.clone()
 }
 
-pub fn generate_test_key_1_metadata_event(name: &str) -> nostr::Event {
-    nostr::event::EventBuilder::metadata(&nostr::Metadata::new().name(name))
+pub fn generate_test_key_1_metadata_event(name: &str) -> nostr_0_34_1::Event {
+    nostr_0_34_1::event::EventBuilder::metadata(&nostr_0_34_1::Metadata::new().name(name))
         .to_event(&TEST_KEY_1_KEYS)
         .unwrap()
 }
 
-pub fn generate_test_key_1_metadata_event_old(name: &str) -> nostr::Event {
+pub fn generate_test_key_1_metadata_event_old(name: &str) -> nostr_0_34_1::Event {
     make_event_old_or_change_user(
         generate_test_key_1_metadata_event(name),
         &TEST_KEY_1_KEYS,
@@ -73,27 +74,27 @@ pub fn generate_test_key_1_metadata_event_old(name: &str) -> nostr::Event {
     )
 }
 
-pub fn generate_test_key_1_kind_event(kind: Kind) -> nostr::Event {
-    nostr::event::EventBuilder::new(kind, "", [])
+pub fn generate_test_key_1_kind_event(kind: Kind) -> nostr_0_34_1::Event {
+    nostr_0_34_1::event::EventBuilder::new(kind, "", [])
         .to_event(&TEST_KEY_1_KEYS)
         .unwrap()
 }
 
-pub fn generate_test_key_1_relay_list_event() -> nostr::Event {
-    nostr::event::EventBuilder::new(
-        nostr::Kind::RelayList,
+pub fn generate_test_key_1_relay_list_event() -> nostr_0_34_1::Event {
+    nostr_0_34_1::event::EventBuilder::new(
+        nostr_0_34_1::Kind::RelayList,
         "",
         [
-            nostr::Tag::from_standardized(nostr::TagStandard::RelayMetadata {
-                relay_url: nostr::Url::from_str("ws://localhost:8053").unwrap(),
+            nostr_0_34_1::Tag::from_standardized(nostr_0_34_1::TagStandard::RelayMetadata {
+                relay_url: nostr_0_34_1::Url::from_str("ws://localhost:8053").unwrap(),
                 metadata: Some(RelayMetadata::Write),
             }),
-            nostr::Tag::from_standardized(nostr::TagStandard::RelayMetadata {
-                relay_url: nostr::Url::from_str("ws://localhost:8054").unwrap(),
+            nostr_0_34_1::Tag::from_standardized(nostr_0_34_1::TagStandard::RelayMetadata {
+                relay_url: nostr_0_34_1::Url::from_str("ws://localhost:8054").unwrap(),
                 metadata: Some(RelayMetadata::Read),
             }),
-            nostr::Tag::from_standardized(nostr::TagStandard::RelayMetadata {
-                relay_url: nostr::Url::from_str("ws://localhost:8055").unwrap(),
+            nostr_0_34_1::Tag::from_standardized(nostr_0_34_1::TagStandard::RelayMetadata {
+                relay_url: nostr_0_34_1::Url::from_str("ws://localhost:8055").unwrap(),
                 metadata: None,
             }),
         ],
@@ -102,17 +103,17 @@ pub fn generate_test_key_1_relay_list_event() -> nostr::Event {
     .unwrap()
 }
 
-pub fn generate_test_key_1_relay_list_event_same_as_fallback() -> nostr::Event {
-    nostr::event::EventBuilder::new(
-        nostr::Kind::RelayList,
+pub fn generate_test_key_1_relay_list_event_same_as_fallback() -> nostr_0_34_1::Event {
+    nostr_0_34_1::event::EventBuilder::new(
+        nostr_0_34_1::Kind::RelayList,
         "",
         [
-            nostr::Tag::from_standardized(nostr::TagStandard::RelayMetadata {
-                relay_url: nostr::Url::from_str("ws://localhost:8051").unwrap(),
+            nostr_0_34_1::Tag::from_standardized(nostr_0_34_1::TagStandard::RelayMetadata {
+                relay_url: nostr_0_34_1::Url::from_str("ws://localhost:8051").unwrap(),
                 metadata: Some(RelayMetadata::Write),
             }),
-            nostr::Tag::from_standardized(nostr::TagStandard::RelayMetadata {
-                relay_url: nostr::Url::from_str("ws://localhost:8052").unwrap(),
+            nostr_0_34_1::Tag::from_standardized(nostr_0_34_1::TagStandard::RelayMetadata {
+                relay_url: nostr_0_34_1::Url::from_str("ws://localhost:8052").unwrap(),
                 metadata: Some(RelayMetadata::Write),
             }),
         ],
@@ -129,11 +130,11 @@ pub static TEST_KEY_2_PUBKEY_HEX: &str =
     "ba882566eff14f3baa976103998c452d27fe95b65a796a6a9f92628bced76fe5";
 pub static TEST_KEY_2_DISPLAY_NAME: &str = "carole";
 pub static TEST_KEY_2_ENCRYPTED: &str = "...2";
-pub static TEST_KEY_2_KEYS: Lazy<nostr::Keys> =
-    Lazy::new(|| nostr::Keys::from_str(TEST_KEY_2_NSEC).unwrap());
+pub static TEST_KEY_2_KEYS: Lazy<nostr_0_34_1::Keys> =
+    Lazy::new(|| nostr_0_34_1::Keys::from_str(TEST_KEY_2_NSEC).unwrap());
 
-pub fn generate_test_key_2_metadata_event(name: &str) -> nostr::Event {
-    nostr::event::EventBuilder::metadata(&nostr::Metadata::new().name(name))
+pub fn generate_test_key_2_metadata_event(name: &str) -> nostr_0_34_1::Event {
+    nostr_0_34_1::event::EventBuilder::metadata(&nostr_0_34_1::Metadata::new().name(name))
         .to_event(&TEST_KEY_2_KEYS)
         .unwrap()
 }
@@ -145,17 +146,17 @@ pub static TEST_WEAK_PASSWORD: &str = "fhaiuhfwe";
 pub static TEST_RANDOM_TOKEN: &str = "lkjh2398HLKJ43hrweiJ6FaPfdssgtrg";
 
 pub fn make_event_old_or_change_user(
-    event: nostr::Event,
-    keys: &nostr::Keys,
+    event: nostr_0_34_1::Event,
+    keys: &nostr_0_34_1::Keys,
     how_old_in_secs: u64,
-) -> nostr::Event {
+) -> nostr_0_34_1::Event {
     let mut unsigned =
-        nostr::event::EventBuilder::new(event.kind, event.content.clone(), event.tags.clone())
+        nostr_0_34_1::event::EventBuilder::new(event.kind, event.content.clone(), event.tags.clone())
             .to_unsigned_event(keys.public_key());
 
     unsigned.created_at =
-        nostr::types::Timestamp::from(nostr::types::Timestamp::now().as_u64() - how_old_in_secs);
-    unsigned.id = Some(nostr::EventId::new(
+        nostr_0_34_1::types::Timestamp::from(nostr_0_34_1::types::Timestamp::now().as_u64() - how_old_in_secs);
+    unsigned.id = Some(nostr_0_34_1::EventId::new(
         &keys.public_key(),
         &unsigned.created_at,
         &unsigned.kind,
@@ -166,17 +167,17 @@ pub fn make_event_old_or_change_user(
     unsigned.sign(keys).unwrap()
 }
 
-pub fn generate_repo_ref_event() -> nostr::Event {
+pub fn generate_repo_ref_event() -> nostr_0_34_1::Event {
     generate_repo_ref_event_with_git_server(vec!["git:://123.gitexample.com/test".to_string()])
 }
 
-pub fn generate_repo_ref_event_with_git_server(git_servers: Vec<String>) -> nostr::Event {
+pub fn generate_repo_ref_event_with_git_server(git_servers: Vec<String>) -> nostr_0_34_1::Event {
     // taken from test git_repo
     // TODO - this may not be consistant across computers as it might
     // take the author and committer from global git config
     let root_commit = "9ee507fc4357d7ee16a5d8901bedcd103f23c17d";
-    nostr::event::EventBuilder::new(
-        nostr::Kind::GitRepoAnnouncement,
+    nostr_0_34_1::event::EventBuilder::new(
+        nostr_0_34_1::Kind::GitRepoAnnouncement,
         "",
         [
             Tag::identifier(
@@ -187,25 +188,25 @@ pub fn generate_repo_ref_event_with_git_server(git_servers: Vec<String>) -> nost
             Tag::from_standardized(TagStandard::Name("example name".into())),
             Tag::from_standardized(TagStandard::Description("example description".into())),
             Tag::custom(
-                nostr::TagKind::Custom(std::borrow::Cow::Borrowed("clone")),
+                nostr_0_34_1::TagKind::Custom(std::borrow::Cow::Borrowed("clone")),
                 git_servers,
             ),
             Tag::custom(
-                nostr::TagKind::Custom(std::borrow::Cow::Borrowed("web")),
+                nostr_0_34_1::TagKind::Custom(std::borrow::Cow::Borrowed("web")),
                 vec![
                     "https://exampleproject.xyz".to_string(),
                     "https://gitworkshop.dev/123".to_string(),
                 ],
             ),
             Tag::custom(
-                nostr::TagKind::Custom(std::borrow::Cow::Borrowed("relays")),
+                nostr_0_34_1::TagKind::Custom(std::borrow::Cow::Borrowed("relays")),
                 vec![
                     "ws://localhost:8055".to_string(),
                     "ws://localhost:8056".to_string(),
                 ],
             ),
             Tag::custom(
-                nostr::TagKind::Custom(std::borrow::Cow::Borrowed("maintainers")),
+                nostr_0_34_1::TagKind::Custom(std::borrow::Cow::Borrowed("maintainers")),
                 vec![
                     TEST_KEY_1_KEYS.public_key().to_string(),
                     TEST_KEY_2_KEYS.public_key().to_string(),
@@ -218,7 +219,7 @@ pub fn generate_repo_ref_event_with_git_server(git_servers: Vec<String>) -> nost
 }
 
 /// enough to fool event_is_patch_set_root
-pub fn get_pretend_proposal_root_event() -> nostr::Event {
+pub fn get_pretend_proposal_root_event() -> nostr_0_34_1::Event {
     serde_json::from_str(r#"{"id":"431e58eb8e1b4e20292d1d5bbe81d5cfb042e1bc165de32eddfdd52245a4cce4","pubkey":"f53e4bcd7a9cdef049cf6467d638a1321958acd3b71eb09823fd6fadb023d768","created_at":1721404213,"kind":1617,"tags":[["a","30617:ba882566eff14f3baa976103998c452d27fe95b65a796a6a9f92628bced76fe5:9ee507fc4357d7ee16a5d8901bedcd103f23c17d-consider-it-random"],["a","30617:f53e4bcd7a9cdef049cf6467d638a1321958acd3b71eb09823fd6fadb023d768:9ee507fc4357d7ee16a5d8901bedcd103f23c17d-consider-it-random"],["r","9ee507fc4357d7ee16a5d8901bedcd103f23c17d"],["t","cover-letter"],["alt","git patch cover letter: exampletitle"],["t","root"],["e","8cb75aa4cda10a3a0f3242dc49d36159d30b3185bf63414cf6ce17f5c14a73b1","","mention"],["branch-name","feature"],["p","ba882566eff14f3baa976103998c452d27fe95b65a796a6a9f92628bced76fe5"],["p","f53e4bcd7a9cdef049cf6467d638a1321958acd3b71eb09823fd6fadb023d768"]],"content":"From fe973a840fba2a8ab37dd505c154854a69a6505c Mon Sep 17 00:00:00 2001\nSubject: [PATCH 0/2] exampletitle\n\nexampledescription","sig":"37d5b2338bf9fd9d598e6494ae88af9a8dbd52330cfe9d025ee55e35e2f3f55e931ba039d9f7fed8e6fc40206e47619a24f730f8eddc2a07ccfb3988a5005170"}"#).unwrap()
 }
 
@@ -1124,15 +1125,18 @@ async fn get_local_cache_database(git_repo_path: &Path) -> Result<NostrLMDB> {
 /** copied from client.rs */
 pub async fn get_events_from_cache(
     git_repo_path: &Path,
-    filters: Vec<nostr::Filter>,
-) -> Result<Vec<nostr::Event>> {
-    get_local_cache_database(git_repo_path)
-        .await?
-        .query(filters.clone(), Order::Asc)
+    filters: Vec<nostr_db::Filter>,
+) -> Result<Vec<nostr_db::Event>> {
+    let db = get_local_cache_database(git_repo_path)
         .await
-        .context(
-            "cannot execute query on opened git repo nostr cache database .git/nostr-cache.lmdb",
-        )
+        .context("cannot open git repo nostr cache database .git/nostr-cache.lmdb")?;
+    let mut events = Vec::new();
+    for filter in filters {
+        events.extend(db.query(filter).await.to_vec());
+    }
+    events.sort_by(|a, b| a.created_at.cmp(&b.created_at).then(a.id.cmp(&b.id)));
+    events.dedup_by(|a, b| a.id == b.id);
+    Ok(events)
 }
 
 pub fn get_proposal_branch_name(
@@ -1141,15 +1145,15 @@ pub fn get_proposal_branch_name(
 ) -> Result<String> {
     let events = block_on(get_events_from_cache(
         &test_repo.dir,
-        vec![nostr::Filter::default()
-            .kind(nostr_sdk_0_34_0::Kind::GitPatch)
+        vec![nostr_db::Filter::default()
+            .kind(nostr_db::Kind::GitPatch)
             .hashtag("root")],
     ))?;
     get_proposal_branch_name_from_events(&events, branch_name_in_event)
 }
 
 pub fn get_proposal_branch_name_from_events(
-    events: &Vec<nostr::Event>,
+    events: &Vec<nostr_db::Event>,
     branch_name_in_event: &str,
 ) -> Result<String> {
     for event in events {
@@ -1418,21 +1422,21 @@ pub fn create_proposals_with_first_rebased_and_repo_with_latest_main_and_unrebas
     Ok((second_originating_repo, test_repo))
 }
 
-fn get_first_proposal_event_id() -> Result<nostr::EventId> {
+fn get_first_proposal_event_id() -> Result<nostr_db::EventId> {
     // get proposal id of first
     let client = Client::default();
     Handle::current().block_on(client.add_relay("ws://localhost:8055"))?;
     Handle::current().block_on(client.connect_relay("ws://localhost:8055"))?;
     let proposals = Handle::current().block_on(client.get_events_of(
         vec![
-        nostr::Filter::default()
-            .kind(nostr::Kind::GitPatch)
+        nostr_db::Filter::default()
+            .kind(nostr_db::Kind::GitPatch)
             .custom_tag(
-                nostr::SingleLetterTag::lowercase(nostr::Alphabet::T),
+                nostr_db::SingleLetterTag::lowercase(nostr_db::Alphabet::T),
                 vec!["root"],
             ),
     ],
-        nostr_sdk_0_34_0::EventSource::relays(Some(Duration::from_millis(500))),
+        EventSource::relays(Some(Duration::from_millis(500))),
     ))?;
     Handle::current().block_on(client.disconnect())?;
 
