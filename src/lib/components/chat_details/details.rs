@@ -535,7 +535,7 @@ impl DrawableComponent for CompareDetailsComponent {
                     &strings::commit::compare_details_info_title(
                         true,
                         //Nostr PublicKey
-                        &Keys::parse(data.old.padded_hash())
+                        &Keys::parse(&data.old.padded_hash())
                             .unwrap()
                             .public_key()
                             //.to_bech32()?,
@@ -555,7 +555,7 @@ impl DrawableComponent for CompareDetailsComponent {
                 dialog_paragraph(
                     &strings::commit::compare_details_info_title(
                         false,
-                        &Keys::parse(data.new.padded_hash())
+                        &Keys::parse(&data.new.padded_hash())
                             .unwrap()
                             .public_key()
                             //.to_bech32()?,
