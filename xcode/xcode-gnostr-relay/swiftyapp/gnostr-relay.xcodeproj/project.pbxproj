@@ -63,10 +63,12 @@
 			inputFileListPaths = (
 			);
 			inputPaths = (
+				"${PROJECT_DIR}/../../swift-gnostr-crawler/Rust/crawler-ffi/Cargo.toml",
 			);
 			outputFileListPaths = (
 			);
 			outputPaths = (
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/libcrawler_ffi.dylib",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
