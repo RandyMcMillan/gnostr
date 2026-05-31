@@ -368,46 +368,58 @@ public enum CrawlerNetworkFileSystem {
 
 public struct CrawlerNetworkDashboard: View {
     @ObservedObject private var store: CrawlerNetworkStore
+    @Environment(\.presentationMode) private var presentationMode
 
     public init(store: CrawlerNetworkStore) {
         self._store = ObservedObject(wrappedValue: store)
     }
 
     public var body: some View {
-        List {
-            Section(header: Text("Runtime")) {
-                statusRow(title: "crawler runtime", state: self.store.snapshot.crawlerRuntime)
-                statusRow(title: "crawler crawl", state: self.store.snapshot.crawlerCrawl)
-                Text("refreshed \(Self.format(date: self.store.snapshot.refreshedAt))")
+        VStack(spacing: 0) {
+            HStack {
+                Spacer()
+                Button("Done") {
+                    self.presentationMode.wrappedValue.dismiss()
+                }
+                .padding(.horizontal)
+                .padding(.vertical, 8)
             }
 
-            if !self.store.snapshot.relayDiscovery.isEmpty {
-                Section(header: Text("Discovered relays")) {
-                    ForEach(self.store.snapshot.relayDiscovery, id: \.url) { entry in
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(entry.url)
-                            if let name = entry.name {
-                                Text(name).font(.caption)
-                            }
-                            if let description = entry.description {
-                                Text(description).font(.caption)
-                            }
-                            if !entry.supportedNips.isEmpty {
-                                Text("NIPs \(entry.supportedNips.map(String.init).joined(separator: ", "))")
-                                    .font(.caption)
+            List {
+                Section(header: Text("Runtime")) {
+                    statusRow(title: "crawler runtime", state: self.store.snapshot.crawlerRuntime)
+                    statusRow(title: "crawler crawl", state: self.store.snapshot.crawlerCrawl)
+                    Text("refreshed \(Self.format(date: self.store.snapshot.refreshedAt))")
+                }
+
+                if !self.store.snapshot.relayDiscovery.isEmpty {
+                    Section(header: Text("Discovered relays")) {
+                        ForEach(self.store.snapshot.relayDiscovery, id: \.url) { entry in
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(entry.url)
+                                if let name = entry.name {
+                                    Text(name).font(.caption)
+                                }
+                                if let description = entry.description {
+                                    Text(description).font(.caption)
+                                }
+                                if !entry.supportedNips.isEmpty {
+                                    Text("NIPs \(entry.supportedNips.map(String.init).joined(separator: ", "))")
+                                        .font(.caption)
+                                }
                             }
                         }
                     }
                 }
-            }
 
-            sourceSection(self.store.snapshot.crawler)
-            sourceSection(self.store.snapshot.p2p)
+                sourceSection(self.store.snapshot.crawler)
+                sourceSection(self.store.snapshot.p2p)
 
-            if !self.store.snapshot.errors.isEmpty {
-                Section(header: Text("Errors")) {
-                    ForEach(self.store.snapshot.errors, id: \.self) { error in
-                        Text(error).font(.caption)
+                if !self.store.snapshot.errors.isEmpty {
+                    Section(header: Text("Errors")) {
+                        ForEach(self.store.snapshot.errors, id: \.self) { error in
+                            Text(error).font(.caption)
+                        }
                     }
                 }
             }
