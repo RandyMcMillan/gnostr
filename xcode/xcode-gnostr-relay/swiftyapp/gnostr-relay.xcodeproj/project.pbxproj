@@ -38,6 +38,40 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		4BA045582FC3D20000FE5E85 /* Clean crawler FFI */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -eu\n\nrm -f \"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/libcrawler_ffi.dylib\"\n";
+		};
+		4BA045592FC3D20000FE5E85 /* Build crawler FFI */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -eu\n\nCRATE_DIR=\"${PROJECT_DIR}/../../swift-gnostr-crawler/Rust/crawler-ffi\"\nMANIFEST_PATH=\"${CRATE_DIR}/Cargo.toml\"\nexport CARGO_TARGET_DIR=\"${CRATE_DIR}/target\"\nCARGO_BIN=\"${CARGO:-${HOME}/.cargo/bin/cargo}\"\nif [ ! -x \"${CARGO_BIN}\" ]; then\n  CARGO_BIN=\"$(command -v cargo 2>/dev/null || true)\"\nfi\nif [ -z \"${CARGO_BIN}\" ] || [ ! -x \"${CARGO_BIN}\" ]; then\n  echo \"cargo not found\" >&2\n  exit 1\nfi\nif [ \"${CONFIGURATION}\" = \"Release\" ]; then\n  \"${CARGO_BIN}\" build --manifest-path \"${MANIFEST_PATH}\" --release\n  BUILD_DIR=\"${CARGO_TARGET_DIR}/release\"\nelse\n  \"${CARGO_BIN}\" build --manifest-path \"${MANIFEST_PATH}\"\n  BUILD_DIR=\"${CARGO_TARGET_DIR}/debug\"\nfi\n\nmkdir -p \"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}\"\ncp -f \"${BUILD_DIR}/libcrawler_ffi.dylib\" \"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/libcrawler_ffi.dylib\"\n";
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -101,6 +135,8 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 291DE53E2C3DE74F007F9706 /* Build configuration list for PBXNativeTarget "gnostr-relay" */;
 			buildPhases = (
+				4BA045582FC3D20000FE5E85 /* Clean crawler FFI */,
+				4BA045592FC3D20000FE5E85 /* Build crawler FFI */,
 				291DE52C2C3DE74F007F9706 /* Sources */,
 				291DE52D2C3DE74F007F9706 /* Frameworks */,
 				291DE52E2C3DE74F007F9706 /* Resources */,
