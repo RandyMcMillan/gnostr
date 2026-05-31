@@ -711,7 +711,7 @@ nostr-relay-pool = { workspace = true }
 nostr-sdk = { workspace = true }
 
 ## TODO remove and upgrade
-## nostr-sdk_0_34_0 = { package = "nostr-sdk", version = "0.34.0" }
+nostr-sdk_0_34_0 = { package = "nostr-sdk", version = "0.34.0" }
 
 ## REF: https://docs.rs/nostr-sdk/0.37.0/nostr_sdk/
 nostr-sdk_0_37_0 = { package = "nostr-sdk", version = "0.37.0" }
@@ -945,8 +945,8 @@ futures-util = { workspace = true }
 gag = "1.0.0"
 grcov = "0.10.5"
 mockall = "0.11.4"
-## nostr-sdk_0_34_0 = { package = "nostr-sdk", version = "0.34.0" } # Kept for now, will remove later
-## nostr_0_34_1 = { package = "nostr", version = "0.34.1" }         # Kept for now, will remove later
+nostr-sdk_0_34_0 = { package = "nostr-sdk", version = "0.34.0" } # Kept for now, will remove later
+nostr_0_34_1 = { package = "nostr", version = "0.34.1" }         # Kept for now, will remove later
 once_cell = { workspace = true }
 predicates = { workspace = true }
 pretty_assertions = "1.4.1"

@@ -2,13 +2,12 @@ use std::{collections::HashSet, env::current_dir};
 
 use anyhow::{Context, Result};
 use futures::join;
-use nostr_0_34_1::nips::nip01::Coordinate;
-use nostr_sdk_0_34_0::{secp256k1::rand, Kind, ToBech32};
+use super::nostr_0_34_1::{nips::nip01::Coordinate, ToBech32};
 
 use super::{git::GitTestRepo, *};
 
 pub static NOSTR_REMOTE_NAME: &str = "nostr";
-pub static STATE_KIND: nostr_0_34_1::Kind = Kind::Custom(30618);
+pub static STATE_KIND: Kind = Kind::Custom(30618);
 
 pub fn get_nostr_remote_url() -> Result<String> {
     let repo_event = generate_repo_ref_event();
@@ -94,7 +93,7 @@ pub fn cli_tester_after_nostr_fetch_and_sent_list_for_push_responds(
     Ok(p)
 }
 
-pub async fn generate_repo_with_state_event() -> Result<(nostr_0_34_1::Event, GitTestRepo)> {
+pub async fn generate_repo_with_state_event() -> Result<(Event, GitTestRepo)> {
     let mut git_repo = prep_git_repo()?;
     git_repo.create_branch("example-branch")?;
     let example_branch_tip = git_repo.get_tip_of_local_branch("example-branch")?;
@@ -192,7 +191,7 @@ pub async fn generate_repo_with_state_event() -> Result<(nostr_0_34_1::Event, Gi
 }
 
 pub async fn prep_source_repo_and_events_including_proposals(
-) -> Result<(Vec<nostr_0_34_1::Event>, GitTestRepo)> {
+) -> Result<(Vec<Event>, GitTestRepo)> {
     let (state_event, source_git_repo) = generate_repo_with_state_event().await?;
     let source_path = source_git_repo.dir.to_str().unwrap().to_string();
 

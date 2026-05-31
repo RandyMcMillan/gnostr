@@ -9,10 +9,9 @@ use std::{
 
 use anyhow::{Context, Result};
 use git2::{Branch, Oid, RepositoryInitOptions, Signature, Time};
-use nostr_0_34_1::nips::nip01::Coordinate;
-use nostr_sdk_0_34_0::{Kind, ToBech32};
+use super::nostr_0_34_1::{nips::nip01::Coordinate, ToBech32};
 
-use crate::test_utils::generate_repo_ref_event;
+use crate::test_utils::{generate_repo_ref_event, Kind};
 
 pub struct GitTestRepo {
     pub dir: PathBuf,
