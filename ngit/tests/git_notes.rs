@@ -70,8 +70,8 @@ fn mine_pow_commit(repo_dir: impl AsRef<Path>) -> Result<Oid> {
         .signature()
         .ok()
         .and_then(|signature| {
-            let name = signature.name()?.to_string();
-            let email = signature.email()?.to_string();
+            let name = signature.name().ok()?.to_string();
+            let email = signature.email().ok()?.to_string();
             Some((name, email))
         })
         .filter(|(name, email)| !name.is_empty() && !email.is_empty())
