@@ -260,12 +260,12 @@ fn spawn_advertiser_thread(base_url: String) -> thread::JoinHandle<()> {
 }
 
 /// Run the gnostr server wrapper around upstream `blossom-server`.
-pub fn run() -> Result<(), Box<dyn std::error::Error>> {
+pub fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     run_with_args(env::args().skip(1).collect())
 }
 
 /// Run the gnostr server wrapper around upstream `blossom-server` with explicit args.
-pub fn run_with_args(args: Vec<String>) -> Result<(), Box<dyn std::error::Error>> {
+pub fn run_with_args(args: Vec<String>) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let (args, detach, advertise_service, base_url, service_name) = blossom_server_args(args)?;
     let process_name = service_name
         .as_deref()
