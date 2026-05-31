@@ -169,7 +169,7 @@ fn prepend_local_relay(relays: &mut Vec<Url>) {
     }
 }
 
-fn prioritize_query_relays(mut explicit_relays: Vec<Url>, crawler_relays: Vec<Url>) -> Vec<Url> {
+fn prioritize_query_relays(explicit_relays: Vec<Url>, crawler_relays: Vec<Url>) -> Vec<Url> {
     let mut relays = crawler_relays;
     prepend_local_relay(&mut relays);
     for relay in explicit_relays.into_iter().rev() {
