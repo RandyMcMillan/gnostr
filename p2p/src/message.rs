@@ -758,6 +758,7 @@ mod tests {
 
         let config_dir = crate::relay_paths::get_config_dir_path();
         println!("[p2p] config_dir={}", config_dir.display());
+        println!("[p2p] bootstrapping crawler relay buckets");
         let relays = bootstrap_crawler_relay_buckets(&config_dir, 34).await?;
         assert!(!relays.is_empty(), "live crawler relays.yaml was empty");
         println!("[p2p] crawler relays={relays:?}");
@@ -851,6 +852,7 @@ mod tests {
     #[tokio::test]
     async fn real_attestation_events_broadcast_from_primed_crawler_buckets() -> anyhow::Result<()> {
         let _guard = test_lock();
+        println!("[p2p] real_attestation_events_broadcast_from_primed_crawler_buckets");
         let config_root = tempfile::tempdir()?;
         let _home_guard = EnvGuard::set("HOME", config_root.path());
         let _xdg_guard = EnvGuard::set("XDG_CONFIG_HOME", config_root.path());
@@ -869,19 +871,25 @@ mod tests {
         let repo_path: &RepoPath = &repo_path_owned;
 
         let config_dir = crate::relay_paths::get_config_dir_path();
+        println!("[p2p] config_dir={}", config_dir.display());
+        println!("[p2p] priming crawler relay buckets");
         let relays = bootstrap_crawler_relay_buckets(&config_dir, 34).await?;
         assert!(!relays.is_empty(), "live crawler relays.yaml was empty");
+        println!("[p2p] crawler relays={relays:?}");
 
         let buckets = load_relay_buckets(&config_dir)
             .map_err(|err| anyhow::anyhow!(err.to_string()))?;
         assert_eq!(buckets.len(), 1);
         assert_eq!(buckets[0].nip, 34);
         assert_eq!(buckets[0].relays, relays);
+        println!("[p2p] relay buckets loaded={buckets:?}");
 
         let file_name = "real-attestation-events-primed.txt";
+        println!("[p2p] staging {file_name}");
         std::fs::write(root.join(file_name), bitcoindev_3.label.as_bytes())?;
         stage_add_file(repo_path, Path::new(file_name))?;
 
+        println!("[p2p] mining commit");
         let commit_id = gnostr_asyncgit::sync::commit::mine_commit(
             repo_path,
             CommitMineOptions {
@@ -949,6 +957,9 @@ mod tests {
             &attestation,
         )
         .await?;
+        println!("[p2p] broadcast complete published={published}");
+        println!("[p2p] broadcast complete published={published}");
+        println!("[p2p] broadcast complete published={published}");
         assert!(published >= 1);
 
         Ok(())
@@ -957,6 +968,7 @@ mod tests {
     #[tokio::test]
     async fn real_attestation_events_are_broadcast_to_live_crawler_relays() -> anyhow::Result<()> {
         let _guard = test_lock();
+        println!("[p2p] real_attestation_events_are_broadcast_to_live_crawler_relays");
         let config_root = tempfile::tempdir()?;
         let _home_guard = EnvGuard::set("HOME", config_root.path());
         let _xdg_guard = EnvGuard::set("XDG_CONFIG_HOME", config_root.path());
@@ -975,19 +987,25 @@ mod tests {
         let repo_path: &RepoPath = &repo_path_owned;
 
         let config_dir = crate::relay_paths::get_config_dir_path();
+        println!("[p2p] config_dir={}", config_dir.display());
+        println!("[p2p] bootstrapping crawler relay buckets");
         let relays = bootstrap_crawler_relay_buckets(&config_dir, 34).await?;
         assert!(!relays.is_empty(), "live crawler relays.yaml was empty");
+        println!("[p2p] crawler relays={relays:?}");
 
         let buckets = load_relay_buckets(&config_dir)
             .map_err(|err| anyhow::anyhow!(err.to_string()))?;
         assert_eq!(buckets.len(), 1);
         assert_eq!(buckets[0].nip, 34);
         assert_eq!(buckets[0].relays, relays);
+        println!("[p2p] relay buckets loaded={buckets:?}");
 
         let file_name = "real-attestation-events-live.txt";
+        println!("[p2p] staging {file_name}");
         std::fs::write(root.join(file_name), bitcoindev_1.label.as_bytes())?;
         stage_add_file(repo_path, Path::new(file_name))?;
 
+        println!("[p2p] mining commit");
         let commit_id = gnostr_asyncgit::sync::commit::mine_commit(
             repo_path,
             CommitMineOptions {
