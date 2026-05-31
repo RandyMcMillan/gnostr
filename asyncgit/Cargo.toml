@@ -135,6 +135,7 @@ rayon = "1.10"
 rayon-core = "1.12"
 regex = "1.11.1"
 rkyv = "0.8"
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
 
 rocksdb = { workspace = true, optional = true }
 rust-ini = "0.21.1"
