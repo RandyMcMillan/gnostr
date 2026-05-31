@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use anyhow::Result;
-use gnostr_asyncgit::git2;
 use gnostr_asyncgit::git2::Oid;
 use gnostr_ngit::{
     git::{oid_to_sha1, Repo},
