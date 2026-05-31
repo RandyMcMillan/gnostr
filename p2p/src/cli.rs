@@ -175,7 +175,7 @@ mod tests {
 
     #[test]
     fn keypair_from_seed_is_deterministic() {
-        let seed = Some("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855".to_string());
+        let seed = Some(gnostr_asyncgit::default_gnostr_private_key_hex());
         let left = crate::keypair_from_seed(seed.clone());
         let right = crate::keypair_from_seed(seed);
         assert_eq!(left.public().to_peer_id(), right.public().to_peer_id());
