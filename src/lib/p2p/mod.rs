@@ -418,7 +418,7 @@ pub async fn advertise_service(
             .behaviour_mut()
             .kademlia
             .start_providing(record_key.clone())?;
-        Ok::<_, Box<dyn Error>>(())
+        Ok::<_, Box<dyn Error + Send + Sync>>(())
     };
 
     publish(&mut swarm)?;
