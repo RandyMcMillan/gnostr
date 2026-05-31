@@ -184,9 +184,9 @@ pub fn generate_repo_ref_event_with_git_server(git_servers: Vec<String>) -> nost
                 // root_commit.to_string()
                 format!("{}-consider-it-random", root_commit),
             ),
-            Tag::from_standardized(TagStandard::Reference(root_commit.to_string())),
-            Tag::from_standardized(TagStandard::Name("example name".into())),
-            Tag::from_standardized(TagStandard::Description("example description".into())),
+            Tag::from_standardized(nostr_0_34_1::TagStandard::Reference(root_commit.to_string())),
+            Tag::from_standardized(nostr_0_34_1::TagStandard::Name("example name".into())),
+            Tag::from_standardized(nostr_0_34_1::TagStandard::Description("example description".into())),
             Tag::custom(
                 nostr_0_34_1::TagKind::Custom(std::borrow::Cow::Borrowed("clone")),
                 git_servers,
@@ -1132,7 +1132,7 @@ pub async fn get_events_from_cache(
         .context("cannot open git repo nostr cache database .git/nostr-cache.lmdb")?;
     let mut events = Vec::new();
     for filter in filters {
-        events.extend(db.query(filter).await.to_vec());
+        events.extend(db.query(filter).await?.to_vec());
     }
     events.sort_by(|a, b| a.created_at.cmp(&b.created_at).then(a.id.cmp(&b.id)));
     events.dedup_by(|a, b| a.id == b.id);
@@ -1157,10 +1157,10 @@ pub fn get_proposal_branch_name_from_events(
     branch_name_in_event: &str,
 ) -> Result<String> {
     for event in events {
-        if event.tags().iter().any(|t| {
-            !t.as_vec()[1].eq("revision-root")
-                && event.tags().iter().any(|t| {
-                    t.as_vec()[0].eq("branch-name") && t.as_vec()[1].eq(branch_name_in_event)
+        if event.tags.iter().any(|t| {
+            !t.to_vec()[1].eq("revision-root")
+                && event.tags.iter().any(|t| {
+                    t.to_vec()[0].eq("branch-name") && t.to_vec()[1].eq(branch_name_in_event)
                 })
         }) {
             return Ok(format!(
@@ -1425,27 +1425,23 @@ pub fn create_proposals_with_first_rebased_and_repo_with_latest_main_and_unrebas
 fn get_first_proposal_event_id() -> Result<nostr_db::EventId> {
     // get proposal id of first
     let client = Client::default();
-    Handle::current().block_on(client.add_relay("ws://localhost:8055"))?;
-    Handle::current().block_on(client.connect_relay("ws://localhost:8055"))?;
-    let proposals = Handle::current().block_on(client.get_events_of(
-        vec![
+    let proposals = Handle::current().block_on(client.fetch_events_from(
+        ["ws://localhost:8055"],
         nostr_db::Filter::default()
             .kind(nostr_db::Kind::GitPatch)
             .custom_tag(
                 nostr_db::SingleLetterTag::lowercase(nostr_db::Alphabet::T),
-                vec!["root"],
+                "root",
             ),
-    ],
-        EventSource::relays(Some(Duration::from_millis(500))),
+        Duration::from_millis(500),
     ))?;
-    Handle::current().block_on(client.disconnect())?;
 
     let proposal_1_id = proposals
         .iter()
         .find(|e| {
             e.tags
                 .iter()
-                .any(|t| t.as_vec()[1].eq(&FEATURE_BRANCH_NAME_1))
+                .any(|t| t.to_vec()[1].eq(&FEATURE_BRANCH_NAME_1))
         })
         .unwrap()
         .id;
