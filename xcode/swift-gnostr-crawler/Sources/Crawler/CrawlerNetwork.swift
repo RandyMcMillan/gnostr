@@ -78,6 +78,7 @@ public final class CrawlerNetworkStore: ObservableObject {
     private let crawlerConfigRoot: URL
     private let p2pConfigRoot: URL
     private var pollingTask: Task<Void, Never>?
+    private var didBootstrapCrawler = false
 
     public init(
         baseURL: URL = URL(string: "http://127.0.0.1:3030")!,
@@ -139,6 +140,10 @@ public final class CrawlerNetworkStore: ObservableObject {
     public func startPolling() {
         guard self.pollingTask == nil else { return }
         self.isPolling = true
+        if !self.didBootstrapCrawler {
+            self.didBootstrapCrawler = true
+            Task { await self.bootstrapCrawler() }
+        }
         self.pollingTask = Task { [weak self] in
             guard let self else { return }
             await self.pollLoop()
@@ -159,6 +164,13 @@ public final class CrawlerNetworkStore: ObservableObject {
             }
             try? await Task.sleep(nanoseconds: self.refreshIntervalNanoseconds)
         }
+    }
+
+    private func bootstrapCrawler() async {
+        guard RustCrawlerBridge.shared.isAvailable else { return }
+        _ = RustCrawlerBridge.shared.startCrawlerRuntime()
+        _ = RustCrawlerBridge.shared.startCrawlerCrawl()
+        await self.refresh()
     }
 
     private func loadCrawlerRootRelays() async -> ([String], [String]) {
