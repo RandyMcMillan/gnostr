@@ -29,6 +29,7 @@ pub mod cli;
 pub mod behaviour;
 pub mod embedded_network;
 pub mod fractal;
+pub mod perfect_ip;
 pub mod command_handler;
 pub mod event_handler;
 pub mod git_integration;
@@ -106,6 +107,7 @@ pub use repo_state::{RepoStateQuorum, RepoStateRefs, RepoStateSnapshot};
 #[cfg(not(doc))]
 pub use relay_bridge::{RelayBridgeCommand, RelayBridgeNotification, RelayBridgeSession, NostrRelayConnection};
 pub use fractal::{build_fractal_swarm, run_fractal_engine, FractalBehaviour, FractalBehaviourEvent, IntegrityManager, ProtocolSlice};
+pub use perfect_ip::{calculate_parity, process_slice, Header, ProtocolSlice as PerfectProtocolSlice, MTU_PAYLOAD};
 #[cfg(all(not(doc), feature = "js"))]
 pub use template_html::{get_template_assets, TemplateHtml};
 
