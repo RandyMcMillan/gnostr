@@ -122,6 +122,23 @@ pub fn calculate_parity(left: &[u8], right: &[u8]) -> Vec<u8> {
     parity
 }
 
+/// Generate the expected packet ids for a recursive packet tree.
+///
+/// The returned manifest mirrors [`process_slice`] exactly: leaf nodes are
+/// emitted when the payload fits within [`MAX_LEAF_PAYLOAD`], and internal
+/// nodes append `.0`, `.1`, and `.P` entries in tree order.
+pub fn generate_manifest(id: String, len: usize) -> Vec<String> {
+    if len <= MAX_LEAF_PAYLOAD {
+        return vec![id];
+    }
+
+    let half = len / 2;
+    let mut ids = generate_manifest(format!("{}.0", id), half);
+    ids.append(&mut generate_manifest(format!("{}.1", id), len - half));
+    ids.push(format!("{}.P", id));
+    ids
+}
+
 /// Recover the missing payload by XORing the sibling payload and parity frame.
 ///
 /// `expected_len` trims the recovered buffer back to the original payload length.
@@ -255,6 +272,16 @@ mod tests {
         let left = [0xDE, 0xAD, 0xBE];
         let right = [0x01, 0x02, 0x03];
         assert_eq!(calculate_parity(&left, &right), vec![0xDF, 0xAF, 0xBD]);
+    }
+
+    #[test]
+    fn generate_manifest_matches_recursive_packet_tree() {
+        let manifest = generate_manifest("ROOT".to_string(), 2000);
+
+        assert!(manifest.contains(&"ROOT.P".to_string()));
+        assert!(manifest.iter().any(|id| id.starts_with("ROOT.0.")));
+        assert!(manifest.iter().any(|id| id.starts_with("ROOT.1.")));
+        assert_eq!(manifest.len(), packetize("ROOT".to_string(), vec![0xAB; 2000]).total_packets as usize);
     }
 
     #[test]
