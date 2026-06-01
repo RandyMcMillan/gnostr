@@ -280,6 +280,7 @@ pub async fn run_sniper_service_with_shutdown(
         warn!("Sniper service failed: {}", e);
     }
     crate::record_sniper_log("sniper service: initial prime pass finished");
+    crate::record_sniper_log("sniper service: started");
     info!("run_sniper_service: initial prime pass finished");
 
     let mut interval = tokio::time::interval(std::time::Duration::from_secs(300));
