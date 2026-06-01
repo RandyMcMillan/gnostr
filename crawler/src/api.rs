@@ -81,13 +81,22 @@ pub async fn prime_all_nip_relays_files(
         "prime_all_nip_relays_files: checking {} relays for NIP support",
         relays.len()
     );
+    info!("prime_all_nip_relays_files: fetching relay metadata bodies");
     let bodies = fetch_relay_texts(relays, client, "prime_all_nip_relays_files").await;
+    info!(
+        "prime_all_nip_relays_files: received {} metadata responses",
+        bodies.len()
+    );
 
     let mut nip_relays: HashMap<i32, HashSet<String>> = HashMap::new();
+    let mut parsed_relays = 0usize;
+    let mut skipped_relays = 0usize;
+    let mut written_files = 0usize;
     for item in bodies {
         if let Ok((url, json_string, ping_ms)) = item {
             if json_string.is_empty() {
                 info!("prime_all_nip_relays_files: no metadata body for {}", url);
+                skipped_relays += 1;
                 continue;
             }
             info!(
@@ -96,6 +105,7 @@ pub async fn prime_all_nip_relays_files(
                 json_string.len()
             );
             if let Ok(mut relay_info) = parse_relay_metadata(&json_string) {
+                parsed_relays += 1;
                 relay_info.ping_ms = Some(ping_ms);
                 let supported_nips = relay_info.supported_nips.clone().unwrap_or_default();
                 if supported_nips.is_empty() {
@@ -129,6 +139,8 @@ pub async fn prime_all_nip_relays_files(
                                 file_path.display(),
                                 e
                             );
+                        } else {
+                            written_files += 1;
                         }
                     } else {
                         warn!(
@@ -143,23 +155,36 @@ pub async fn prime_all_nip_relays_files(
                     "prime_all_nip_relays_files: failed to parse relay metadata for {}",
                     url
                 );
+                skipped_relays += 1;
             }
         } else if let Err(e) = item {
             info!(
                 "prime_all_nip_relays_files: request failed while fetching relay metadata: {}",
                 e
             );
+            skipped_relays += 1;
         }
     }
 
-    for (nip, _) in nip_relays {
+    info!(
+        "prime_all_nip_relays_files: parsed {} relays, skipped {}, wrote {} files, built {} buckets",
+        parsed_relays,
+        skipped_relays,
+        written_files,
+        nip_relays.len()
+    );
+
+    for (nip, relays) in nip_relays {
         crate::relays::record_live_nips(std::iter::once(nip));
         info!(
-            "prime_all_nip_relays_files: rebuilding NIP {} aggregate files",
-            nip
+            "prime_all_nip_relays_files: rebuilding NIP {} aggregate files from {} relays",
+            nip,
+            relays.len()
         );
         if let Err(e) = crate::relays::write_nip_relays_serve_files_from_dir(nip) {
             warn!("Failed to prime nip {} relay files: {}", nip, e);
+        } else {
+            info!("prime_all_nip_relays_files: rebuilt NIP {} aggregate files", nip);
         }
     }
 
@@ -172,18 +197,22 @@ pub async fn run_sniper_service_with_shutdown(
     mut shutdown: oneshot::Receiver<()>,
 ) {
     info!("starting sniper service");
+    info!("run_sniper_service: performing initial prime pass");
     if let Err(e) = prime_all_nip_relays_files(&client).await {
         warn!("Sniper service failed: {}", e);
     }
+    info!("run_sniper_service: initial prime pass finished");
 
     let mut interval = tokio::time::interval(std::time::Duration::from_secs(300));
 
     loop {
         tokio::select! {
             _ = interval.tick() => {
-                info!("run_sniper_service: triggering prime pass");
+                info!("run_sniper_service: triggering scheduled prime pass");
                 if let Err(e) = prime_all_nip_relays_files(&client).await {
                     warn!("Sniper service failed: {}", e);
+                } else {
+                    info!("run_sniper_service: scheduled prime pass completed");
                 }
             }
             _ = &mut shutdown => {
