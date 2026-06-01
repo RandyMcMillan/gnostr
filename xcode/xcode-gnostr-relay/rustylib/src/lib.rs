@@ -394,8 +394,9 @@ pub fn sniper_service_start() -> String {
         state.thread = Some(thread);
     }
     drop(slot);
+    gnostr_crawler::record_sniper_log("sniper service: running");
 
-    "sniper service starting".to_string()
+    "sniper service running".to_string()
 }
 
 #[uniffi::export]
