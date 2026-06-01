@@ -18,17 +18,19 @@ struct DemoArgs {
     file: Option<PathBuf>,
     recursive: Option<PathBuf>,
     depth: usize,
+    verbose: bool,
     help: bool,
 }
 
 fn usage() {
     println!(
-        "Usage: fractal_swarm_perfect_ip [--file PATH] [--recursive PATH] [--depth N] [--help]\n\
+        "Usage: fractal_swarm_perfect_ip [--file PATH] [--recursive PATH] [--depth N] [--verbose] [--help]\n\
          \n\
          Options:\n\
            --file PATH       Read input from PATH instead of generating example.bin\n\
            --recursive PATH   Walk PATH as a directory tree and preserve relative paths\n\
            --depth N         Limit recursive directory walking to N levels [default: 3]\n\
+           --verbose         Print packet info during file mode\n\
            --help            Show this help message\n"
     );
 }
@@ -38,11 +40,14 @@ fn parse_args() -> DemoArgs {
     let mut file = None;
     let mut recursive = None;
     let mut depth = 3usize;
+    let mut verbose = false;
     let mut help = false;
 
     while let Some(arg) = args.next() {
         if arg == "--help" || arg == "-h" {
             help = true;
+        } else if arg == "--verbose" {
+            verbose = true;
         } else if arg == "--recursive" {
             recursive = match args.peek() {
                 Some(next) if !next.starts_with('-') => args.next().map(PathBuf::from),
@@ -86,6 +91,7 @@ fn parse_args() -> DemoArgs {
         file,
         recursive,
         depth,
+        verbose,
         help,
     }
 }
@@ -192,9 +198,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     println!("sender wrote {}", example_path.display());
     println!("sender sha256: {original_sha256}");
-    println!("perfect_ip packet batch: {} packets", batch.total_packets);
-    for line in summarize_packets(&batch.packets) {
-        println!("{line}");
+    if args.verbose {
+        println!("perfect_ip packet batch: {} packets", batch.total_packets);
+        for line in summarize_packets(&batch.packets) {
+            println!("{line}");
+        }
     }
 
     let mut integrity = IntegrityManager::new(manifest);
