@@ -32,6 +32,32 @@ pub fn calculate_parity(left: &[u8], right: &[u8]) -> Vec<u8> {
     parity
 }
 
+pub fn recover_missing_data(expected_len: usize, sibling: &[u8], parity: &[u8]) -> Vec<u8> {
+    let recovered = calculate_parity(sibling, parity);
+    recovered.into_iter().take(expected_len).collect()
+}
+
+pub fn recover_missing_slice(
+    id: String,
+    expected_len: usize,
+    sibling: &ProtocolSlice,
+    parity: &ProtocolSlice,
+    seq: &mut u32,
+) -> ProtocolSlice {
+    let header = Header {
+        seq_num: *seq,
+        total_packets: sibling.header.total_packets.max(parity.header.total_packets),
+    };
+    *seq += 1;
+
+    ProtocolSlice {
+        id,
+        header,
+        data: recover_missing_data(expected_len, &sibling.data, &parity.data),
+        is_parity: false,
+    }
+}
+
 pub fn process_slice(id: String, data: Vec<u8>, seq: &mut u32) -> Vec<ProtocolSlice> {
     if data.len() <= MAX_LEAF_PAYLOAD {
         let slice = ProtocolSlice {
@@ -122,5 +148,46 @@ mod tests {
         let left = [0xDE, 0xAD, 0xBE];
         let right = [0x01, 0x02, 0x03];
         assert_eq!(calculate_parity(&left, &right), vec![0xDF, 0xAF, 0xBD]);
+    }
+
+    #[test]
+    fn recover_missing_data_restores_xor_partner() {
+        let left = vec![0xDE, 0xAD, 0xBE];
+        let right = vec![0x01, 0x02, 0x03];
+        let parity = calculate_parity(&left, &right);
+
+        assert_eq!(recover_missing_data(left.len(), &right, &parity), left);
+        assert_eq!(recover_missing_data(right.len(), &left, &parity), right);
+    }
+
+    #[test]
+    fn recover_missing_slice_rebuilds_header_and_payload() {
+        let sibling = ProtocolSlice {
+            id: "ROOT.1".to_string(),
+            header: Header {
+                seq_num: 1,
+                total_packets: 3,
+            },
+            data: vec![0x01, 0x02, 0x03],
+            is_parity: false,
+        };
+        let parity = ProtocolSlice {
+            id: "ROOT.P".to_string(),
+            header: Header {
+                seq_num: 2,
+                total_packets: 3,
+            },
+            data: vec![0xDF, 0xAF, 0xBD],
+            is_parity: true,
+        };
+        let mut seq = 3;
+
+        let recovered = recover_missing_slice("ROOT.0".to_string(), 3, &sibling, &parity, &mut seq);
+
+        assert_eq!(recovered.id, "ROOT.0");
+        assert_eq!(recovered.data, vec![0xDE, 0xAD, 0xBE]);
+        assert_eq!(recovered.header.seq_num, 3);
+        assert_eq!(recovered.header.total_packets, 3);
+        assert!(!recovered.is_parity);
     }
 }
