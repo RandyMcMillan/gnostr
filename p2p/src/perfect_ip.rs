@@ -77,10 +77,10 @@ pub fn process_slice(id: String, data: Vec<u8>, seq: &mut u32) -> Vec<ProtocolSl
     let left_data = data[..half].to_vec();
     let right_data = data[half..].to_vec();
 
-    let mut slices = process_slice(format!("{}.0", id), left_data.clone(), seq);
-    slices.append(&mut process_slice(format!("{}.1", id), right_data.clone(), seq));
-
     let parity = calculate_parity(&left_data, &right_data);
+    let mut slices = process_slice(format!("{}.0", id), left_data, seq);
+    slices.append(&mut process_slice(format!("{}.1", id), right_data, seq));
+
     slices.push(ProtocolSlice {
         id: format!("{}.P", id),
         header: Header {
