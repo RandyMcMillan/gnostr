@@ -464,6 +464,127 @@ private struct CrawlerServerWebViewRepresentable: NSViewRepresentable {
 }
 #endif
 
+public struct CrawlerBucketsWebView: View {
+    public let snapshot: CrawlerNetworkSnapshot
+
+    public init(snapshot: CrawlerNetworkSnapshot) {
+        self.snapshot = snapshot
+    }
+
+    public var body: some View {
+        CrawlerBucketsWebViewRepresentable(html: Self.makeHTML(snapshot: self.snapshot))
+    }
+
+    private static func makeHTML(snapshot: CrawlerNetworkSnapshot) -> String {
+        func escape(_ string: String) -> String {
+            string
+                .replacingOccurrences(of: "&", with: "&amp;")
+                .replacingOccurrences(of: "<", with: "&lt;")
+                .replacingOccurrences(of: ">", with: "&gt;")
+                .replacingOccurrences(of: "\"", with: "&quot;")
+        }
+
+        func renderBuckets(_ source: CrawlerNetworkSourceSnapshot) -> String {
+            let rootRelays = source.rootRelays.isEmpty
+                ? "<p class=\"muted\">No root relays.</p>"
+                : "<ul>" + source.rootRelays.map { "<li><code>\(escape($0))</code></li>" }.joined() + "</ul>"
+
+            let buckets = source.buckets.isEmpty
+                ? "<p class=\"muted\">No buckets.</p>"
+                : source.buckets.map { bucket in
+                    let relays = bucket.relays.map { "<li><code>\(escape($0))</code></li>" }.joined()
+                    return """
+                    <section class="bucket">
+                      <h3>\(escape(bucket.bucket))</h3>
+                      <p class="muted">\(
+                        escape(bucket.source)
+                      )</p>
+                      <ul>\(relays)</ul>
+                    </section>
+                    """
+                }.joined()
+
+            return """
+            <article class="source">
+              <h2>\(escape(source.name))</h2>
+              <h3>Root relays</h3>
+              \(rootRelays)
+              <h3>Buckets</h3>
+              \(buckets)
+            </article>
+            """
+        }
+
+        let errors = snapshot.errors.isEmpty
+            ? "<p class=\"muted\">No snapshot errors.</p>"
+            : "<ul>" + snapshot.errors.map { "<li>\(escape($0))</li>" }.joined() + "</ul>"
+
+        return """
+        <!doctype html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; margin: 0; padding: 16px; background: #0f1115; color: #f4f4f5; }
+            h1, h2, h3 { margin: 0 0 8px 0; }
+            .muted { color: #a1a1aa; }
+            .meta { margin-bottom: 16px; }
+            .source, .bucket { border: 1px solid #2a2f3a; border-radius: 12px; padding: 12px; margin-bottom: 12px; background: #171923; }
+            ul { margin: 8px 0 0 20px; }
+            code { white-space: pre-wrap; word-break: break-word; }
+          </style>
+        </head>
+        <body>
+          <h1>Relay Buckets</h1>
+          <div class="meta">
+            <div>Updated: \(escape(Self.format(date: snapshot.refreshedAt)))</div>
+          </div>
+          \(renderBuckets(snapshot.crawler))
+          \(renderBuckets(snapshot.p2p))
+          <section class="source">
+            <h2>Errors</h2>
+            \(errors)
+          </section>
+        </body>
+        </html>
+        """
+    }
+
+    private static func format(date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .short
+        formatter.timeStyle = .medium
+        return formatter.string(from: date)
+    }
+}
+
+#if canImport(UIKit)
+private struct CrawlerBucketsWebViewRepresentable: UIViewRepresentable {
+    let html: String
+
+    func makeUIView(context: Context) -> WKWebView {
+        WKWebView()
+    }
+
+    func updateUIView(_ webView: WKWebView, context: Context) {
+        webView.loadHTMLString(self.html, baseURL: nil)
+    }
+}
+#elseif canImport(AppKit)
+private struct CrawlerBucketsWebViewRepresentable: NSViewRepresentable {
+    let html: String
+
+    func makeNSView(context: Context) -> WKWebView {
+        WKWebView()
+    }
+
+    func updateNSView(_ webView: WKWebView, context: Context) {
+        webView.loadHTMLString(self.html, baseURL: nil)
+    }
+}
+#endif
+
 public struct CrawlerNetworkDashboard: View {
     @ObservedObject private var store: CrawlerNetworkStore
     @ObservedObject private var logStore = CrawlerLogStore(maxLines: 200)
@@ -500,6 +621,19 @@ public struct CrawlerNetworkDashboard: View {
                     .font(.caption)
                     .foregroundColor(.secondary)
                 CrawlerServerWebView(url: self.store.baseURL)
+                    .frame(maxWidth: .infinity)
+                    .frame(minHeight: 320)
+                    .cornerRadius(12)
+            }
+            .padding([.horizontal, .bottom])
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Relay Buckets")
+                    .font(.headline)
+                Text("Local snapshot from crawler and P2P config files")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                CrawlerBucketsWebView(snapshot: self.store.snapshot)
                     .frame(maxWidth: .infinity)
                     .frame(minHeight: 320)
                     .cornerRadius(12)
