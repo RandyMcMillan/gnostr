@@ -1,13 +1,35 @@
 //! Recursive packet framing and parity helpers for the `perfect_ip` protocol.
 //!
-//! The protocol is intentionally small and reusable:
-//! - [`process_slice`] recursively splits payloads until each emitted packet
-//!   stays within the transport budget.
-//! - [`packetize`] finalizes a batch and fills in packet counts up front.
-//! - [`recover_missing_data`] and [`recover_missing_slice`] rebuild a missing
-//!   packet from a sibling packet and parity slice.
+//! `perfect_ip` is a repair-oriented tree protocol. It does not try to be a
+//! general transport; instead it turns a byte buffer into a deterministic tree
+//! of MTU-safe data slices and parity slices that can be reconstructed when a
+//! sibling packet is missing.
 //!
-//! The parity model is XOR-based and matches the packet-tree sketch in the
+//! ## Packet model
+//!
+//! - [`process_slice`] recursively splits payloads until each emitted leaf fits
+//!   within the packet budget.
+//! - Internal nodes emit a left child, right child, and parity frame.
+//! - Packet ids form a stable recursive path such as `ROOT.1.0.P`.
+//! - [`packetize`] finalizes the batch by filling `total_packets` into every
+//!   packet header.
+//!
+//! ## Wire model
+//!
+//! On the wire, packet slices are exchanged as CBOR-encoded
+//! [`ProtocolSlice`] values over libp2p request/response. The default repair
+//! protocol id is `/fractal/repair/1.0.0`, and the behaviour is exposed through
+//! [`FractalBehaviour`] and [`run_fractal_engine`].
+//!
+//! ## Repair model
+//!
+//! The parity scheme is XOR-based. Given one sibling payload and the matching
+//! parity frame, [`recover_missing_data`] and [`recover_missing_slice`] can
+//! rebuild the missing sibling payload. [`IntegrityManager`] tracks the
+//! manifest, records received slices, persists the partial state to disk, and
+//! verifies that parity frames still match their children.
+//!
+//! The layout intentionally mirrors the packet-tree sketch in the
 //! `perfect_ip.rs` gist.
 
 use std::collections::{HashMap, HashSet};
@@ -24,6 +46,10 @@ use libp2p::{
 use serde::{Deserialize, Serialize};
 
 /// Packet header metadata shared by all packet types in the tree.
+///
+/// `seq_num` is assigned in the order packets are emitted by the recursive
+/// packetizer. `total_packets` is populated only after packetization has
+/// finished, so callers can treat the batch as self-describing once finalized.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Header {
     /// Monotonic sequence number assigned during packetization.
@@ -34,8 +60,10 @@ pub struct Header {
 
 /// A single packet produced by the recursive packetizer.
 ///
-/// `is_parity` marks parity frames that describe the XOR of sibling payloads.
 /// `id` carries the recursive path for the packet, such as `ROOT.0.1.P`.
+/// `is_parity` marks frames that store XOR parity rather than original user
+/// data. `data` always contains the raw bytes that would be transmitted on the
+/// wire inside the CBOR-encoded repair message.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProtocolSlice {
     /// Stable recursive packet identifier.
@@ -51,7 +79,8 @@ pub struct ProtocolSlice {
 /// Finalized packet tree output.
 ///
 /// `total_packets` is duplicated here so callers can inspect batch metadata
-/// without walking the packet list.
+/// without walking the packet list. The packet list is stable and already has
+/// each packet header patched to reflect the finalized count.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PacketBatch {
     /// Number of packets in the batch.
@@ -61,6 +90,10 @@ pub struct PacketBatch {
 }
 
 /// libp2p repair behaviour for exchanging packet slices.
+///
+/// This is a small request/response behaviour that accepts one
+/// [`ProtocolSlice`] and returns one [`ProtocolSlice`]. It is intended for
+/// repair traffic, not bulk transfer.
 #[derive(NetworkBehaviour)]
 #[behaviour(to_swarm = "FractalBehaviourEvent")]
 pub struct FractalBehaviour {
@@ -69,6 +102,9 @@ pub struct FractalBehaviour {
 }
 
 /// Behaviour events emitted by the repair RPC layer.
+///
+/// The enum stays small because the behaviour currently exposes one protocol:
+/// the repair request/response channel.
 #[derive(Debug)]
 pub enum FractalBehaviourEvent {
     /// A request/response protocol event.
@@ -82,6 +118,10 @@ impl From<request_response::Event<ProtocolSlice, ProtocolSlice>> for FractalBeha
 }
 
 /// Tracks the expected manifest and the packets that have arrived so far.
+///
+/// The manager is deliberately simple: it stores the expected ids, the received
+/// slices, and exposes helpers for missing-node inspection, parity validation,
+/// and persistence.
 #[derive(Debug, Clone, Default)]
 pub struct IntegrityManager {
     manifest: HashSet<String>,
@@ -90,6 +130,9 @@ pub struct IntegrityManager {
 
 impl IntegrityManager {
     /// Create a manager from the set of expected packet ids.
+    ///
+    /// The manifest is stored as a set so lookups stay cheap even for larger
+    /// packet trees.
     pub fn new(expected_ids: Vec<String>) -> Self {
         Self {
             manifest: expected_ids.into_iter().collect(),
@@ -98,11 +141,17 @@ impl IntegrityManager {
     }
 
     /// Record a received packet by id, replacing any prior packet with the same id.
+    ///
+    /// Re-recording a slice is allowed and simply overwrites the previous
+    /// entry. That makes repair retries and late arrivals idempotent.
     pub fn record_slice(&mut self, slice: ProtocolSlice) {
         self.received_slices.insert(slice.id.clone(), slice);
     }
 
     /// Persist the received packet map to disk using bincode.
+    ///
+    /// This writes only the received slice map. The caller supplies the
+    /// manifest again on load so persisted state stays lightweight and portable.
     pub fn persist(&self, path: impl AsRef<Path>) -> io::Result<()> {
         let encoded = bincode::serialize(&self.received_slices)
             .map_err(|error| io::Error::new(io::ErrorKind::Other, error))?;
@@ -110,6 +159,9 @@ impl IntegrityManager {
     }
 
     /// Load a persisted packet map from disk and attach it to the given manifest.
+    ///
+    /// The manifest is not persisted with the slice data; callers are expected
+    /// to regenerate or reload it independently.
     pub fn load_from_disk(
         path: impl AsRef<Path>,
         manifest: HashSet<String>,
@@ -124,6 +176,10 @@ impl IntegrityManager {
     }
 
     /// Return the packet ids from the manifest that are still missing.
+    ///
+    /// The returned ids preserve the manifest set's iteration order only in the
+    /// sense that they are collected into a vector; callers should sort if they
+    /// need deterministic display order.
     pub fn get_missing_nodes(&self) -> Vec<String> {
         self.manifest
             .iter()
@@ -133,6 +189,10 @@ impl IntegrityManager {
     }
 
     /// Verify that every parity slice matches the XOR of its sibling data slices.
+    ///
+    /// If a parity node's siblings are both present, the check recomputes the
+    /// XOR and compares it with the stored parity bytes. Missing siblings are
+    /// ignored so partial downloads can still pass for the fragments they have.
     pub fn verify_integrity(&self) -> bool {
         for (id, slice) in &self.received_slices {
             if !slice.is_parity {
@@ -157,6 +217,9 @@ impl IntegrityManager {
 }
 
 /// Build the repair swarm used to exchange packet slices with peers.
+///
+/// The swarm uses the current identity, Tokio, and QUIC transport so the demo
+/// can listen on a simple localhost multiaddr without extra transport setup.
 pub async fn build_fractal_swarm(
     local_key: libp2p::identity::Keypair,
 ) -> Result<Swarm<FractalBehaviour>, Box<dyn Error + Send + Sync>> {
@@ -181,9 +244,10 @@ pub async fn build_fractal_swarm(
 
 /// Start the repair swarm and forward incoming repair requests to the packet map.
 ///
-/// This is a minimal networking entrypoint for the packet protocol; it listens
-/// for `ProtocolSlice` repair requests and replies with the matching slice when
-/// the packet is present in `IntegrityManager`.
+/// This is the runtime repair loop for the protocol. It listens for
+/// `ProtocolSlice` requests, looks up the requested id in
+/// [`IntegrityManager::received_slices`], and replies with the stored slice or
+/// an empty placeholder when the packet is absent.
 pub async fn run_fractal_engine(
     local_key: libp2p::identity::Keypair,
     listen_address: libp2p::Multiaddr,
@@ -223,13 +287,17 @@ pub async fn run_fractal_engine(
 }
 
 /// Maximum payload size this packet protocol is allowed to emit.
+///
+/// The tree uses half-sized leaves so that parity slices for sibling pairs stay
+/// under the same transport ceiling as the data leaves.
 pub const MTU_PAYLOAD: usize = 1460;
 const MAX_LEAF_PAYLOAD: usize = MTU_PAYLOAD / 2;
 
 /// XOR two payloads into a parity buffer.
 ///
 /// Missing bytes are treated as zero so the returned buffer is as long as the
-/// larger input.
+/// larger input. This is the core repair primitive used at every branch in the
+/// recursive packet tree.
 pub fn calculate_parity(left: &[u8], right: &[u8]) -> Vec<u8> {
     let max_len = left.len().max(right.len());
     let mut parity = vec![0; max_len];
@@ -245,7 +313,8 @@ pub fn calculate_parity(left: &[u8], right: &[u8]) -> Vec<u8> {
 ///
 /// The returned manifest mirrors [`process_slice`] exactly: leaf nodes are
 /// emitted when the payload fits within [`MAX_LEAF_PAYLOAD`], and internal
-/// nodes append `.0`, `.1`, and `.P` entries in tree order.
+/// nodes append `.0`, `.1`, and `.P` entries in tree order. This is what lets
+/// [`IntegrityManager`] tell which packets are still missing.
 pub fn generate_manifest(id: String, len: usize) -> Vec<String> {
     if len <= MAX_LEAF_PAYLOAD {
         return vec![id];
@@ -260,7 +329,9 @@ pub fn generate_manifest(id: String, len: usize) -> Vec<String> {
 
 /// Recover the missing payload by XORing the sibling payload and parity frame.
 ///
-/// `expected_len` trims the recovered buffer back to the original payload length.
+/// `expected_len` trims the recovered buffer back to the original payload
+/// length. If the sibling and parity bytes are from the same branch, the XOR
+/// yields the missing sibling exactly.
 pub fn recover_missing_data(expected_len: usize, sibling: &[u8], parity: &[u8]) -> Vec<u8> {
     let recovered = calculate_parity(sibling, parity);
     recovered.into_iter().take(expected_len).collect()
@@ -269,6 +340,8 @@ pub fn recover_missing_data(expected_len: usize, sibling: &[u8], parity: &[u8]) 
 /// Rebuild a missing packet using a sibling packet and parity packet.
 ///
 /// The returned slice is marked as data and receives the next sequence number.
+/// This is a convenience wrapper for repair handlers that need to synthesize a
+/// complete [`ProtocolSlice`] from branch-local evidence.
 pub fn recover_missing_slice(
     id: String,
     expected_len: usize,
@@ -293,7 +366,8 @@ pub fn recover_missing_slice(
 /// Recursively split a payload into MTU-safe slices and parity frames.
 ///
 /// Leaf packets are emitted when the payload is at or below
-/// [`MAX_LEAF_PAYLOAD`]. Internal nodes emit left, right, and parity frames.
+/// [`MAX_LEAF_PAYLOAD`]. Internal nodes emit left, right, and parity frames in
+/// a deterministic order so the manifest and sequence numbers line up exactly.
 pub fn process_slice(id: String, data: Vec<u8>, seq: &mut u32) -> Vec<ProtocolSlice> {
     if data.len() <= MAX_LEAF_PAYLOAD {
         let slice = ProtocolSlice {
@@ -334,7 +408,8 @@ pub fn process_slice(id: String, data: Vec<u8>, seq: &mut u32) -> Vec<ProtocolSl
 /// Packetize a payload and finalize the batch metadata.
 ///
 /// This is the preferred entrypoint for callers that want a ready-to-send
-/// packet tree with `total_packets` filled in.
+/// packet tree with `total_packets` filled in. The returned batch is ready for
+/// logging, persistence, or network repair.
 pub fn packetize(id: String, data: Vec<u8>) -> PacketBatch {
     let mut seq = 0;
     let mut packets = process_slice(id, data, &mut seq);
@@ -349,6 +424,10 @@ pub fn packetize(id: String, data: Vec<u8>) -> PacketBatch {
 }
 
 /// Render packet summaries for logs or diagnostics.
+///
+/// This is intentionally human-facing output for terminal demos and debugging.
+/// It keeps the packet ids, sequence numbers, types, and sizes aligned in a
+/// single line per packet.
 pub fn summarize_packets(packets: &[ProtocolSlice]) -> Vec<String> {
     packets
         .iter()
