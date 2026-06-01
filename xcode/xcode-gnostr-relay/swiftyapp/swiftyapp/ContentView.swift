@@ -260,7 +260,7 @@ struct ContentView: View {
         if lowercased.contains("running") {
             return .green
         }
-        if lowercased.contains("starting") || lowercased.contains("stopping") {
+        if lowercased.contains("starting") || lowercased.contains("stopping") || lowercased.contains("requested") {
             return .yellow
         }
         return .red
