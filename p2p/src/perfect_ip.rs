@@ -13,6 +13,7 @@ pub struct ProtocolSlice {
 }
 
 pub const MTU_PAYLOAD: usize = 1460;
+const MAX_LEAF_PAYLOAD: usize = MTU_PAYLOAD / 2;
 
 pub fn calculate_parity(left: &[u8], right: &[u8]) -> Vec<u8> {
     let max_len = left.len().max(right.len());
@@ -26,7 +27,7 @@ pub fn calculate_parity(left: &[u8], right: &[u8]) -> Vec<u8> {
 }
 
 pub fn process_slice(id: String, data: Vec<u8>, seq: &mut u32) -> Vec<ProtocolSlice> {
-    if data.len() <= MTU_PAYLOAD {
+    if data.len() <= MAX_LEAF_PAYLOAD {
         let slice = ProtocolSlice {
             id,
             header: Header {
@@ -92,14 +93,16 @@ mod tests {
 
     #[test]
     fn process_slice_emits_parity_and_data() {
-        let raw_data = vec![0xAB; 3000];
+        let raw_data = vec![0xAB; 2000];
         let mut seq = 0;
         let packets = finalize_packets(process_slice("ROOT".to_string(), raw_data, &mut seq));
 
         assert!(!packets.is_empty());
         assert!(packets.iter().any(|packet| packet.is_parity));
-        assert!(packets.iter().any(|packet| packet.id == "ROOT.0"));
-        assert!(packets.iter().any(|packet| packet.id == "ROOT.1"));
+        assert!(packets.iter().any(|packet| packet.id == "ROOT.P"));
+        assert!(packets.iter().any(|packet| packet.id.starts_with("ROOT.0.")));
+        assert!(packets.iter().any(|packet| packet.id.starts_with("ROOT.1.")));
+        assert!(packets.iter().all(|packet| packet.data.len() <= MTU_PAYLOAD));
     }
 
     #[test]
