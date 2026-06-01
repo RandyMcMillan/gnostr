@@ -271,15 +271,23 @@ pub async fn run_sniper_service_with_shutdown(
     client: reqwest::Client,
     mut shutdown: oneshot::Receiver<()>,
 ) {
+    crate::record_sniper_lifecycle("sniper lifecycle: worker starting");
     crate::record_sniper_log("sniper service: starting");
     info!("starting sniper service");
+    crate::record_sniper_lifecycle("sniper lifecycle: initial prime requested");
     crate::record_sniper_log("sniper service: performing initial prime pass");
     info!("run_sniper_service: performing initial prime pass");
     if let Err(e) = prime_all_nip_relays_files(&client).await {
+        crate::record_sniper_lifecycle(format!(
+            "sniper lifecycle: initial prime failed: {}",
+            e
+        ));
         crate::record_sniper_log(format!("sniper service: initial prime pass failed: {}", e));
         warn!("Sniper service failed: {}", e);
     }
+    crate::record_sniper_lifecycle("sniper lifecycle: initial prime finished");
     crate::record_sniper_log("sniper service: initial prime pass finished");
+    crate::record_sniper_lifecycle("sniper lifecycle: running");
     crate::record_sniper_log("sniper service: started");
     info!("run_sniper_service: initial prime pass finished");
 
@@ -288,22 +296,30 @@ pub async fn run_sniper_service_with_shutdown(
     loop {
         tokio::select! {
             _ = interval.tick() => {
+                crate::record_sniper_lifecycle("sniper lifecycle: scheduled prime requested");
                 crate::record_sniper_log("sniper service: triggering scheduled prime pass");
                 info!("run_sniper_service: triggering scheduled prime pass");
                 if let Err(e) = prime_all_nip_relays_files(&client).await {
+                    crate::record_sniper_lifecycle(format!(
+                        "sniper lifecycle: scheduled prime failed: {}",
+                        e
+                    ));
                     crate::record_sniper_log(format!(
                         "sniper service: scheduled prime pass failed: {}",
                         e
                     ));
                     warn!("Sniper service failed: {}", e);
                 } else {
+                    crate::record_sniper_lifecycle("sniper lifecycle: scheduled prime finished");
                     crate::record_sniper_log("sniper service: scheduled prime pass completed");
                     info!("run_sniper_service: scheduled prime pass completed");
                 }
             }
             _ = &mut shutdown => {
+                crate::record_sniper_lifecycle("sniper lifecycle: stopping");
                 crate::record_sniper_log("sniper service: stopping");
                 info!("stopping sniper service");
+                crate::record_sniper_lifecycle("sniper lifecycle: stopped");
                 break;
             }
         }
