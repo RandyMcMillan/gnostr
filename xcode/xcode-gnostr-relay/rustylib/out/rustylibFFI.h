@@ -254,7 +254,7 @@ typedef void (*UniffiForeignFutureCompleteVoid)(uint64_t, UniffiForeignFutureStr
 #ifndef UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_FN_FUNC_CRAWLER_SERVICE_LOGS
 #define UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_FN_FUNC_CRAWLER_SERVICE_LOGS
 RustBuffer uniffi_rustylib_fn_func_crawler_service_logs(RustCallStatus *_Nonnull out_status
-    
+
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_FN_FUNC_CRAWLER_SERVICE_START
@@ -265,37 +265,37 @@ RustBuffer uniffi_rustylib_fn_func_crawler_service_start(uint16_t port, RustCall
 #ifndef UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_FN_FUNC_CRAWLER_SERVICE_STATUS
 #define UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_FN_FUNC_CRAWLER_SERVICE_STATUS
 RustBuffer uniffi_rustylib_fn_func_crawler_service_status(RustCallStatus *_Nonnull out_status
-    
+
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_FN_FUNC_CRAWLER_SERVICE_STOP
 #define UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_FN_FUNC_CRAWLER_SERVICE_STOP
 RustBuffer uniffi_rustylib_fn_func_crawler_service_stop(RustCallStatus *_Nonnull out_status
-    
+
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_FN_FUNC_P2P_NETWORK_LOGS
 #define UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_FN_FUNC_P2P_NETWORK_LOGS
 RustBuffer uniffi_rustylib_fn_func_p2p_network_logs(RustCallStatus *_Nonnull out_status
-    
+
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_FN_FUNC_P2P_NETWORK_START
 #define UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_FN_FUNC_P2P_NETWORK_START
 RustBuffer uniffi_rustylib_fn_func_p2p_network_start(RustCallStatus *_Nonnull out_status
-    
+
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_FN_FUNC_P2P_NETWORK_STATUS
 #define UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_FN_FUNC_P2P_NETWORK_STATUS
 RustBuffer uniffi_rustylib_fn_func_p2p_network_status(RustCallStatus *_Nonnull out_status
-    
+
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_FN_FUNC_P2P_NETWORK_STOP
 #define UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_FN_FUNC_P2P_NETWORK_STOP
 RustBuffer uniffi_rustylib_fn_func_p2p_network_stop(RustCallStatus *_Nonnull out_status
-    
+
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_FN_FUNC_RUST_ADD
@@ -306,31 +306,37 @@ uint32_t uniffi_rustylib_fn_func_rust_add(uint32_t a, uint32_t b, RustCallStatus
 #ifndef UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_FN_FUNC_RUST_HELLO
 #define UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_FN_FUNC_RUST_HELLO
 RustBuffer uniffi_rustylib_fn_func_rust_hello(RustCallStatus *_Nonnull out_status
-    
+
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_FN_FUNC_SNIPER_SERVICE_LIFECYCLE
+#define UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_FN_FUNC_SNIPER_SERVICE_LIFECYCLE
+RustBuffer uniffi_rustylib_fn_func_sniper_service_lifecycle(RustCallStatus *_Nonnull out_status
+
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_FN_FUNC_SNIPER_SERVICE_LOGS
 #define UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_FN_FUNC_SNIPER_SERVICE_LOGS
 RustBuffer uniffi_rustylib_fn_func_sniper_service_logs(RustCallStatus *_Nonnull out_status
-    
+
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_FN_FUNC_SNIPER_SERVICE_START
 #define UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_FN_FUNC_SNIPER_SERVICE_START
 RustBuffer uniffi_rustylib_fn_func_sniper_service_start(RustCallStatus *_Nonnull out_status
-    
+
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_FN_FUNC_SNIPER_SERVICE_STATUS
 #define UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_FN_FUNC_SNIPER_SERVICE_STATUS
 RustBuffer uniffi_rustylib_fn_func_sniper_service_status(RustCallStatus *_Nonnull out_status
-    
+
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_FN_FUNC_SNIPER_SERVICE_STOP
 #define UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_FN_FUNC_SNIPER_SERVICE_STOP
 RustBuffer uniffi_rustylib_fn_func_sniper_service_stop(RustCallStatus *_Nonnull out_status
-    
+
 );
 #endif
 #ifndef UNIFFI_FFIDEF_FFI_RUSTYLIB_RUSTBUFFER_ALLOC
@@ -616,91 +622,97 @@ void ffi_rustylib_rust_future_complete_void(uint64_t handle, RustCallStatus *_No
 #ifndef UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_CHECKSUM_FUNC_CRAWLER_SERVICE_LOGS
 #define UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_CHECKSUM_FUNC_CRAWLER_SERVICE_LOGS
 uint16_t uniffi_rustylib_checksum_func_crawler_service_logs(void
-    
+
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_CHECKSUM_FUNC_CRAWLER_SERVICE_START
 #define UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_CHECKSUM_FUNC_CRAWLER_SERVICE_START
 uint16_t uniffi_rustylib_checksum_func_crawler_service_start(void
-    
+
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_CHECKSUM_FUNC_CRAWLER_SERVICE_STATUS
 #define UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_CHECKSUM_FUNC_CRAWLER_SERVICE_STATUS
 uint16_t uniffi_rustylib_checksum_func_crawler_service_status(void
-    
+
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_CHECKSUM_FUNC_CRAWLER_SERVICE_STOP
 #define UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_CHECKSUM_FUNC_CRAWLER_SERVICE_STOP
 uint16_t uniffi_rustylib_checksum_func_crawler_service_stop(void
-    
+
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_CHECKSUM_FUNC_P2P_NETWORK_LOGS
 #define UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_CHECKSUM_FUNC_P2P_NETWORK_LOGS
 uint16_t uniffi_rustylib_checksum_func_p2p_network_logs(void
-    
+
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_CHECKSUM_FUNC_P2P_NETWORK_START
 #define UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_CHECKSUM_FUNC_P2P_NETWORK_START
 uint16_t uniffi_rustylib_checksum_func_p2p_network_start(void
-    
+
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_CHECKSUM_FUNC_P2P_NETWORK_STATUS
 #define UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_CHECKSUM_FUNC_P2P_NETWORK_STATUS
 uint16_t uniffi_rustylib_checksum_func_p2p_network_status(void
-    
+
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_CHECKSUM_FUNC_P2P_NETWORK_STOP
 #define UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_CHECKSUM_FUNC_P2P_NETWORK_STOP
 uint16_t uniffi_rustylib_checksum_func_p2p_network_stop(void
-    
+
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_CHECKSUM_FUNC_RUST_ADD
 #define UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_CHECKSUM_FUNC_RUST_ADD
 uint16_t uniffi_rustylib_checksum_func_rust_add(void
-    
+
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_CHECKSUM_FUNC_RUST_HELLO
 #define UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_CHECKSUM_FUNC_RUST_HELLO
 uint16_t uniffi_rustylib_checksum_func_rust_hello(void
-    
+
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_CHECKSUM_FUNC_SNIPER_SERVICE_LIFECYCLE
+#define UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_CHECKSUM_FUNC_SNIPER_SERVICE_LIFECYCLE
+uint16_t uniffi_rustylib_checksum_func_sniper_service_lifecycle(void
+
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_CHECKSUM_FUNC_SNIPER_SERVICE_LOGS
 #define UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_CHECKSUM_FUNC_SNIPER_SERVICE_LOGS
 uint16_t uniffi_rustylib_checksum_func_sniper_service_logs(void
-    
+
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_CHECKSUM_FUNC_SNIPER_SERVICE_START
 #define UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_CHECKSUM_FUNC_SNIPER_SERVICE_START
 uint16_t uniffi_rustylib_checksum_func_sniper_service_start(void
-    
+
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_CHECKSUM_FUNC_SNIPER_SERVICE_STATUS
 #define UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_CHECKSUM_FUNC_SNIPER_SERVICE_STATUS
 uint16_t uniffi_rustylib_checksum_func_sniper_service_status(void
-    
+
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_CHECKSUM_FUNC_SNIPER_SERVICE_STOP
 #define UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_CHECKSUM_FUNC_SNIPER_SERVICE_STOP
 uint16_t uniffi_rustylib_checksum_func_sniper_service_stop(void
-    
+
 );
 #endif
 #ifndef UNIFFI_FFIDEF_FFI_RUSTYLIB_UNIFFI_CONTRACT_VERSION
 #define UNIFFI_FFIDEF_FFI_RUSTYLIB_UNIFFI_CONTRACT_VERSION
 uint32_t ffi_rustylib_uniffi_contract_version(void
-    
+
 );
 #endif
 
