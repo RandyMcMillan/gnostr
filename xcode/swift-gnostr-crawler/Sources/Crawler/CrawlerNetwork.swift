@@ -425,8 +425,7 @@ public struct CrawlerNetworkDashboard: View {
                     } else {
                         ForEach(Array(self.logStore.lines.enumerated()), id: \.offset) { _, line in
                             Text(line)
-                                .font(.caption.monospaced())
-                                .textSelection(.enabled)
+                                .font(.system(size: 11, weight: .regular, design: .monospaced))
                         }
                     }
                 }
