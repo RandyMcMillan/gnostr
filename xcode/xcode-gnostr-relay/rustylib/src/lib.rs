@@ -3,7 +3,7 @@ use std::{
     os::raw::c_char,
     sync::{Mutex, OnceLock},
     thread,
-    time::{Duration, SystemTime},
+    time::SystemTime,
 };
 
 use tokio::sync::oneshot;
@@ -13,13 +13,13 @@ uniffi::setup_scaffolding!();
 struct CrawlerServiceState {
     port: u16,
     started_at: SystemTime,
+    ready: bool,
     shutdown: Option<oneshot::Sender<()>>,
     thread: Option<thread::JoinHandle<()>>,
 }
 
 static CRAWLER_SERVICE: OnceLock<Mutex<Option<CrawlerServiceState>>> = OnceLock::new();
 static CRAWLER_LOGS: OnceLock<Mutex<Vec<String>>> = OnceLock::new();
-static CRAWLER_TRACING: OnceLock<()> = OnceLock::new();
 
 fn crawler_service_slot() -> &'static Mutex<Option<CrawlerServiceState>> {
     CRAWLER_SERVICE.get_or_init(|| Mutex::new(None))
@@ -52,12 +52,12 @@ unsafe extern "C" fn crawler_log_callback(line: *const c_char) {
 }
 
 fn ensure_crawler_tracing() {
-    CRAWLER_TRACING.get_or_init(|| {
-        let _ = gnostr_crawler::init_tracing();
+    static LOG_CALLBACK_SET: OnceLock<()> = OnceLock::new();
+    LOG_CALLBACK_SET.get_or_init(|| {
         unsafe {
             gnostr_crawler::crawler_set_log_callback(Some(crawler_log_callback));
         }
-        push_crawler_log("crawler service: tracing initialized");
+        push_crawler_log("crawler service: log callback registered");
     });
 }
 
@@ -79,8 +79,16 @@ fn crawler_service_status_string() -> String {
             return "crawler service stopped".to_string();
         }
 
+        if state.ready {
+            return format!(
+                "crawler service running on 127.0.0.1:{} (started_at={})",
+                state.port,
+                format_started_at(state.started_at)
+            );
+        }
+
         return format!(
-            "crawler service running on 127.0.0.1:{} (started_at={})",
+            "crawler service starting on 127.0.0.1:{} (started_at={})",
             state.port,
             format_started_at(state.started_at)
         );
@@ -135,8 +143,16 @@ pub fn crawler_service_start(port: u16) -> String {
 
     let mut slot = crawler_service_slot().lock().unwrap();
     if let Some(state) = slot.as_ref() {
+        let status = if state.thread.as_ref().is_some_and(thread::JoinHandle::is_finished) {
+            "stopped"
+        } else if state.ready {
+            "running"
+        } else {
+            "starting"
+        };
         return format!(
-            "crawler service already running on 127.0.0.1:{} (started_at={})",
+            "crawler service already {} on 127.0.0.1:{} (started_at={})",
+            status,
             state.port,
             format_started_at(state.started_at)
         );
@@ -145,6 +161,15 @@ pub fn crawler_service_start(port: u16) -> String {
     let (ready_tx, ready_rx) = std::sync::mpsc::channel::<Result<(), String>>();
     let (shutdown_tx, shutdown_rx) = oneshot::channel::<()>();
     push_crawler_log(format!("crawler service: starting on 127.0.0.1:{port}"));
+
+    *slot = Some(CrawlerServiceState {
+        port,
+        started_at: SystemTime::now(),
+        ready: false,
+        shutdown: Some(shutdown_tx),
+        thread: None,
+    });
+    drop(slot);
 
     let thread = thread::spawn(move || {
         let runtime = match tokio::runtime::Builder::new_multi_thread()
@@ -179,28 +204,40 @@ pub fn crawler_service_start(port: u16) -> String {
         }
     });
 
-    *slot = Some(CrawlerServiceState {
-        port,
-        started_at: SystemTime::now(),
-        shutdown: Some(shutdown_tx),
-        thread: Some(thread),
+    let ready_watcher = thread::spawn(move || match ready_rx.recv() {
+        Ok(Ok(())) => {
+            let mut slot = crawler_service_slot().lock().unwrap();
+            if let Some(state) = slot.as_mut() {
+                if state.port == port {
+                    state.ready = true;
+                    push_crawler_log(format!("crawler service: listening on 127.0.0.1:{port}"));
+                }
+            }
+        }
+        Ok(Err(error)) => {
+            push_crawler_log(format!("crawler service: failed to start on 127.0.0.1:{port}: {error}"));
+            let mut slot = crawler_service_slot().lock().unwrap();
+            if slot.as_ref().is_some_and(|state| state.port == port) {
+                slot.take();
+            }
+        }
+        Err(error) => {
+            push_crawler_log(format!("crawler service: startup channel closed on 127.0.0.1:{port}: {error}"));
+            let mut slot = crawler_service_slot().lock().unwrap();
+            if slot.as_ref().is_some_and(|state| state.port == port) {
+                slot.take();
+            }
+        }
     });
+
+    let mut slot = crawler_service_slot().lock().unwrap();
+    if let Some(state) = slot.as_mut() {
+        state.thread = Some(thread);
+    }
     drop(slot);
 
-    match ready_rx.recv_timeout(Duration::from_secs(20)) {
-        Ok(Ok(())) => format!("crawler service running on 127.0.0.1:{port}"),
-        Ok(Err(error)) => {
-            let _ = crawler_service_stop();
-            format!("crawler service failed to start on 127.0.0.1:{port}: {error}")
-        }
-        Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
-            format!("crawler service starting on 127.0.0.1:{port}")
-        }
-        Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
-            let _ = crawler_service_stop();
-            format!("crawler service failed to start on 127.0.0.1:{port}: startup channel closed")
-        }
-    }
+    drop(ready_watcher);
+    format!("crawler service starting on 127.0.0.1:{port}")
 }
 
 #[uniffi::export]
