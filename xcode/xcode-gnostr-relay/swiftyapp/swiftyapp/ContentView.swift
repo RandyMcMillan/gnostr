@@ -74,6 +74,7 @@ struct ContentView: View {
                     .font(.title3.weight(.semibold))
                     .padding(10)
                     .background(.thinMaterial, in: Circle())
+                    .foregroundStyle(crawlerStore.iconColor)
                     .shadow(radius: 2)
             }
             .accessibilityLabel("Crawler network")
@@ -88,6 +89,7 @@ struct ContentView: View {
                     .font(.title3.weight(.semibold))
                     .padding(10)
                     .background(.thinMaterial, in: Circle())
+                    .foregroundStyle(sniperStore.iconColor)
                     .shadow(radius: 2)
             }
             .accessibilityLabel("Sniper service")

@@ -5,6 +5,17 @@ import RustyLib
 import WebKit
 #endif
 
+private func serviceIconColor(for status: String) -> Color {
+    let lowercased = status.lowercased()
+    if lowercased.contains("running") {
+        return .green
+    }
+    if lowercased.contains("starting") || lowercased.contains("stopping") {
+        return .yellow
+    }
+    return .red
+}
+
 @MainActor
 public final class CrawlerNetworkStore: ObservableObject {
     @Published public private(set) var status: String = crawlerServiceStatus()
@@ -18,6 +29,10 @@ public final class CrawlerNetworkStore: ObservableObject {
 
     public var isRunning: Bool {
         self.status.localizedCaseInsensitiveContains("running")
+    }
+
+    public var iconColor: Color {
+        serviceIconColor(for: status)
     }
 
     public func refresh() async {
@@ -68,6 +83,10 @@ public final class SniperServiceStore: ObservableObject {
 
     public var isRunning: Bool {
         self.status.localizedCaseInsensitiveContains("running")
+    }
+
+    public var iconColor: Color {
+        serviceIconColor(for: status)
     }
 
     public func refresh() async {
