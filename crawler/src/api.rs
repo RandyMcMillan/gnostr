@@ -75,14 +75,24 @@ pub(crate) async fn collect_supported_relays_for_nip(
 pub async fn prime_all_nip_relays_files(
     client: &reqwest::Client,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    crate::record_sniper_log("sniper service: starting prime pass");
     info!("prime_all_nip_relays_files: starting pass");
     let relays = load_relays_or_bootstrap();
+    crate::record_sniper_log(format!(
+        "sniper service: checking {} relays for NIP support",
+        relays.len()
+    ));
     info!(
         "prime_all_nip_relays_files: checking {} relays for NIP support",
         relays.len()
     );
+    crate::record_sniper_log("sniper service: fetching relay metadata");
     info!("prime_all_nip_relays_files: fetching relay metadata bodies");
     let bodies = fetch_relay_texts(relays, client, "prime_all_nip_relays_files").await;
+    crate::record_sniper_log(format!(
+        "sniper service: received {} metadata responses",
+        bodies.len()
+    ));
     info!(
         "prime_all_nip_relays_files: received {} metadata responses",
         bodies.len()
@@ -95,10 +105,19 @@ pub async fn prime_all_nip_relays_files(
     for item in bodies {
         if let Ok((url, json_string, ping_ms)) = item {
             if json_string.is_empty() {
+                crate::record_sniper_log(format!(
+                    "sniper service: no metadata body for {}",
+                    url
+                ));
                 info!("prime_all_nip_relays_files: no metadata body for {}", url);
                 skipped_relays += 1;
                 continue;
             }
+            crate::record_sniper_log(format!(
+                "sniper service: read metadata for {} ({} bytes)",
+                url,
+                json_string.len()
+            ));
             info!(
                 "prime_all_nip_relays_files: read metadata for {} ({} bytes)",
                 url,
@@ -109,11 +128,19 @@ pub async fn prime_all_nip_relays_files(
                 relay_info.ping_ms = Some(ping_ms);
                 let supported_nips = relay_info.supported_nips.clone().unwrap_or_default();
                 if supported_nips.is_empty() {
+                    crate::record_sniper_log(format!(
+                        "sniper service: {} reported no supported_nips",
+                        url
+                    ));
                     info!(
                         "prime_all_nip_relays_files: {} reported no supported_nips",
                         url
                     );
                 }
+                crate::record_sniper_log(format!(
+                    "sniper service: {} supports {:?}",
+                    url, supported_nips
+                ));
                 info!(
                     "prime_all_nip_relays_files: {} supports {:?}",
                     url, supported_nips
@@ -121,12 +148,22 @@ pub async fn prime_all_nip_relays_files(
                 for nip in &supported_nips {
                     let dir_path = crate::relays::get_config_dir_path().join(format!("{}", nip));
                     if let Err(e) = sync_fs::create_dir_all(&dir_path) {
+                        crate::record_sniper_log(format!(
+                            "sniper service: failed to create NIP {} dir {}: {}",
+                            nip,
+                            dir_path.display(),
+                            e
+                        ));
                         warn!("Failed to create nip dir {}: {}", dir_path.display(), e);
                         continue;
                     }
                     if let Ok(parsed_url) = Url::parse(&url) {
                         let host = parsed_url.host_str().unwrap_or("unknown");
                         let file_path = dir_path.join(format!("{}.json", host));
+                        crate::record_sniper_log(format!(
+                            "sniper service: writing relay metadata to {}",
+                            file_path.display()
+                        ));
                         info!(
                             "prime_all_nip_relays_files: writing relay metadata to {}",
                             file_path.display()
@@ -134,6 +171,11 @@ pub async fn prime_all_nip_relays_files(
                         let serialized = serde_json::to_string_pretty(&relay_info)
                             .map_err(std::io::Error::other)?;
                         if let Err(e) = sync_fs::write(&file_path, serialized) {
+                            crate::record_sniper_log(format!(
+                                "sniper service: failed to write {}: {}",
+                                file_path.display(),
+                                e
+                            ));
                             warn!(
                                 "Failed to write individual relay file {}: {}",
                                 file_path.display(),
@@ -148,9 +190,17 @@ pub async fn prime_all_nip_relays_files(
                             url
                         );
                     }
+                    crate::record_sniper_log(format!(
+                        "sniper service: bucket {} now includes {}",
+                        nip, url
+                    ));
                     nip_relays.entry(*nip).or_default().insert(url.clone());
                 }
             } else {
+                crate::record_sniper_log(format!(
+                    "sniper service: failed to parse relay metadata for {}",
+                    url
+                ));
                 info!(
                     "prime_all_nip_relays_files: failed to parse relay metadata for {}",
                     url
@@ -158,6 +208,10 @@ pub async fn prime_all_nip_relays_files(
                 skipped_relays += 1;
             }
         } else if let Err(e) = item {
+            crate::record_sniper_log(format!(
+                "sniper service: request failed while fetching relay metadata: {}",
+                e
+            ));
             info!(
                 "prime_all_nip_relays_files: request failed while fetching relay metadata: {}",
                 e
@@ -166,6 +220,13 @@ pub async fn prime_all_nip_relays_files(
         }
     }
 
+    crate::record_sniper_log(format!(
+        "sniper service: parsed {} relays, skipped {}, wrote {} files, built {} buckets",
+        parsed_relays,
+        skipped_relays,
+        written_files,
+        nip_relays.len()
+    ));
     info!(
         "prime_all_nip_relays_files: parsed {} relays, skipped {}, wrote {} files, built {} buckets",
         parsed_relays,
@@ -176,18 +237,32 @@ pub async fn prime_all_nip_relays_files(
 
     for (nip, relays) in nip_relays {
         crate::relays::record_live_nips(std::iter::once(nip));
+        crate::record_sniper_log(format!(
+            "sniper service: rebuilding NIP {} aggregate files from {} relays",
+            nip,
+            relays.len()
+        ));
         info!(
             "prime_all_nip_relays_files: rebuilding NIP {} aggregate files from {} relays",
             nip,
             relays.len()
         );
         if let Err(e) = crate::relays::write_nip_relays_serve_files_from_dir(nip) {
+            crate::record_sniper_log(format!(
+                "sniper service: failed to prime NIP {} relay files: {}",
+                nip, e
+            ));
             warn!("Failed to prime nip {} relay files: {}", nip, e);
         } else {
+            crate::record_sniper_log(format!(
+                "sniper service: rebuilt NIP {} aggregate files",
+                nip
+            ));
             info!("prime_all_nip_relays_files: rebuilt NIP {} aggregate files", nip);
         }
     }
 
+    crate::record_sniper_log("sniper service: completed prime pass");
     info!("prime_all_nip_relays_files: completed pass");
     Ok(())
 }
@@ -196,11 +271,15 @@ pub async fn run_sniper_service_with_shutdown(
     client: reqwest::Client,
     mut shutdown: oneshot::Receiver<()>,
 ) {
+    crate::record_sniper_log("sniper service: starting");
     info!("starting sniper service");
+    crate::record_sniper_log("sniper service: performing initial prime pass");
     info!("run_sniper_service: performing initial prime pass");
     if let Err(e) = prime_all_nip_relays_files(&client).await {
+        crate::record_sniper_log(format!("sniper service: initial prime pass failed: {}", e));
         warn!("Sniper service failed: {}", e);
     }
+    crate::record_sniper_log("sniper service: initial prime pass finished");
     info!("run_sniper_service: initial prime pass finished");
 
     let mut interval = tokio::time::interval(std::time::Duration::from_secs(300));
@@ -208,14 +287,21 @@ pub async fn run_sniper_service_with_shutdown(
     loop {
         tokio::select! {
             _ = interval.tick() => {
+                crate::record_sniper_log("sniper service: triggering scheduled prime pass");
                 info!("run_sniper_service: triggering scheduled prime pass");
                 if let Err(e) = prime_all_nip_relays_files(&client).await {
+                    crate::record_sniper_log(format!(
+                        "sniper service: scheduled prime pass failed: {}",
+                        e
+                    ));
                     warn!("Sniper service failed: {}", e);
                 } else {
+                    crate::record_sniper_log("sniper service: scheduled prime pass completed");
                     info!("run_sniper_service: scheduled prime pass completed");
                 }
             }
             _ = &mut shutdown => {
+                crate::record_sniper_log("sniper service: stopping");
                 info!("stopping sniper service");
                 break;
             }

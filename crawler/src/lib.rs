@@ -54,9 +54,14 @@ pub use git_helpers::{
 type LogCallback = Option<unsafe extern "C" fn(*const c_char)>;
 
 static LOG_CALLBACK: OnceLock<Mutex<LogCallback>> = OnceLock::new();
+static SNIPER_LOGS: OnceLock<Mutex<Vec<String>>> = OnceLock::new();
 
 fn log_callback_slot() -> &'static Mutex<LogCallback> {
     LOG_CALLBACK.get_or_init(|| Mutex::new(None))
+}
+
+fn sniper_log_slot() -> &'static Mutex<Vec<String>> {
+    SNIPER_LOGS.get_or_init(|| Mutex::new(Vec::new()))
 }
 
 fn emit_log_line(line: impl AsRef<str>) {
@@ -73,6 +78,26 @@ fn emit_log_line(line: impl AsRef<str>) {
     }
 
     eprintln!("{}", line);
+}
+
+pub fn record_sniper_log(line: impl AsRef<str>) {
+    let line = line.as_ref().trim_end().to_string();
+    if line.is_empty() {
+        return;
+    }
+
+    eprintln!("{line}");
+    let mut logs = sniper_log_slot().lock().unwrap();
+    logs.push(line);
+    if logs.len() > 1_000 {
+        let drain = logs.len() - 1_000;
+        logs.drain(0..drain);
+    }
+}
+
+pub fn sniper_service_logs() -> String {
+    let logs = sniper_log_slot().lock().unwrap();
+    logs.join("\n")
 }
 
 fn drain_complete_lines(buffer: &mut Vec<u8>) {
