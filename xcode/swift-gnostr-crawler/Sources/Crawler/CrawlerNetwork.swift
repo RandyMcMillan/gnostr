@@ -140,12 +140,12 @@ public final class CrawlerNetworkStore: ObservableObject {
     public func startPolling() {
         guard self.pollingTask == nil else { return }
         self.isPolling = true
-        if !self.didBootstrapCrawler {
-            self.didBootstrapCrawler = true
-            Task { await self.bootstrapCrawler() }
-        }
         self.pollingTask = Task { [weak self] in
             guard let self else { return }
+            if !self.didBootstrapCrawler {
+                self.didBootstrapCrawler = true
+                await self.bootstrapCrawler()
+            }
             await self.pollLoop()
         }
     }
