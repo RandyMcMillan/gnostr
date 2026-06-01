@@ -51,6 +51,10 @@ struct ContentView: View {
         }
         .onReceive(Timer.publish(every: 1.0, on: .main, in: .common).autoconnect()) { _ in
             refreshNetworkSnapshot()
+            Task {
+                await crawlerStore.refresh()
+                await sniperStore.refresh()
+            }
         }
     }
 
