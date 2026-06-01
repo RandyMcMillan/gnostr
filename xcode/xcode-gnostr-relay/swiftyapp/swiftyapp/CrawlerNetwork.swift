@@ -189,6 +189,11 @@ public struct SniperServiceDashboard: View {
         .task {
             await self.store.refresh()
         }
+        .onReceive(Timer.publish(every: 1.0, on: .main, in: .common).autoconnect()) { _ in
+            Task {
+                await self.store.refresh()
+            }
+        }
     }
 
     private var header: some View {
