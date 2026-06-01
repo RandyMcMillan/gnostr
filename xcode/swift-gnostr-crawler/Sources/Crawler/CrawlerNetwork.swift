@@ -382,7 +382,7 @@ public enum CrawlerNetworkFileSystem {
 
 public struct CrawlerNetworkDashboard: View {
     @ObservedObject private var store: CrawlerNetworkStore
-    @StateObject private var logStore = CrawlerLogStore(maxLines: 200)
+    @ObservedObject private var logStore = CrawlerLogStore(maxLines: 200)
     @Environment(\.presentationMode) private var presentationMode
 
     public init(store: CrawlerNetworkStore) {
