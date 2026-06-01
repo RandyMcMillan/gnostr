@@ -56,6 +56,7 @@ public final class CrawlerNetworkStore: ObservableObject {
         }.value
         self.status = status
         self.logs = logs
+        await self.refresh()
     }
 
     public func stopCrawlerServe() async {
@@ -67,6 +68,7 @@ public final class CrawlerNetworkStore: ObservableObject {
         }.value
         self.status = status
         self.logs = logs
+        await self.refresh()
     }
 
     public var serviceURL: URL {
@@ -109,6 +111,7 @@ public final class SniperServiceStore: ObservableObject {
         }.value
         self.status = status
         self.logs = logs
+        await self.refresh()
     }
 
     public func stopSniperService() async {
@@ -120,6 +123,7 @@ public final class SniperServiceStore: ObservableObject {
         }.value
         self.status = status
         self.logs = logs
+        await self.refresh()
     }
 }
 
