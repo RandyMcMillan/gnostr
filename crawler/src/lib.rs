@@ -101,8 +101,14 @@ pub fn record_sniper_log(line: impl AsRef<str>) {
 }
 
 pub fn sniper_service_logs() -> String {
+    let lifecycle = sniper_lifecycle_slot().lock().unwrap();
     let logs = sniper_log_slot().lock().unwrap();
-    logs.join("\n")
+    lifecycle
+        .iter()
+        .chain(logs.iter())
+        .cloned()
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 pub fn record_sniper_lifecycle(line: impl AsRef<str>) {
