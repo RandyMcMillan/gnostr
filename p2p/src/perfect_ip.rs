@@ -12,6 +12,12 @@ pub struct ProtocolSlice {
     pub is_parity: bool,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PacketBatch {
+    pub total_packets: u32,
+    pub packets: Vec<ProtocolSlice>,
+}
+
 pub const MTU_PAYLOAD: usize = 1460;
 const MAX_LEAF_PAYLOAD: usize = MTU_PAYLOAD / 2;
 
@@ -63,12 +69,17 @@ pub fn process_slice(id: String, data: Vec<u8>, seq: &mut u32) -> Vec<ProtocolSl
     slices
 }
 
-pub fn finalize_packets(mut packets: Vec<ProtocolSlice>) -> Vec<ProtocolSlice> {
-    let total = packets.len() as u32;
+pub fn packetize(id: String, data: Vec<u8>) -> PacketBatch {
+    let mut seq = 0;
+    let mut packets = process_slice(id, data, &mut seq);
+    let total_packets = packets.len() as u32;
     for packet in &mut packets {
-        packet.header.total_packets = total;
+        packet.header.total_packets = total_packets;
     }
-    packets
+    PacketBatch {
+        total_packets,
+        packets,
+    }
 }
 
 pub fn summarize_packets(packets: &[ProtocolSlice]) -> Vec<String> {
@@ -94,8 +105,8 @@ mod tests {
     #[test]
     fn process_slice_emits_parity_and_data() {
         let raw_data = vec![0xAB; 2000];
-        let mut seq = 0;
-        let packets = finalize_packets(process_slice("ROOT".to_string(), raw_data, &mut seq));
+        let batch = packetize("ROOT".to_string(), raw_data);
+        let packets = batch.packets;
 
         assert!(!packets.is_empty());
         assert!(packets.iter().any(|packet| packet.is_parity));
@@ -103,6 +114,7 @@ mod tests {
         assert!(packets.iter().any(|packet| packet.id.starts_with("ROOT.0.")));
         assert!(packets.iter().any(|packet| packet.id.starts_with("ROOT.1.")));
         assert!(packets.iter().all(|packet| packet.data.len() <= MTU_PAYLOAD));
+        assert!(packets.iter().all(|packet| packet.header.total_packets == batch.total_packets));
     }
 
     #[test]
