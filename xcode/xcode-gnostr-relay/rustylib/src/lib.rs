@@ -42,8 +42,8 @@ fn crawler_log_slot() -> &'static Mutex<Vec<String>> {
     CRAWLER_LOGS.get_or_init(|| Mutex::new(Vec::new()))
 }
 
-fn filtered_crawler_logs(prefixes: &[&str]) -> String {
-    let logs = crawler_log_slot().lock().unwrap();
+fn filtered_logs(slot: &'static Mutex<Vec<String>>, prefixes: &[&str]) -> String {
+    let logs = slot.lock().unwrap();
     logs.iter()
         .filter(|line| prefixes.iter().any(|prefix| line.starts_with(prefix)))
         .cloned()
@@ -56,6 +56,7 @@ fn push_crawler_log(line: impl AsRef<str>) {
     if line.is_empty() {
         return;
     }
+
     eprintln!("{line}");
     let mut logs = crawler_log_slot().lock().unwrap();
     logs.push(line);
@@ -181,7 +182,10 @@ pub fn p2p_network_logs() -> String {
 
 #[uniffi::export]
 pub fn crawler_service_logs() -> String {
-    filtered_crawler_logs(&["crawler service:", "run_api_server:", "starting crawler service"])
+    filtered_logs(
+        crawler_log_slot(),
+        &["crawler service:", "run_api_server:", "starting crawler service"],
+    )
 }
 
 #[uniffi::export]
@@ -191,12 +195,7 @@ pub fn crawler_service_status() -> String {
 
 #[uniffi::export]
 pub fn sniper_service_logs() -> String {
-    filtered_crawler_logs(&[
-        "sniper service:",
-        "run_sniper_service:",
-        "prime_all_nip_relays_files:",
-        "starting sniper service",
-    ])
+    gnostr_crawler::sniper_service_logs()
 }
 
 #[uniffi::export]
@@ -357,7 +356,7 @@ pub fn sniper_service_start() -> String {
     }
 
     let (shutdown_tx, shutdown_rx) = oneshot::channel::<()>();
-    push_crawler_log("sniper service: starting");
+    gnostr_crawler::record_sniper_log("sniper service: starting");
 
     *slot = Some(SniperServiceState {
         started_at: SystemTime::now(),
@@ -376,7 +375,9 @@ pub fn sniper_service_start() -> String {
         {
             Ok(runtime) => runtime,
             Err(error) => {
-                push_crawler_log(format!("sniper service: runtime build failed: {error}"));
+                gnostr_crawler::record_sniper_log(format!(
+                    "sniper service: runtime build failed: {error}"
+                ));
                 return;
             }
         };
@@ -385,7 +386,7 @@ pub fn sniper_service_start() -> String {
         runtime.block_on(async move {
             gnostr_crawler::run_sniper_service_with_shutdown(client, shutdown_rx).await;
         });
-        push_crawler_log("sniper service: server stopped");
+        gnostr_crawler::record_sniper_log("sniper service: server stopped");
     });
 
     let mut slot = sniper_service_slot().lock().unwrap();
@@ -409,11 +410,11 @@ pub fn sniper_service_stop() -> String {
         return "sniper service stopped".to_string();
     }
 
-    push_crawler_log("sniper service: stopping");
+    gnostr_crawler::record_sniper_log("sniper service: stopping");
     state.stopping = true;
     if let Some(shutdown) = state.shutdown.take() {
         let _ = shutdown.send(());
     }
-    push_crawler_log("sniper service: stopping requested");
+    gnostr_crawler::record_sniper_log("sniper service: stopping requested");
     "sniper service stopping".to_string()
 }
