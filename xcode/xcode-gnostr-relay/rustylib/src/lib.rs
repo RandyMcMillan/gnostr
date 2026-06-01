@@ -14,6 +14,7 @@ struct CrawlerServiceState {
     port: u16,
     started_at: SystemTime,
     ready: bool,
+    stopping: bool,
     shutdown: Option<oneshot::Sender<()>>,
     thread: Option<thread::JoinHandle<()>>,
 }
@@ -71,12 +72,17 @@ fn crawler_service_status_string() -> String {
     let mut slot = crawler_service_slot().lock().unwrap();
     if let Some(state) = slot.as_ref() {
         if state.thread.as_ref().is_some_and(thread::JoinHandle::is_finished) {
-            let mut finished = slot.take().unwrap();
-            if let Some(thread) = finished.thread.take() {
-                let _ = thread.join();
-            }
+            slot.take();
             push_crawler_log("crawler service: background thread exited");
             return "crawler service stopped".to_string();
+        }
+
+        if state.stopping {
+            return format!(
+                "crawler service stopping on 127.0.0.1:{} (started_at={})",
+                state.port,
+                format_started_at(state.started_at)
+            );
         }
 
         if state.ready {
@@ -145,6 +151,8 @@ pub fn crawler_service_start(port: u16) -> String {
     if let Some(state) = slot.as_ref() {
         let status = if state.thread.as_ref().is_some_and(thread::JoinHandle::is_finished) {
             "stopped"
+        } else if state.stopping {
+            "stopping"
         } else if state.ready {
             "running"
         } else {
@@ -166,6 +174,7 @@ pub fn crawler_service_start(port: u16) -> String {
         port,
         started_at: SystemTime::now(),
         ready: false,
+        stopping: false,
         shutdown: Some(shutdown_tx),
         thread: None,
     });
@@ -243,20 +252,23 @@ pub fn crawler_service_start(port: u16) -> String {
 #[uniffi::export]
 pub fn crawler_service_stop() -> String {
     let mut slot = crawler_service_slot().lock().unwrap();
-    let Some(mut state) = slot.take() else {
+    let Some(state) = slot.as_mut() else {
         return "crawler service already stopped".to_string();
     };
+
+    if state.thread.as_ref().is_some_and(thread::JoinHandle::is_finished) {
+        slot.take();
+        return "crawler service stopped".to_string();
+    }
 
     push_crawler_log(format!(
         "crawler service: stopping 127.0.0.1:{}",
         state.port
     ));
+    state.stopping = true;
     if let Some(shutdown) = state.shutdown.take() {
         let _ = shutdown.send(());
     }
-    if let Some(thread) = state.thread.take() {
-        let _ = thread.join();
-    }
-    push_crawler_log("crawler service: stopped");
-    "crawler service stopped".to_string()
+    push_crawler_log("crawler service: stopping requested");
+    "crawler service stopping".to_string()
 }

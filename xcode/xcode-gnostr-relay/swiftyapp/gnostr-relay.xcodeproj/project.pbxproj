@@ -9,21 +9,21 @@
 /* Begin PBXBuildFile section */
 		291DE5342C3DE74F007F9706 /* swiftyappApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 291DE5332C3DE74F007F9706 /* swiftyappApp.swift */; };
 		291DE5362C3DE74F007F9706 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 291DE5352C3DE74F007F9706 /* ContentView.swift */; };
-		A1B2C3D42C3F9A0000C0FFEE /* CrawlerNetwork.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D52C3F9A0000C0FFEE /* CrawlerNetwork.swift */; };
 		291DE5382C3DE74F007F9706 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 291DE5372C3DE74F007F9706 /* Assets.xcassets */; };
 		291DE53B2C3DE74F007F9706 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 291DE53A2C3DE74F007F9706 /* Preview Assets.xcassets */; };
 		2986A2E32C3F8FA200D13583 /* RustyLib in Frameworks */ = {isa = PBXBuildFile; productRef = 2986A2E22C3F8FA200D13583 /* RustyLib */; };
 		4BA045522FC3D11F00FE5E85 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2986A2E52C3F8FA200D13583 /* SystemConfiguration.framework */; };
+		A1B2C3D42C3F9A0000C0FFEE /* CrawlerNetwork.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D52C3F9A0000C0FFEE /* CrawlerNetwork.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		291DE5302C3DE74F007F9706 /* gnostr-relay.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "gnostr-relay.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		291DE5332C3DE74F007F9706 /* swiftyappApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = swiftyappApp.swift; sourceTree = "<group>"; };
 		291DE5352C3DE74F007F9706 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
-		A1B2C3D52C3F9A0000C0FFEE /* CrawlerNetwork.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CrawlerNetwork.swift; sourceTree = "<group>"; };
 		291DE5372C3DE74F007F9706 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		291DE53A2C3DE74F007F9706 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		2986A2E52C3F8FA200D13583 /* SystemConfiguration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemConfiguration.framework; path = System/Library/Frameworks/SystemConfiguration.framework; sourceTree = SDKROOT; };
+		A1B2C3D52C3F9A0000C0FFEE /* CrawlerNetwork.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CrawlerNetwork.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -91,6 +91,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 291DE53E2C3DE74F007F9706 /* Build configuration list for PBXNativeTarget "gnostr-relay" */;
 			buildPhases = (
+				4BB2FF8A2FCDAFA200028826 /* Build RustyLib */,
 				291DE52C2C3DE74F007F9706 /* Sources */,
 				291DE52D2C3DE74F007F9706 /* Frameworks */,
 				291DE52E2C3DE74F007F9706 /* Resources */,
@@ -154,6 +155,27 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		4BB2FF8A2FCDAFA200028826 /* Build RustyLib */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Build RustyLib";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Type a script or drag a script file from your workspace to insert its path.\nset -euxo pipefail\ncd \"${SRCROOT}/..\"\n#./build.sh\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		291DE52C2C3DE74F007F9706 /* Sources */ = {
