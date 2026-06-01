@@ -16,9 +16,9 @@
 //!
 //! ## Wire model
 //!
-//! On the wire, packet slices are exchanged as CBOR-encoded
-//! [`ProtocolSlice`] values over libp2p request/response. The default repair
-//! protocol id is `/fractal/repair/1.0.0`, and the behaviour is exposed through
+//! On the wire, packet slices are exchanged as JSON-encoded [`ProtocolSlice`]
+//! values over libp2p request/response. The repair protocol id is
+//! `/fractal/repair/1.0.0/json`, and the behaviour is exposed through
 //! [`FractalBehaviour`] and [`run_fractal_engine`].
 //!
 //! ## Repair model
@@ -63,7 +63,7 @@ pub struct Header {
 /// `id` carries the recursive path for the packet, such as `ROOT.0.1.P`.
 /// `is_parity` marks frames that store XOR parity rather than original user
 /// data. `data` always contains the raw bytes that would be transmitted on the
-/// wire inside the CBOR-encoded repair message.
+/// wire inside the JSON-encoded repair message.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProtocolSlice {
     /// Stable recursive packet identifier.
@@ -92,22 +92,22 @@ pub struct PacketBatch {
 /// libp2p repair behaviour for exchanging packet slices.
 ///
 /// This is a small request/response behaviour that accepts one
-/// [`ProtocolSlice`] and returns one [`ProtocolSlice`]. It is intended for
-/// repair traffic, not bulk transfer.
+/// [`ProtocolSlice`] and returns one [`ProtocolSlice`]. It uses JSON on the
+/// wire so the packets can be inspected or proxied as text if needed.
 #[derive(NetworkBehaviour)]
 #[behaviour(to_swarm = "FractalBehaviourEvent")]
 pub struct FractalBehaviour {
-    /// CBOR request/response channel for packet slice repair.
-    pub repair_rpc: request_response::cbor::Behaviour<ProtocolSlice, ProtocolSlice>,
+    /// JSON request/response channel for packet slice repair.
+    pub repair_rpc: request_response::json::Behaviour<ProtocolSlice, ProtocolSlice>,
 }
 
 /// Behaviour events emitted by the repair RPC layer.
 ///
-/// The enum stays small because the behaviour currently exposes one protocol:
-/// the repair request/response channel.
+/// The enum stays small because the behaviour exposes one request/response
+/// flow.
 #[derive(Debug)]
 pub enum FractalBehaviourEvent {
-    /// A request/response protocol event.
+    /// A JSON request/response protocol event.
     RepairRpc(request_response::Event<ProtocolSlice, ProtocolSlice>),
 }
 
@@ -228,9 +228,9 @@ pub async fn build_fractal_swarm(
         .with_quic()
         .with_behaviour(|_| {
             Ok::<_, Box<dyn Error + Send + Sync>>(FractalBehaviour {
-                repair_rpc: request_response::cbor::Behaviour::new(
+                repair_rpc: request_response::json::Behaviour::new(
                     [(
-                        StreamProtocol::new("/fractal/repair/1.0.0"),
+                        StreamProtocol::new("/fractal/repair/1.0.0/json"),
                         request_response::ProtocolSupport::Full,
                     )],
                     request_response::Config::default(),
@@ -245,7 +245,7 @@ pub async fn build_fractal_swarm(
 /// Start the repair swarm and forward incoming repair requests to the packet map.
 ///
 /// This is the runtime repair loop for the protocol. It listens for
-/// `ProtocolSlice` requests, looks up the requested id in
+/// `ProtocolSlice` requests over JSON, looks up the requested id in
 /// [`IntegrityManager::received_slices`], and replies with the stored slice or
 /// an empty placeholder when the packet is absent.
 pub async fn run_fractal_engine(
@@ -274,10 +274,7 @@ pub async fn run_fractal_engine(
                                 data: Vec::new(),
                                 is_parity: false,
                             });
-                        let _ = swarm
-                            .behaviour_mut()
-                            .repair_rpc
-                            .send_response(channel, response);
+                        let _ = swarm.behaviour_mut().repair_rpc.send_response(channel, response);
                     }
                 }
             }
