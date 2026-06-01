@@ -11,9 +11,16 @@
 //! `perfect_ip.rs` gist.
 
 use std::collections::{HashMap, HashSet};
+use std::error::Error;
 use std::io;
 use std::path::Path;
 
+use futures::StreamExt;
+use libp2p::{
+    request_response,
+    swarm::{NetworkBehaviour, Swarm, SwarmEvent},
+    StreamProtocol,
+};
 use serde::{Deserialize, Serialize};
 
 /// Packet header metadata shared by all packet types in the tree.
@@ -51,6 +58,27 @@ pub struct PacketBatch {
     pub total_packets: u32,
     /// Finalized packets with matching `total_packets` headers.
     pub packets: Vec<ProtocolSlice>,
+}
+
+/// libp2p repair behaviour for exchanging packet slices.
+#[derive(NetworkBehaviour)]
+#[behaviour(to_swarm = "FractalBehaviourEvent")]
+pub struct FractalBehaviour {
+    /// CBOR request/response channel for packet slice repair.
+    pub repair_rpc: request_response::cbor::Behaviour<ProtocolSlice, ProtocolSlice>,
+}
+
+/// Behaviour events emitted by the repair RPC layer.
+#[derive(Debug)]
+pub enum FractalBehaviourEvent {
+    /// A request/response protocol event.
+    RepairRpc(request_response::Event<ProtocolSlice, ProtocolSlice>),
+}
+
+impl From<request_response::Event<ProtocolSlice, ProtocolSlice>> for FractalBehaviourEvent {
+    fn from(event: request_response::Event<ProtocolSlice, ProtocolSlice>) -> Self {
+        Self::RepairRpc(event)
+    }
 }
 
 /// Tracks the expected manifest and the packets that have arrived so far.
@@ -125,6 +153,72 @@ impl IntegrityManager {
         }
 
         true
+    }
+}
+
+/// Build the repair swarm used to exchange packet slices with peers.
+pub async fn build_fractal_swarm(
+    local_key: libp2p::identity::Keypair,
+) -> Result<Swarm<FractalBehaviour>, Box<dyn Error + Send + Sync>> {
+    let swarm = libp2p::SwarmBuilder::with_existing_identity(local_key)
+        .with_tokio()
+        .with_quic()
+        .with_behaviour(|_| {
+            Ok::<_, Box<dyn Error + Send + Sync>>(FractalBehaviour {
+                repair_rpc: request_response::cbor::Behaviour::new(
+                    [(
+                        StreamProtocol::new("/fractal/repair/1.0.0"),
+                        request_response::ProtocolSupport::Full,
+                    )],
+                    request_response::Config::default(),
+                ),
+            })
+        })?
+        .build();
+
+    Ok(swarm)
+}
+
+/// Start the repair swarm and forward incoming repair requests to the packet map.
+///
+/// This is a minimal networking entrypoint for the packet protocol; it listens
+/// for `ProtocolSlice` repair requests and replies with the matching slice when
+/// the packet is present in `IntegrityManager`.
+pub async fn run_fractal_engine(
+    local_key: libp2p::identity::Keypair,
+    listen_address: libp2p::Multiaddr,
+    mut manager: IntegrityManager,
+) -> Result<(), Box<dyn Error + Send + Sync>> {
+    let mut swarm = build_fractal_swarm(local_key).await?;
+    swarm.listen_on(listen_address)?;
+
+    loop {
+        match swarm.select_next_some().await {
+            SwarmEvent::Behaviour(FractalBehaviourEvent::RepairRpc(event)) => {
+                if let request_response::Event::Message { message, .. } = event {
+                    if let request_response::Message::Request {
+                        request, channel, ..
+                    } = message
+                    {
+                        let response = manager
+                            .received_slices
+                            .get(&request.id)
+                            .cloned()
+                            .unwrap_or_else(|| ProtocolSlice {
+                                id: request.id.clone(),
+                                header: request.header.clone(),
+                                data: Vec::new(),
+                                is_parity: false,
+                            });
+                        let _ = swarm
+                            .behaviour_mut()
+                            .repair_rpc
+                            .send_response(channel, response);
+                    }
+                }
+            }
+            _ => {}
+        }
     }
 }
 
@@ -274,6 +368,8 @@ pub fn summarize_packets(packets: &[ProtocolSlice]) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::keypair_from_seed;
+    use libp2p::Multiaddr;
     use tempfile::NamedTempFile;
 
     #[test]
@@ -467,5 +563,18 @@ mod tests {
         assert!(loaded.received_slices.contains_key("ROOT.0"));
         assert!(loaded.received_slices.contains_key("ROOT.P"));
         assert!(loaded.get_missing_nodes().contains(&"ROOT.1".to_string()));
+    }
+
+    #[tokio::test]
+    async fn build_fractal_swarm_accepts_quic_listen_address() {
+        let keypair = keypair_from_seed(Some(
+            gnostr_asyncgit::default_gnostr_private_key_hex(),
+        ));
+        let mut swarm = build_fractal_swarm(keypair).await.expect("swarm");
+        let addr: Multiaddr = "/ip4/127.0.0.1/udp/0/quic-v1"
+            .parse()
+            .expect("quic multiaddr");
+
+        swarm.listen_on(addr).expect("quic listen");
     }
 }
