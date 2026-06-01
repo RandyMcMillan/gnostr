@@ -19,11 +19,23 @@ struct CrawlerServiceState {
     thread: Option<thread::JoinHandle<()>>,
 }
 
+struct SniperServiceState {
+    started_at: SystemTime,
+    stopping: bool,
+    shutdown: Option<oneshot::Sender<()>>,
+    thread: Option<thread::JoinHandle<()>>,
+}
+
 static CRAWLER_SERVICE: OnceLock<Mutex<Option<CrawlerServiceState>>> = OnceLock::new();
+static SNIPER_SERVICE: OnceLock<Mutex<Option<SniperServiceState>>> = OnceLock::new();
 static CRAWLER_LOGS: OnceLock<Mutex<Vec<String>>> = OnceLock::new();
 
 fn crawler_service_slot() -> &'static Mutex<Option<CrawlerServiceState>> {
     CRAWLER_SERVICE.get_or_init(|| Mutex::new(None))
+}
+
+fn sniper_service_slot() -> &'static Mutex<Option<SniperServiceState>> {
+    SNIPER_SERVICE.get_or_init(|| Mutex::new(None))
 }
 
 fn crawler_log_slot() -> &'static Mutex<Vec<String>> {
@@ -102,6 +114,31 @@ fn crawler_service_status_string() -> String {
 
     "crawler service stopped".to_string()
 }
+
+fn sniper_service_status_string() -> String {
+    let mut slot = sniper_service_slot().lock().unwrap();
+    if let Some(state) = slot.as_ref() {
+        if state.thread.as_ref().is_some_and(thread::JoinHandle::is_finished) {
+            slot.take();
+            push_crawler_log("sniper service: background thread exited");
+            return "sniper service stopped".to_string();
+        }
+
+        if state.stopping {
+            return format!(
+                "sniper service stopping (started_at={})",
+                format_started_at(state.started_at)
+            );
+        }
+
+        return format!(
+            "sniper service running (started_at={})",
+            format_started_at(state.started_at)
+        );
+    }
+
+    "sniper service stopped".to_string()
+}
  
 #[uniffi::export]
 fn rust_hello() -> String {
@@ -141,6 +178,16 @@ pub fn crawler_service_logs() -> String {
 #[uniffi::export]
 pub fn crawler_service_status() -> String {
     crawler_service_status_string()
+}
+
+#[uniffi::export]
+pub fn sniper_service_logs() -> String {
+    crawler_log_slot().lock().unwrap().join("\n")
+}
+
+#[uniffi::export]
+pub fn sniper_service_status() -> String {
+    sniper_service_status_string()
 }
 
 #[uniffi::export]
@@ -271,4 +318,88 @@ pub fn crawler_service_stop() -> String {
     }
     push_crawler_log("crawler service: stopping requested");
     "crawler service stopping".to_string()
+}
+
+#[uniffi::export]
+pub fn sniper_service_start() -> String {
+    ensure_crawler_tracing();
+
+    let mut slot = sniper_service_slot().lock().unwrap();
+    if let Some(state) = slot.as_ref() {
+        if state.thread.as_ref().is_some_and(thread::JoinHandle::is_finished) {
+            slot.take();
+        } else {
+            let status = if state.stopping {
+                "stopping"
+            } else {
+                "running"
+            };
+            return format!(
+                "sniper service already {} (started_at={})",
+                status,
+                format_started_at(state.started_at)
+            );
+        }
+    }
+
+    let (shutdown_tx, shutdown_rx) = oneshot::channel::<()>();
+    push_crawler_log("sniper service: starting");
+
+    *slot = Some(SniperServiceState {
+        started_at: SystemTime::now(),
+        stopping: false,
+        shutdown: Some(shutdown_tx),
+        thread: None,
+    });
+    drop(slot);
+
+    let thread = thread::spawn(move || {
+        let runtime = match tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .worker_threads(2)
+            .thread_name("gnostr-sniper")
+            .build()
+        {
+            Ok(runtime) => runtime,
+            Err(error) => {
+                push_crawler_log(format!("sniper service: runtime build failed: {error}"));
+                return;
+            }
+        };
+
+        let client = reqwest::Client::new();
+        runtime.block_on(async move {
+            gnostr_crawler::run_sniper_service_with_shutdown(client, shutdown_rx).await;
+        });
+        push_crawler_log("sniper service: server stopped");
+    });
+
+    let mut slot = sniper_service_slot().lock().unwrap();
+    if let Some(state) = slot.as_mut() {
+        state.thread = Some(thread);
+    }
+    drop(slot);
+
+    "sniper service starting".to_string()
+}
+
+#[uniffi::export]
+pub fn sniper_service_stop() -> String {
+    let mut slot = sniper_service_slot().lock().unwrap();
+    let Some(state) = slot.as_mut() else {
+        return "sniper service already stopped".to_string();
+    };
+
+    if state.thread.as_ref().is_some_and(thread::JoinHandle::is_finished) {
+        slot.take();
+        return "sniper service stopped".to_string();
+    }
+
+    push_crawler_log("sniper service: stopping");
+    state.stopping = true;
+    if let Some(shutdown) = state.shutdown.take() {
+        let _ = shutdown.send(());
+    }
+    push_crawler_log("sniper service: stopping requested");
+    "sniper service stopping".to_string()
 }

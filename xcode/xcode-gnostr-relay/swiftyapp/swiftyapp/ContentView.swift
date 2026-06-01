@@ -15,10 +15,13 @@ struct ContentView: View {
     @State private var networkLogs = p2pNetworkLogs()
     @State private var showingNetworkPanel = false
     @State private var showingCrawlerPanel = false
+    @State private var showingSniperPanel = false
     @State private var didAutoStartNetwork = false
     @State private var didAutoStartCrawler = false
+    @State private var didAutoStartSniper = false
     @State private var logFontSize: CGFloat = 12
     @StateObject private var crawlerStore = CrawlerNetworkStore()
+    @StateObject private var sniperStore = SniperServiceStore()
 
     var body: some View {
         VStack(spacing: 0) {
@@ -37,6 +40,12 @@ struct ContentView: View {
                 didAutoStartCrawler = true
                 Task.detached(priority: .userInitiated) {
                     await crawlerStore.startCrawlerServe()
+                }
+            }
+            if !didAutoStartSniper {
+                didAutoStartSniper = true
+                Task.detached(priority: .userInitiated) {
+                    await sniperStore.startSniperService()
                 }
             }
         }
@@ -70,6 +79,20 @@ struct ContentView: View {
             .accessibilityLabel("Crawler network")
             .fullScreenCover(isPresented: $showingCrawlerPanel) {
                 CrawlerNetworkDashboard(store: crawlerStore)
+            }
+
+            Button {
+                showingSniperPanel = true
+            } label: {
+                Image(systemName: "scope")
+                    .font(.title3.weight(.semibold))
+                    .padding(10)
+                    .background(.thinMaterial, in: Circle())
+                    .shadow(radius: 2)
+            }
+            .accessibilityLabel("Sniper service")
+            .fullScreenCover(isPresented: $showingSniperPanel) {
+                SniperServiceDashboard(store: sniperStore)
             }
 
             Button {

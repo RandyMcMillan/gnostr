@@ -59,6 +59,51 @@ public final class CrawlerNetworkStore: ObservableObject {
     }
 }
 
+@MainActor
+public final class SniperServiceStore: ObservableObject {
+    @Published public private(set) var status: String = sniperServiceStatus()
+    @Published public private(set) var logs: String = sniperServiceLogs()
+
+    public init() {}
+
+    public var isRunning: Bool {
+        self.status.localizedCaseInsensitiveContains("running")
+    }
+
+    public func refresh() async {
+        let status = await Task.detached(priority: .userInitiated) {
+            sniperServiceStatus()
+        }.value
+        let logs = await Task.detached(priority: .userInitiated) {
+            sniperServiceLogs()
+        }.value
+        self.status = status
+        self.logs = logs
+    }
+
+    public func startSniperService() async {
+        let status = await Task.detached(priority: .userInitiated) {
+            sniperServiceStart()
+        }.value
+        let logs = await Task.detached(priority: .userInitiated) {
+            sniperServiceLogs()
+        }.value
+        self.status = status
+        self.logs = logs
+    }
+
+    public func stopSniperService() async {
+        let status = await Task.detached(priority: .userInitiated) {
+            sniperServiceStop()
+        }.value
+        let logs = await Task.detached(priority: .userInitiated) {
+            sniperServiceLogs()
+        }.value
+        self.status = status
+        self.logs = logs
+    }
+}
+
 struct CrawlerServiceWebView: View {
     let url: URL
 
@@ -130,6 +175,76 @@ public struct CrawlerNetworkDashboard: View {
         }
         .onChange(of: store.status) { _ in
             webViewID = UUID()
+        }
+    }
+
+    public struct SniperServiceDashboard: View {
+        @ObservedObject var store: SniperServiceStore
+        @State private var logFontSize: CGFloat = 12
+        @Environment(\.dismiss) private var dismiss
+
+        public init(store: SniperServiceStore) {
+            self.store = store
+        }
+
+        public var body: some View {
+            VStack(spacing: 0) {
+                header
+                Divider()
+                logBody
+            }
+            .background(.background)
+            .task {
+                await self.store.refresh()
+            }
+        }
+
+        private var header: some View {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Sniper Service")
+                        .font(.headline)
+                    Text(store.status)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+
+                Spacer()
+
+                Button("Start") {
+                    Task { await store.startSniperService() }
+                }
+                Button("Stop") {
+                    Task { await store.stopSniperService() }
+                }
+                Button("Refresh") {
+                    Task { await store.refresh() }
+                }
+                Button("Done") {
+                    dismiss()
+                }
+            }
+            .padding()
+            .background(.regularMaterial)
+        }
+
+        private var logBody: some View {
+            ScrollViewReader { proxy in
+                ScrollView {
+                    Text(store.logs.isEmpty ? "No sniper logs yet." : store.logs)
+                        .font(.system(size: logFontSize, weight: .regular, design: .monospaced))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .textSelection(.enabled)
+                        .padding()
+                        .id("sniper-log-tail")
+                }
+                .onChange(of: store.logs) { _ in
+                    withAnimation {
+                        proxy.scrollTo("sniper-log-tail", anchor: .bottom)
+                    }
+                }
+            }
         }
     }
 
