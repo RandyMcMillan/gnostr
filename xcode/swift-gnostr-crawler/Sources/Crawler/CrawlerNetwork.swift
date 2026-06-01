@@ -157,10 +157,6 @@ public final class CrawlerNetworkStore: ObservableObject {
         self.isPolling = true
         self.pollingTask = Task { [weak self] in
             guard let self else { return }
-            if !self.didBootstrapCrawler {
-                self.didBootstrapCrawler = true
-                await self.bootstrapCrawler()
-            }
             await self.pollLoop()
         }
     }
@@ -179,13 +175,6 @@ public final class CrawlerNetworkStore: ObservableObject {
             }
             try? await Task.sleep(nanoseconds: self.refreshIntervalNanoseconds)
         }
-    }
-
-    private func bootstrapCrawler() async {
-        guard RustCrawlerBridge.shared.isAvailable else { return }
-        _ = RustCrawlerBridge.shared.startCrawlerRuntime()
-        _ = RustCrawlerBridge.shared.startCrawlerCrawl()
-        await self.refresh()
     }
 
     private func loadCrawlerRootRelays() -> [String] {
