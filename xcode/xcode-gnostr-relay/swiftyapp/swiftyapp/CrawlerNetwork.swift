@@ -187,6 +187,8 @@ public struct SniperServiceDashboard: View {
         VStack(spacing: 0) {
             header
             Divider()
+            controls
+            Divider()
             lifecycleBody
             Divider()
             logBody
@@ -200,6 +202,7 @@ public struct SniperServiceDashboard: View {
                 await self.store.refresh()
             }
         }
+        .textSelection(.enabled)
     }
 
     private var header: some View {
@@ -230,6 +233,38 @@ public struct SniperServiceDashboard: View {
         }
         .padding()
         .background(.regularMaterial)
+    }
+
+    private var controls: some View {
+        HStack {
+            Button("Start") {
+                Task { await store.startSniperService() }
+            }
+            Button("Stop") {
+                Task { await store.stopSniperService() }
+            }
+            Button("Refresh") {
+                Task { await store.refresh() }
+            }
+            Spacer()
+            Button {
+                adjustLogFontSize(by: -1)
+            } label: {
+                Image(systemName: "minus")
+            }
+            .accessibilityLabel("Smaller sniper text")
+            Text("\(Int(logFontSize))")
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(.secondary)
+                .frame(minWidth: 28)
+            Button {
+                adjustLogFontSize(by: 1)
+            } label: {
+                Image(systemName: "plus")
+            }
+            .accessibilityLabel("Larger sniper text")
+        }
+        .padding()
     }
 
     private var logBody: some View {
@@ -276,6 +311,10 @@ public struct SniperServiceDashboard: View {
             .filter { $0.hasPrefix("sniper lifecycle:") }
             .joined(separator: "\n")
     }
+
+    private func adjustLogFontSize(by delta: CGFloat) {
+        logFontSize = min(24, max(10, logFontSize + delta))
+    }
 }
 
 public struct CrawlerNetworkDashboard: View {
@@ -291,6 +330,8 @@ public struct CrawlerNetworkDashboard: View {
     public var body: some View {
         VStack(spacing: 0) {
             header
+            Divider()
+            controls
             Divider()
             logBody
             Divider()
@@ -336,6 +377,38 @@ public struct CrawlerNetworkDashboard: View {
         .background(.regularMaterial)
     }
 
+    private var controls: some View {
+        HStack {
+            Button("Start") {
+                Task { await store.startCrawlerServe() }
+            }
+            Button("Stop") {
+                Task { await store.stopCrawlerServe() }
+            }
+            Button("Refresh") {
+                Task { await store.refresh() }
+            }
+            Spacer()
+            Button {
+                adjustLogFontSize(by: -1)
+            } label: {
+                Image(systemName: "minus")
+            }
+            .accessibilityLabel("Smaller crawler text")
+            Text("\(Int(logFontSize))")
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(.secondary)
+                .frame(minWidth: 28)
+            Button {
+                adjustLogFontSize(by: 1)
+            } label: {
+                Image(systemName: "plus")
+            }
+            .accessibilityLabel("Larger crawler text")
+        }
+        .padding()
+    }
+
     private var logBody: some View {
         ScrollViewReader { proxy in
             ScrollView {
@@ -367,5 +440,9 @@ public struct CrawlerNetworkDashboard: View {
                 .background(.secondary.opacity(0.08))
         }
         .frame(minHeight: 260)
+    }
+
+    private func adjustLogFontSize(by delta: CGFloat) {
+        logFontSize = min(24, max(10, logFontSize + delta))
     }
 }

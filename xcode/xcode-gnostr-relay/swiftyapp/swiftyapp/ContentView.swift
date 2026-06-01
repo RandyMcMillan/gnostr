@@ -61,7 +61,7 @@ struct ContentView: View {
     private var headerBar: some View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
-                Text("60:P2P Network")
+                Text("64:P2P Network")
                     .font(.headline)
                 Text(networkStatus)
                     .font(.caption)

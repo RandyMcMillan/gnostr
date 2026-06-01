@@ -13,5 +13,7 @@ struct swiftyappApp: App {
         WindowGroup {
             ContentView()
         }
+        .windowResizability(.contentMinSize)
+        .defaultSize(width: 1280, height: 900)
     }
 }
