@@ -36,7 +36,9 @@ struct ContentView: View {
             }
             if !didAutoStartCrawler {
                 didAutoStartCrawler = true
-                Task { await crawlerStore.startCrawlerServe() }
+                Task.detached(priority: .userInitiated) {
+                    await crawlerStore.startCrawlerServe()
+                }
             }
         }
         .onReceive(Timer.publish(every: 1.0, on: .main, in: .common).autoconnect()) { _ in
