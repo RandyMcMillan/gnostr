@@ -1,3 +1,6 @@
+example.bin
+example.reconstructed.bin
+
 .xcodebuild/
 
 ## gnostr-relay/server artifacts
