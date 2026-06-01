@@ -21,6 +21,7 @@ struct CrawlerServiceState {
 
 struct SniperServiceState {
     started_at: SystemTime,
+    requested: bool,
     stopping: bool,
     shutdown: Option<oneshot::Sender<()>>,
     thread: Option<thread::JoinHandle<()>>,
@@ -344,6 +345,8 @@ pub fn sniper_service_start() -> String {
         } else {
             let status = if state.stopping {
                 "stopping"
+            } else if state.requested {
+                "start requested"
             } else {
                 "running"
             };
@@ -356,10 +359,12 @@ pub fn sniper_service_start() -> String {
     }
 
     let (shutdown_tx, shutdown_rx) = oneshot::channel::<()>();
+    gnostr_crawler::record_sniper_log("sniper service: start requested");
     gnostr_crawler::record_sniper_log("sniper service: starting");
 
     *slot = Some(SniperServiceState {
         started_at: SystemTime::now(),
+        requested: true,
         stopping: false,
         shutdown: Some(shutdown_tx),
         thread: None,
@@ -383,6 +388,12 @@ pub fn sniper_service_start() -> String {
         };
 
         let client = reqwest::Client::new();
+        {
+            let mut slot = sniper_service_slot().lock().unwrap();
+            if let Some(state) = slot.as_mut() {
+                state.requested = false;
+            }
+        }
         runtime.block_on(async move {
             gnostr_crawler::run_sniper_service_with_shutdown(client, shutdown_rx).await;
         });
@@ -396,7 +407,7 @@ pub fn sniper_service_start() -> String {
     drop(slot);
     gnostr_crawler::record_sniper_log("sniper service: running");
 
-    "sniper service running".to_string()
+    "sniper service start requested".to_string()
 }
 
 #[uniffi::export]
