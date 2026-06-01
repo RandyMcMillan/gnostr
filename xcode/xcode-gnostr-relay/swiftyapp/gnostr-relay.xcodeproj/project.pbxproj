@@ -9,10 +9,10 @@
 /* Begin PBXBuildFile section */
 		291DE5342C3DE74F007F9706 /* swiftyappApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 291DE5332C3DE74F007F9706 /* swiftyappApp.swift */; };
 		291DE5362C3DE74F007F9706 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 291DE5352C3DE74F007F9706 /* ContentView.swift */; };
+		A1B2C3D42C3F9A0000C0FFEE /* CrawlerNetwork.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D52C3F9A0000C0FFEE /* CrawlerNetwork.swift */; };
 		291DE5382C3DE74F007F9706 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 291DE5372C3DE74F007F9706 /* Assets.xcassets */; };
 		291DE53B2C3DE74F007F9706 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 291DE53A2C3DE74F007F9706 /* Preview Assets.xcassets */; };
 		2986A2E32C3F8FA200D13583 /* RustyLib in Frameworks */ = {isa = PBXBuildFile; productRef = 2986A2E22C3F8FA200D13583 /* RustyLib */; };
-		4BA045532FC3D20000FE5E85 /* Crawler in Frameworks */ = {isa = PBXBuildFile; productRef = 4BA045572FC3D20000FE5E85 /* Crawler */; };
 		4BA045522FC3D11F00FE5E85 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2986A2E52C3F8FA200D13583 /* SystemConfiguration.framework */; };
 /* End PBXBuildFile section */
 
@@ -20,6 +20,7 @@
 		291DE5302C3DE74F007F9706 /* gnostr-relay.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "gnostr-relay.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		291DE5332C3DE74F007F9706 /* swiftyappApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = swiftyappApp.swift; sourceTree = "<group>"; };
 		291DE5352C3DE74F007F9706 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		A1B2C3D52C3F9A0000C0FFEE /* CrawlerNetwork.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CrawlerNetwork.swift; sourceTree = "<group>"; };
 		291DE5372C3DE74F007F9706 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		291DE53A2C3DE74F007F9706 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		2986A2E52C3F8FA200D13583 /* SystemConfiguration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemConfiguration.framework; path = System/Library/Frameworks/SystemConfiguration.framework; sourceTree = SDKROOT; };
@@ -32,45 +33,8 @@
 			files = (
 				4BA045522FC3D11F00FE5E85 /* SystemConfiguration.framework in Frameworks */,
 				2986A2E32C3F8FA200D13583 /* RustyLib in Frameworks */,
-				4BA045532FC3D20000FE5E85 /* Crawler in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
-		};
-		4BA045582FC3D20000FE5E85 /* Clean crawler FFI */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "set -eu\n";
-		};
-		4BA045592FC3D20000FE5E85 /* Build crawler FFI */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-				"${PROJECT_DIR}/../../swift-gnostr-crawler/Rust/crawler-ffi/Cargo.toml",
-			);
-			outputFileListPaths = (
-			);
-			outputPaths = (
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/libcrawler_ffi.dylib",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "set -eu\n\nCRATE_DIR=\"${PROJECT_DIR}/../../swift-gnostr-crawler/Rust/crawler-ffi\"\nMANIFEST_PATH=\"${CRATE_DIR}/Cargo.toml\"\nexport CARGO_TARGET_DIR=\"${CRATE_DIR}/target\"\nCARGO_BIN=\"${CARGO:-${HOME}/.cargo/bin/cargo}\"\nif [ ! -x \"${CARGO_BIN}\" ]; then\n  CARGO_BIN=\"$(command -v cargo 2>/dev/null || true)\"\nfi\nif [ -z \"${CARGO_BIN}\" ] || [ ! -x \"${CARGO_BIN}\" ]; then\n  echo \"cargo not found\" >&2\n  exit 1\nfi\nif [ \"${CONFIGURATION}\" = \"Release\" ]; then\n  \"${CARGO_BIN}\" build --manifest-path \"${MANIFEST_PATH}\" --release\n  BUILD_DIR=\"${CARGO_TARGET_DIR}/release\"\nelse\n  \"${CARGO_BIN}\" build --manifest-path \"${MANIFEST_PATH}\"\n  BUILD_DIR=\"${CARGO_TARGET_DIR}/debug\"\nfi\n\nmkdir -p \"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}\"\ncp -f \"${BUILD_DIR}/libcrawler_ffi.dylib\" \"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/libcrawler_ffi.dylib\"\n";
 		};
 /* End PBXFrameworksBuildPhase section */
 
@@ -97,6 +61,7 @@
 			children = (
 				291DE5332C3DE74F007F9706 /* swiftyappApp.swift */,
 				291DE5352C3DE74F007F9706 /* ContentView.swift */,
+				A1B2C3D52C3F9A0000C0FFEE /* CrawlerNetwork.swift */,
 				291DE5372C3DE74F007F9706 /* Assets.xcassets */,
 				291DE5392C3DE74F007F9706 /* Preview Content */,
 			);
@@ -126,8 +91,6 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 291DE53E2C3DE74F007F9706 /* Build configuration list for PBXNativeTarget "gnostr-relay" */;
 			buildPhases = (
-				4BA045582FC3D20000FE5E85 /* Clean crawler FFI */,
-				4BA045592FC3D20000FE5E85 /* Build crawler FFI */,
 				291DE52C2C3DE74F007F9706 /* Sources */,
 				291DE52D2C3DE74F007F9706 /* Frameworks */,
 				291DE52E2C3DE74F007F9706 /* Resources */,
@@ -139,7 +102,6 @@
 			name = "gnostr-relay";
 			packageProductDependencies = (
 				2986A2E22C3F8FA200D13583 /* RustyLib */,
-				4BA045572FC3D20000FE5E85 /* Crawler */,
 			);
 			productName = swiftyapp;
 			productReference = 291DE5302C3DE74F007F9706 /* gnostr-relay.app */;
@@ -171,7 +133,6 @@
 			mainGroup = 291DE5272C3DE74F007F9706;
 			packageReferences = (
 				2986A2E62C3F8FA200D13583 /* XCLocalSwiftPackageReference "Lib/swiftyrustlib" */,
-				4BA045562FC3D20000FE5E85 /* XCLocalSwiftPackageReference "../../../swift-gnostr-crawler" */,
 			);
 			productRefGroup = 291DE5312C3DE74F007F9706 /* Products */;
 			projectDirPath = "";
@@ -200,6 +161,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				291DE5362C3DE74F007F9706 /* ContentView.swift in Sources */,
+				A1B2C3D42C3F9A0000C0FFEE /* CrawlerNetwork.swift in Sources */,
 				291DE5342C3DE74F007F9706 /* swiftyappApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -454,15 +416,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 2986A2E62C3F8FA200D13583 /* XCLocalSwiftPackageReference "Lib/swiftyrustlib" */;
 			productName = RustyLib;
-		};
-		4BA045572FC3D20000FE5E85 /* Crawler */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 4BA045562FC3D20000FE5E85 /* XCLocalSwiftPackageReference "../../../swift-gnostr-crawler" */;
-			productName = Crawler;
-		};
-		4BA045562FC3D20000FE5E85 /* XCLocalSwiftPackageReference "../../swift-gnostr-crawler" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = ../../swift-gnostr-crawler;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

@@ -382,6 +382,19 @@ private class UniffiHandleMap<T> {
 
 // Public interface members begin here.
 
+private struct FfiConverterUInt16: FfiConverterPrimitive {
+    typealias FfiType = UInt16
+    typealias SwiftType = UInt16
+
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> UInt16 {
+        return try lift(readInt(&buf))
+    }
+
+    static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(value))
+    }
+}
+
 private struct FfiConverterUInt32: FfiConverterPrimitive {
     typealias FfiType = UInt32
     typealias SwiftType = UInt32
@@ -431,6 +444,32 @@ private struct FfiConverterString: FfiConverter {
         writeInt(&buf, len)
         writeBytes(&buf, value.utf8)
     }
+}
+
+public func crawlerServiceLogs() -> String {
+    return try! FfiConverterString.lift(try! rustCall {
+        uniffi_rustylib_fn_func_crawler_service_logs($0)
+    })
+}
+
+public func crawlerServiceStart(port: UInt16) -> String {
+    return try! FfiConverterString.lift(try! rustCall {
+        uniffi_rustylib_fn_func_crawler_service_start(
+            FfiConverterUInt16.lower(port), $0
+        )
+    })
+}
+
+public func crawlerServiceStatus() -> String {
+    return try! FfiConverterString.lift(try! rustCall {
+        uniffi_rustylib_fn_func_crawler_service_status($0)
+    })
+}
+
+public func crawlerServiceStop() -> String {
+    return try! FfiConverterString.lift(try! rustCall {
+        uniffi_rustylib_fn_func_crawler_service_stop($0)
+    })
 }
 
 public func p2pNetworkLogs() -> String {
@@ -487,6 +526,18 @@ private var initializationResult: InitializationResult = {
     let scaffolding_contract_version = ffi_rustylib_uniffi_contract_version()
     if bindings_contract_version != scaffolding_contract_version {
         return InitializationResult.contractVersionMismatch
+    }
+    if uniffi_rustylib_checksum_func_crawler_service_logs() != 48287 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_rustylib_checksum_func_crawler_service_start() != 42130 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_rustylib_checksum_func_crawler_service_status() != 9828 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_rustylib_checksum_func_crawler_service_stop() != 31256 {
+        return InitializationResult.apiChecksumMismatch
     }
     if uniffi_rustylib_checksum_func_p2p_network_logs() != 9870 {
         return InitializationResult.apiChecksumMismatch

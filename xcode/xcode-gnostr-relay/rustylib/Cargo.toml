@@ -17,6 +17,7 @@ path = "uniffi-bindgen.rs"
 gnostr-crawler = { version = "949455.1873.486970", path = "../../../crawler" }
 gnostr-p2p = { package = "gnostr-p2p", path = "../../../p2p", version = ">=949455.1873.486970" }
 gnostr-relay = { version = "949455.1873.486970", path = "../../../relay" }
+tokio = { version = "1", features = ["rt-multi-thread", "sync", "time"] }
 uniffi = { version = "0.28.0", features = [ "cli" ] }
 
 [build-dependencies]
