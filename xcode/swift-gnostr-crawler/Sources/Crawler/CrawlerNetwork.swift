@@ -390,14 +390,24 @@ public struct CrawlerNetworkDashboard: View {
 
     public var body: some View {
         VStack(spacing: 0) {
-            HStack {
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Crawler Network")
+                        .font(.headline)
+                    Text(crawlerHeaderSubtitle)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                }
+
                 Spacer()
+
                 Button("Done") {
                     self.presentationMode.wrappedValue.dismiss()
                 }
-                .padding(.horizontal)
-                .padding(.vertical, 8)
             }
+            .padding()
+            .background(Color(.systemBackground))
 
             List {
                 Section(header: Text("Runtime")) {
@@ -438,6 +448,12 @@ public struct CrawlerNetworkDashboard: View {
         .onDisappear {
             self.store.stopPolling()
         }
+    }
+
+    private var crawlerHeaderSubtitle: String {
+        let runtime = self.store.snapshot.crawlerRuntime?.message ?? "runtime unknown"
+        let crawl = self.store.snapshot.crawlerCrawl?.message ?? "crawl unknown"
+        return "\(runtime) • \(crawl)"
     }
 
     @ViewBuilder
