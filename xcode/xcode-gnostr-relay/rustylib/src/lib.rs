@@ -200,6 +200,11 @@ pub fn sniper_service_logs() -> String {
 }
 
 #[uniffi::export]
+pub fn sniper_service_lifecycle() -> String {
+    gnostr_crawler::sniper_service_lifecycle()
+}
+
+#[uniffi::export]
 pub fn sniper_service_status() -> String {
     sniper_service_status_string()
 }
@@ -359,7 +364,9 @@ pub fn sniper_service_start() -> String {
     }
 
     let (shutdown_tx, shutdown_rx) = oneshot::channel::<()>();
+    gnostr_crawler::record_sniper_lifecycle("sniper lifecycle: start requested");
     gnostr_crawler::record_sniper_log("sniper service: start requested");
+    gnostr_crawler::record_sniper_lifecycle("sniper lifecycle: starting");
     gnostr_crawler::record_sniper_log("sniper service: starting");
 
     *slot = Some(SniperServiceState {
@@ -380,18 +387,23 @@ pub fn sniper_service_start() -> String {
         {
             Ok(runtime) => runtime,
             Err(error) => {
-                gnostr_crawler::record_sniper_log(format!(
-                    "sniper service: runtime build failed: {error}"
-                ));
-                return;
-            }
-        };
+                    gnostr_crawler::record_sniper_lifecycle(format!(
+                        "sniper lifecycle: runtime build failed: {}",
+                        error
+                    ));
+                    gnostr_crawler::record_sniper_log(format!(
+                        "sniper service: runtime build failed: {error}"
+                    ));
+                    return;
+                }
+            };
 
-        let client = reqwest::Client::new();
-        {
-            let mut slot = sniper_service_slot().lock().unwrap();
-            if let Some(state) = slot.as_mut() {
-                state.requested = false;
+            gnostr_crawler::record_sniper_lifecycle("sniper lifecycle: worker spawned");
+            let client = reqwest::Client::new();
+            {
+                let mut slot = sniper_service_slot().lock().unwrap();
+                if let Some(state) = slot.as_mut() {
+                    state.requested = false;
             }
         }
         runtime.block_on(async move {
@@ -422,6 +434,7 @@ pub fn sniper_service_stop() -> String {
         return "sniper service stopped".to_string();
     }
 
+    gnostr_crawler::record_sniper_lifecycle("sniper lifecycle: stop requested");
     gnostr_crawler::record_sniper_log("sniper service: stopping");
     state.stopping = true;
     if let Some(shutdown) = state.shutdown.take() {
