@@ -676,6 +676,68 @@ mod tests {
         assert!(lines.iter().any(|line| line.contains("Type: PARITY")));
     }
 
+    #[test]
+    fn dump_full_protocol_for_nocapture() {
+        use sha2::{Digest, Sha256};
+
+        fn reconstruct_payload_for_test(packets: &[ProtocolSlice]) -> Vec<u8> {
+            let mut leaves: Vec<_> = packets.iter().filter(|packet| !packet.is_parity).collect();
+            leaves.sort_by_key(|packet| packet.header.seq_num);
+            leaves
+                .into_iter()
+                .flat_map(|packet| packet.data.clone())
+                .collect()
+        }
+
+        let payload = vec![0xAB; 3000];
+        let batch = packetize("ROOT".to_string(), payload.clone());
+        let manifest = generate_manifest("ROOT".to_string(), payload.len());
+        let mut manager = IntegrityManager::new(manifest.clone());
+
+        println!("perfect_ip manifest ({} ids):", manifest.len());
+        for id in &manifest {
+            println!("  {id}");
+        }
+
+        println!("perfect_ip packet inventory ({} packets):", batch.total_packets);
+        for line in summarize_packets(&batch.packets) {
+            println!("{line}");
+        }
+
+        println!("perfect_ip packet batch json:");
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&batch).expect("serialize packet batch")
+        );
+
+        println!("perfect_ip first packet json:");
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&batch.packets.first().expect("first packet"))
+                .expect("serialize first packet")
+        );
+
+        println!("perfect_ip last packet json:");
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&batch.packets.last().expect("last packet"))
+                .expect("serialize last packet")
+        );
+
+        for slice in batch.packets.clone() {
+            manager.record_slice(slice);
+        }
+        println!("perfect_ip missing nodes: {:?}", manager.get_missing_nodes());
+        println!("perfect_ip integrity verified: {}", manager.verify_integrity());
+
+        let reconstructed = reconstruct_payload_for_test(&batch.packets);
+        let reconstructed_sha256 = format!("{:x}", Sha256::digest(&reconstructed));
+        let sender_sha256 = format!("{:x}", Sha256::digest(&payload));
+        println!("perfect_ip reconstructed sha256: {reconstructed_sha256}");
+        println!("perfect_ip sender sha256: {sender_sha256}");
+        assert_eq!(reconstructed, payload);
+    }
+
     #[tokio::test]
     async fn build_fractal_swarm_accepts_quic_listen_address() {
         let keypair = keypair_from_seed(Some(
