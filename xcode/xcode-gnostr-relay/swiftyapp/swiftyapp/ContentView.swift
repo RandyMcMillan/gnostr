@@ -17,6 +17,7 @@ struct ContentView: View {
     @State private var showingNetworkPanel = false
     @State private var showingCrawlerPanel = false
     @State private var didAutoStartNetwork = false
+    @State private var didAutoStartCrawler = false
     @State private var logFontSize: CGFloat = 12
     @StateObject private var crawlerStore = CrawlerNetworkStore()
 
@@ -32,6 +33,10 @@ struct ContentView: View {
             if !didAutoStartNetwork {
                 didAutoStartNetwork = true
                 startNetwork()
+            }
+            if !didAutoStartCrawler {
+                didAutoStartCrawler = true
+                Task { await crawlerStore.startCrawlerServe() }
             }
         }
         .onReceive(Timer.publish(every: 1.0, on: .main, in: .common).autoconnect()) { _ in
