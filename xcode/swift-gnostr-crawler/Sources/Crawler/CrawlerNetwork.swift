@@ -73,6 +73,7 @@ public final class CrawlerNetworkStore: ObservableObject {
     @Published public private(set) var snapshot: CrawlerNetworkSnapshot = .empty
     @Published public private(set) var isPolling: Bool = false
 
+    public let baseURL: URL
     private let crawlerClient: CrawlerClient
     private let refreshIntervalNanoseconds: UInt64
     private let crawlerConfigRoot: URL
@@ -87,6 +88,7 @@ public final class CrawlerNetworkStore: ObservableObject {
         crawlerConfigRoot: URL = CrawlerNetworkFileSystem.crawlerConfigDirectory(),
         p2pConfigRoot: URL = CrawlerNetworkFileSystem.p2pConfigDirectory()
     ) {
+        self.baseURL = baseURL
         self.crawlerClient = CrawlerClient(baseURL: baseURL, session: session)
         self.refreshIntervalNanoseconds = refreshIntervalNanoseconds
         self.crawlerConfigRoot = crawlerConfigRoot
@@ -408,6 +410,19 @@ public struct CrawlerNetworkDashboard: View {
                 }
             }
             .padding()
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Crawler Server")
+                    .font(.headline)
+                Text(self.store.baseURL.absoluteString)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                CrawlerServerWebView(url: self.store.baseURL)
+                    .frame(maxWidth: .infinity)
+                    .frame(minHeight: 320)
+                    .cornerRadius(12)
+            }
+            .padding([.horizontal, .bottom])
 
             List {
                 Section(header: Text("Runtime")) {

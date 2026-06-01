@@ -7,7 +7,6 @@ use std::{
     time::Duration,
 };
 
-use log::{error, info, warn};
 use gnostr_crawler::{
     init_tracing,
     processor::{APP_SECRET_KEY, BOOTSTRAP_RELAYS, Processor},
@@ -24,6 +23,7 @@ use gnostr_types::nostr::{
 };
 use nostr_sdk::prelude::*;
 use serde::{Deserialize, Serialize};
+use tracing::{error, info, warn};
 use tokio::{runtime::Builder, sync::oneshot};
 
 #[derive(Serialize)]
