@@ -42,6 +42,15 @@ fn crawler_log_slot() -> &'static Mutex<Vec<String>> {
     CRAWLER_LOGS.get_or_init(|| Mutex::new(Vec::new()))
 }
 
+fn filtered_crawler_logs(prefixes: &[&str]) -> String {
+    let logs = crawler_log_slot().lock().unwrap();
+    logs.iter()
+        .filter(|line| prefixes.iter().any(|prefix| line.starts_with(prefix)))
+        .cloned()
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 fn push_crawler_log(line: impl AsRef<str>) {
     let line = line.as_ref().trim_end().to_string();
     if line.is_empty() {
@@ -172,7 +181,7 @@ pub fn p2p_network_logs() -> String {
 
 #[uniffi::export]
 pub fn crawler_service_logs() -> String {
-    crawler_log_slot().lock().unwrap().join("\n")
+    filtered_crawler_logs(&["crawler service:", "run_api_server:", "starting crawler service"])
 }
 
 #[uniffi::export]
@@ -182,7 +191,12 @@ pub fn crawler_service_status() -> String {
 
 #[uniffi::export]
 pub fn sniper_service_logs() -> String {
-    crawler_log_slot().lock().unwrap().join("\n")
+    filtered_crawler_logs(&[
+        "sniper service:",
+        "run_sniper_service:",
+        "prime_all_nip_relays_files:",
+        "starting sniper service",
+    ])
 }
 
 #[uniffi::export]
