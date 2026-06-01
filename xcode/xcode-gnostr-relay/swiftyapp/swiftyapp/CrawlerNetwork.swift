@@ -232,10 +232,10 @@ public struct SniperServiceDashboard: View {
                 Text(store.logs.isEmpty ? "No sniper logs yet." : store.logs)
                     .font(.system(size: logFontSize, weight: .regular, design: .monospaced))
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .textSelection(.enabled)
                     .padding()
                     .id("sniper-log-tail")
             }
+            .textSelection(.enabled)
             .onChange(of: store.logs) { _ in
                 withAnimation {
                     proxy.scrollTo("sniper-log-tail", anchor: .bottom)
@@ -270,6 +270,7 @@ public struct CrawlerNetworkDashboard: View {
         .onChange(of: store.status) { _ in
             webViewID = UUID()
         }
+        .textSelection(.enabled)
     }
 
     private var header: some View {
@@ -308,10 +309,10 @@ public struct CrawlerNetworkDashboard: View {
                 Text(store.logs.isEmpty ? "No crawler logs yet." : store.logs)
                     .font(.system(size: logFontSize, weight: .regular, design: .monospaced))
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .textSelection(.enabled)
                     .padding()
                     .id("crawler-log-tail")
             }
+            .textSelection(.enabled)
             .onChange(of: store.logs) { _ in
                 withAnimation {
                     proxy.scrollTo("crawler-log-tail", anchor: .bottom)

@@ -57,7 +57,7 @@ struct ContentView: View {
     private var headerBar: some View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
-                Text("P2P Network")
+                Text("60:P2P Network")
                     .font(.headline)
                 Text(networkStatus)
                     .font(.caption)
@@ -121,7 +121,7 @@ struct ContentView: View {
         VStack(spacing: 0) {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("P2P Network")
+                    Text("124:P2P Network")
                         .font(.headline)
                     Text(networkStatus)
                         .font(.caption)
@@ -193,6 +193,7 @@ struct ContentView: View {
             }
             .padding()
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .textSelection(.enabled)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(.background)
