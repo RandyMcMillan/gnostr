@@ -18,6 +18,7 @@ struct DemoArgs {
     file: Option<PathBuf>,
     recursive: Option<PathBuf>,
     depth: usize,
+    depth_set: bool,
     verbose: bool,
     help: bool,
 }
@@ -27,7 +28,7 @@ fn usage() {
         "Usage: fractal_swarm_perfect_ip [--file PATH] [--recursive PATH] [--depth N] [--verbose] [--help]\n\
          \n\
          Options:\n\
-           --file PATH       Read input from PATH instead of generating example.bin\n\
+           --file PATH       Read a single file from PATH\n\
            --recursive PATH   Walk PATH as a directory tree and preserve relative paths\n\
            --depth N         Limit recursive directory walking to N levels [default: 3]\n\
            --verbose         Print packet info during file mode\n\
@@ -40,6 +41,7 @@ fn parse_args() -> DemoArgs {
     let mut file = None;
     let mut recursive = None;
     let mut depth = 3usize;
+    let mut depth_set = false;
     let mut verbose = false;
     let mut help = false;
 
@@ -70,6 +72,7 @@ fn parse_args() -> DemoArgs {
             };
         } else if let Some(value) = arg.strip_prefix("--depth=") {
             depth = value.parse().unwrap_or(3);
+            depth_set = true;
         } else if arg == "--depth" {
             depth = match args.peek() {
                 Some(next) if !next.starts_with('-') => args
@@ -81,16 +84,25 @@ fn parse_args() -> DemoArgs {
                     3
                 }
             };
+            depth_set = true;
         } else {
             eprintln!("unrecognized argument: {arg}");
             help = true;
         }
     }
 
+    if recursive.is_none() && depth_set {
+        help = true;
+    }
+    if recursive.is_some() && file.is_some() {
+        help = true;
+    }
+
     DemoArgs {
         file,
         recursive,
         depth,
+        depth_set,
         verbose,
         help,
     }
@@ -160,30 +172,51 @@ fn print_directory_walk(path: &Path, depth: usize) -> io::Result<()> {
     Ok(())
 }
 
-fn input_file_path(file: Option<PathBuf>) -> PathBuf {
-    file.unwrap_or_else(|| PathBuf::from("example.bin"))
-}
-
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let args = parse_args();
-    if args.help {
+    let DemoArgs {
+        file,
+        recursive,
+        depth,
+        depth_set,
+        verbose,
+        help,
+    } = parse_args();
+
+    if help {
         usage();
         return Ok(());
     }
 
-    if let Some(root) = args.recursive {
+    if let Some(root) = recursive {
+        if file.is_some() {
+            return Err("--file and --recursive are mutually exclusive".into());
+        }
+
+        if !depth_set {
+            return Err("--recursive requires --depth".into());
+        }
+
         if !root.is_dir() {
-            return Err(format!("{} is not a directory", root.display()).into());
+            return Err(format!(
+                "{} must be a directory when --recursive is set",
+                root.display()
+            )
+            .into());
         }
 
         println!("recursive walk root: {}", root.display());
-        println!("recursive depth: {}", args.depth);
-        print_directory_walk(&root, args.depth)?;
+        println!("recursive depth: {}", depth);
+        print_directory_walk(&root, depth)?;
         return Ok(());
     }
 
-    let example_path = input_file_path(args.file);
+    if depth_set {
+        return Err("--depth is only valid with --recursive".into());
+    }
+
+    let example_path = file.unwrap_or_else(|| PathBuf::from("example.bin"));
+
     let original_bytes = if example_path.exists() {
         fs::read(&example_path)?
     } else {
@@ -198,7 +231,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     println!("sender wrote {}", example_path.display());
     println!("sender sha256: {original_sha256}");
-    if args.verbose {
+    if verbose {
         println!("perfect_ip packet batch: {} packets", batch.total_packets);
         for line in summarize_packets(&batch.packets) {
             println!("{line}");
