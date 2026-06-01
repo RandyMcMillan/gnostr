@@ -79,7 +79,6 @@ public final class CrawlerNetworkStore: ObservableObject {
 @MainActor
 public final class SniperServiceStore: ObservableObject {
     @Published public private(set) var status: String = sniperServiceStatus()
-    @Published public private(set) var lifecycle: String = sniperServiceLifecycle()
     @Published public private(set) var logs: String = sniperServiceLogs()
 
     public init() {}
@@ -96,14 +95,10 @@ public final class SniperServiceStore: ObservableObject {
         let status = await Task.detached(priority: .userInitiated) {
             sniperServiceStatus()
         }.value
-        let lifecycle = await Task.detached(priority: .userInitiated) {
-            sniperServiceLifecycle()
-        }.value
         let logs = await Task.detached(priority: .userInitiated) {
             sniperServiceLogs()
         }.value
         self.status = status
-        self.lifecycle = lifecycle
         self.logs = logs
     }
 
@@ -115,9 +110,6 @@ public final class SniperServiceStore: ObservableObject {
             sniperServiceLogs()
         }.value
         self.status = status
-        self.lifecycle = await Task.detached(priority: .userInitiated) {
-            sniperServiceLifecycle()
-        }.value
         self.logs = logs
         await self.refresh()
     }
@@ -130,9 +122,6 @@ public final class SniperServiceStore: ObservableObject {
             sniperServiceLogs()
         }.value
         self.status = status
-        self.lifecycle = await Task.detached(priority: .userInitiated) {
-            sniperServiceLifecycle()
-        }.value
         self.logs = logs
         await self.refresh()
     }
@@ -258,26 +247,34 @@ public struct SniperServiceDashboard: View {
                     proxy.scrollTo("sniper-log-tail", anchor: .bottom)
                 }
             }
+        }
+    }
 
-            private var lifecycleBody: some View {
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        Text(store.lifecycle.isEmpty ? "No sniper lifecycle yet." : store.lifecycle)
-                            .font(.system(size: logFontSize, weight: .regular, design: .monospaced))
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding()
-                            .id("sniper-lifecycle-tail")
-                    }
-                    .textSelection(.enabled)
-                    .onChange(of: store.lifecycle) { _ in
-                        withAnimation {
-                            proxy.scrollTo("sniper-lifecycle-tail", anchor: .bottom)
-                        }
-                    }
+    private var lifecycleBody: some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                Text(sniperLifecycleTranscript.isEmpty ? "No sniper lifecycle yet." : sniperLifecycleTranscript)
+                    .font(.system(size: logFontSize, weight: .regular, design: .monospaced))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding()
+                    .id("sniper-lifecycle-tail")
+            }
+            .textSelection(.enabled)
+            .onChange(of: store.logs) { _ in
+                withAnimation {
+                    proxy.scrollTo("sniper-lifecycle-tail", anchor: .bottom)
                 }
-                .frame(minHeight: 180)
             }
         }
+        .frame(minHeight: 180)
+    }
+
+    private var sniperLifecycleTranscript: String {
+        store.logs
+            .split(separator: "\n", omittingEmptySubsequences: false)
+            .map(String.init)
+            .filter { $0.hasPrefix("sniper lifecycle:") }
+            .joined(separator: "\n")
     }
 }
 
