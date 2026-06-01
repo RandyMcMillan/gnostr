@@ -1,26 +1,116 @@
+//! Recursive packet framing and parity helpers for the `perfect_ip` protocol.
+//!
+//! The protocol is intentionally small and reusable:
+//! - [`process_slice`] recursively splits payloads until each emitted packet
+//!   stays within the transport budget.
+//! - [`packetize`] finalizes a batch and fills in packet counts up front.
+//! - [`recover_missing_data`] and [`recover_missing_slice`] rebuild a missing
+//!   packet from a sibling packet and parity slice.
+//!
+//! The parity model is XOR-based and matches the packet-tree sketch in the
+//! `perfect_ip.rs` gist.
+
+use std::collections::{HashMap, HashSet};
+
+/// Packet header metadata shared by all packet types in the tree.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Header {
+    /// Monotonic sequence number assigned during packetization.
     pub seq_num: u32,
+    /// Total number of packets in the finalized batch.
     pub total_packets: u32,
 }
 
+/// A single packet produced by the recursive packetizer.
+///
+/// `is_parity` marks parity frames that describe the XOR of sibling payloads.
+/// `id` carries the recursive path for the packet, such as `ROOT.0.1.P`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ProtocolSlice {
+    /// Stable recursive packet identifier.
     pub id: String,
+    /// Packet sequencing metadata.
     pub header: Header,
+    /// Raw payload bytes for the packet or parity frame.
     pub data: Vec<u8>,
+    /// `true` when this slice is a parity frame.
     pub is_parity: bool,
 }
 
+/// Finalized packet tree output.
+///
+/// `total_packets` is duplicated here so callers can inspect batch metadata
+/// without walking the packet list.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PacketBatch {
+    /// Number of packets in the batch.
     pub total_packets: u32,
+    /// Finalized packets with matching `total_packets` headers.
     pub packets: Vec<ProtocolSlice>,
 }
 
+/// Tracks the expected manifest and the packets that have arrived so far.
+#[derive(Debug, Clone, Default)]
+pub struct IntegrityManager {
+    manifest: HashSet<String>,
+    pub received_slices: HashMap<String, ProtocolSlice>,
+}
+
+impl IntegrityManager {
+    /// Create a manager from the set of expected packet ids.
+    pub fn new(expected_ids: Vec<String>) -> Self {
+        Self {
+            manifest: expected_ids.into_iter().collect(),
+            received_slices: HashMap::new(),
+        }
+    }
+
+    /// Record a received packet by id, replacing any prior packet with the same id.
+    pub fn record_slice(&mut self, slice: ProtocolSlice) {
+        self.received_slices.insert(slice.id.clone(), slice);
+    }
+
+    /// Return the packet ids from the manifest that are still missing.
+    pub fn get_missing_nodes(&self) -> Vec<String> {
+        self.manifest
+            .iter()
+            .filter(|id| !self.received_slices.contains_key(*id))
+            .cloned()
+            .collect()
+    }
+
+    /// Verify that every parity slice matches the XOR of its sibling data slices.
+    pub fn verify_integrity(&self) -> bool {
+        for (id, slice) in &self.received_slices {
+            if !slice.is_parity {
+                continue;
+            }
+
+            let Some(base_id) = id.strip_suffix(".P") else {
+                return false;
+            };
+            let left = self.received_slices.get(&format!("{}.0", base_id));
+            let right = self.received_slices.get(&format!("{}.1", base_id));
+
+            if let (Some(left), Some(right)) = (left, right) {
+                if calculate_parity(&left.data, &right.data) != slice.data {
+                    return false;
+                }
+            }
+        }
+
+        true
+    }
+}
+
+/// Maximum payload size this packet protocol is allowed to emit.
 pub const MTU_PAYLOAD: usize = 1460;
 const MAX_LEAF_PAYLOAD: usize = MTU_PAYLOAD / 2;
 
+/// XOR two payloads into a parity buffer.
+///
+/// Missing bytes are treated as zero so the returned buffer is as long as the
+/// larger input.
 pub fn calculate_parity(left: &[u8], right: &[u8]) -> Vec<u8> {
     let max_len = left.len().max(right.len());
     let mut parity = vec![0; max_len];
@@ -32,11 +122,17 @@ pub fn calculate_parity(left: &[u8], right: &[u8]) -> Vec<u8> {
     parity
 }
 
+/// Recover the missing payload by XORing the sibling payload and parity frame.
+///
+/// `expected_len` trims the recovered buffer back to the original payload length.
 pub fn recover_missing_data(expected_len: usize, sibling: &[u8], parity: &[u8]) -> Vec<u8> {
     let recovered = calculate_parity(sibling, parity);
     recovered.into_iter().take(expected_len).collect()
 }
 
+/// Rebuild a missing packet using a sibling packet and parity packet.
+///
+/// The returned slice is marked as data and receives the next sequence number.
 pub fn recover_missing_slice(
     id: String,
     expected_len: usize,
@@ -58,6 +154,10 @@ pub fn recover_missing_slice(
     }
 }
 
+/// Recursively split a payload into MTU-safe slices and parity frames.
+///
+/// Leaf packets are emitted when the payload is at or below
+/// [`MAX_LEAF_PAYLOAD`]. Internal nodes emit left, right, and parity frames.
 pub fn process_slice(id: String, data: Vec<u8>, seq: &mut u32) -> Vec<ProtocolSlice> {
     if data.len() <= MAX_LEAF_PAYLOAD {
         let slice = ProtocolSlice {
@@ -95,6 +195,10 @@ pub fn process_slice(id: String, data: Vec<u8>, seq: &mut u32) -> Vec<ProtocolSl
     slices
 }
 
+/// Packetize a payload and finalize the batch metadata.
+///
+/// This is the preferred entrypoint for callers that want a ready-to-send
+/// packet tree with `total_packets` filled in.
 pub fn packetize(id: String, data: Vec<u8>) -> PacketBatch {
     let mut seq = 0;
     let mut packets = process_slice(id, data, &mut seq);
@@ -108,6 +212,7 @@ pub fn packetize(id: String, data: Vec<u8>) -> PacketBatch {
     }
 }
 
+/// Render packet summaries for logs or diagnostics.
 pub fn summarize_packets(packets: &[ProtocolSlice]) -> Vec<String> {
     packets
         .iter()
@@ -140,7 +245,9 @@ mod tests {
         assert!(packets.iter().any(|packet| packet.id.starts_with("ROOT.0.")));
         assert!(packets.iter().any(|packet| packet.id.starts_with("ROOT.1.")));
         assert!(packets.iter().all(|packet| packet.data.len() <= MTU_PAYLOAD));
-        assert!(packets.iter().all(|packet| packet.header.total_packets == batch.total_packets));
+        assert!(packets
+            .iter()
+            .all(|packet| packet.header.total_packets == batch.total_packets));
     }
 
     #[test]
@@ -189,5 +296,77 @@ mod tests {
         assert_eq!(recovered.header.seq_num, 3);
         assert_eq!(recovered.header.total_packets, 3);
         assert!(!recovered.is_parity);
+    }
+
+    #[test]
+    fn get_missing_nodes_returns_unseen_manifest_entries() {
+        let mut manager = IntegrityManager::new(vec![
+            "ROOT.0".to_string(),
+            "ROOT.1".to_string(),
+            "ROOT.P".to_string(),
+        ]);
+        manager.record_slice(ProtocolSlice {
+            id: "ROOT.0".to_string(),
+            header: Header {
+                seq_num: 0,
+                total_packets: 3,
+            },
+            data: vec![0xDE],
+            is_parity: false,
+        });
+
+        let missing = manager.get_missing_nodes();
+        assert_eq!(missing.len(), 2);
+        assert!(missing.contains(&"ROOT.1".to_string()));
+        assert!(missing.contains(&"ROOT.P".to_string()));
+    }
+
+    #[test]
+    fn verify_integrity_checks_parity_frames() {
+        let mut manager = IntegrityManager::new(vec![
+            "ROOT.0".to_string(),
+            "ROOT.1".to_string(),
+            "ROOT.P".to_string(),
+        ]);
+        let left = ProtocolSlice {
+            id: "ROOT.0".to_string(),
+            header: Header {
+                seq_num: 0,
+                total_packets: 3,
+            },
+            data: vec![0xDE, 0xAD, 0xBE],
+            is_parity: false,
+        };
+        let right = ProtocolSlice {
+            id: "ROOT.1".to_string(),
+            header: Header {
+                seq_num: 1,
+                total_packets: 3,
+            },
+            data: vec![0x01, 0x02, 0x03],
+            is_parity: false,
+        };
+        let parity = ProtocolSlice {
+            id: "ROOT.P".to_string(),
+            header: Header {
+                seq_num: 2,
+                total_packets: 3,
+            },
+            data: calculate_parity(&left.data, &right.data),
+            is_parity: true,
+        };
+
+        manager.record_slice(left);
+        manager.record_slice(right);
+        manager.record_slice(parity);
+        assert!(manager.verify_integrity());
+
+        let mut corrupted = manager.clone();
+        corrupted
+            .received_slices
+            .get_mut("ROOT.P")
+            .expect("parity slice")
+            .data[0] ^= 0xFF;
+        assert!(!corrupted.verify_integrity());
     }
 }
