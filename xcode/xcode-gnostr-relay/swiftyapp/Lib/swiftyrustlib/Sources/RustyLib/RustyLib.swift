@@ -511,6 +511,30 @@ public func rustHello() -> String {
     })
 }
 
+public func sniperServiceLogs() -> String {
+    return try! FfiConverterString.lift(try! rustCall {
+        uniffi_rustylib_fn_func_sniper_service_logs($0)
+    })
+}
+
+public func sniperServiceStart() -> String {
+    return try! FfiConverterString.lift(try! rustCall {
+        uniffi_rustylib_fn_func_sniper_service_start($0)
+    })
+}
+
+public func sniperServiceStatus() -> String {
+    return try! FfiConverterString.lift(try! rustCall {
+        uniffi_rustylib_fn_func_sniper_service_status($0)
+    })
+}
+
+public func sniperServiceStop() -> String {
+    return try! FfiConverterString.lift(try! rustCall {
+        uniffi_rustylib_fn_func_sniper_service_stop($0)
+    })
+}
+
 private enum InitializationResult {
     case ok
     case contractVersionMismatch
@@ -555,6 +579,18 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_rustylib_checksum_func_rust_hello() != 11814 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_rustylib_checksum_func_sniper_service_logs() != 22480 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_rustylib_checksum_func_sniper_service_start() != 50190 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_rustylib_checksum_func_sniper_service_status() != 43296 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_rustylib_checksum_func_sniper_service_stop() != 62353 {
         return InitializationResult.apiChecksumMismatch
     }
 
