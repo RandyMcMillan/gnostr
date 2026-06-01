@@ -408,7 +408,6 @@ public struct CrawlerNetworkDashboard: View {
                 }
             }
             .padding()
-            .background(Color(.systemBackground))
 
             List {
                 Section(header: Text("Runtime")) {
