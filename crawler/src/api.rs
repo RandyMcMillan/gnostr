@@ -822,107 +822,17 @@ pub(crate) async fn get_nip_index(AxumPath(nip_lower): AxumPath<i32>) -> Respons
         while let Ok(Some(entry)) = dir.next_entry().await {
             let name = entry.file_name().to_string_lossy().to_string();
             if name.ends_with(".json") && name != "relays.json" {
-                let file_path = entry.path();
-                match fs::read_to_string(&file_path).await {
-                    Ok(content) => {
-                        let pretty = serde_json::from_str::<serde_json::Value>(&content)
-                            .ok()
-                            .map(|value| {
-                                let relay_name = value
-                                    .get("name")
-                                    .and_then(|v| v.as_str())
-                                    .unwrap_or(&name);
-                                let nip_links = value
-                                    .get("supported_nips")
-                                    .and_then(|v| v.as_array())
-                                    .map(|nips| {
-                                        let links = nips
-                                            .iter()
-                                            .filter_map(|nip| nip.as_i64())
-                                            .map(|nip| {
-                                                format!(
-                                                    "<a href=\"/{0}\" style=\"margin-right:0.35rem;\">NIP {0}</a>",
-                                                    nip
-                                                )
-                                            })
-                                            .collect::<Vec<_>>()
-                                            .join("");
-                                        if links.is_empty() {
-                                            String::new()
-                                        } else {
-                                            format!("<div style=\"margin:0.25rem 0 0.5rem 0;\">{}</div>", links)
-                                        }
-                                    })
-                                    .unwrap_or_default();
-                                let extension_links = value
-                                    .get("supported_nip_extensions")
-                                    .and_then(|v| v.as_array())
-                                    .map(|extensions| {
-                                        let links = extensions
-                                            .iter()
-                                            .filter_map(|extension| extension.as_str())
-                                            .map(|extension| {
-                                                format!(
-                                                    "<code style=\"margin-right:0.35rem;\">{}</code>",
-                                                    escape_html(extension)
-                                                )
-                                            })
-                                            .collect::<Vec<_>>()
-                                            .join("");
-                                        if links.is_empty() {
-                                            String::new()
-                                        } else {
-                                            format!(
-                                                "<div style=\"margin:0.25rem 0 0.5rem 0;\"><strong>supported_nip_extensions</strong>: {}</div>",
-                                                links
-                                            )
-                                        }
-                                    })
-                                    .unwrap_or_default();
-                                let icon_html = value
-                                    .get("icon")
-                                    .and_then(|v| v.as_str())
-                                    .map(|icon| {
-                                        format!(
-                                            "<div style=\"margin:0.5rem 0;\"><img src=\"{}\" alt=\"icon\" style=\"width:48px;height:48px;object-fit:contain;border-radius:0.35rem;background:rgba(255,255,255,0.06);padding:0.25rem;\"></div>",
-                                            escape_html(icon)
-                                        )
-                                    })
-                                    .unwrap_or_default();
-                                let pretty = serde_json::to_string_pretty(&value).ok().unwrap_or_default();
-                                format!(
-                                    "<div><strong>{}</strong></div>{}{}{}<pre>{}</pre>",
-                                    escape_html(relay_name),
-                                    nip_links,
-                                    extension_links,
-                                    icon_html,
-                                    escape_html(&pretty)
-                                )
-                            })
-                            .unwrap_or_else(|| format!("<pre>{}</pre>", escape_html(&content)));
-                        let relay_url = name
-                            .strip_suffix(".json")
-                            .map(|host| format!("wss://{}", host))
-                            .unwrap_or_else(|| name.clone());
-                        relay_cards.push(format!(
-                            "<li><details class=\"relay-favorite-card\" tabindex=\"0\" data-relay-url=\"{}\"><summary><span class=\"relay-favorite-heart\" aria-hidden=\"true\"></span><a href=\"/{}/{}\">{}</a></summary>{}</details></li>",
-                            escape_html(&relay_url),
-                            nip_lower,
-                            name,
-                            escape_html(&name),
-                            pretty
-                        ));
-                    }
-                    Err(e) => {
-                        relay_cards.push(format!(
-                            "<li><a href=\"/{}/{}\">{}</a> <em>(failed to read metadata: {})</em></li>",
-                            nip_lower,
-                            name,
-                            escape_html(&name),
-                            escape_html(&e.to_string())
-                        ));
-                    }
-                }
+                let relay_url = name
+                    .strip_suffix(".json")
+                    .map(|host| format!("wss://{}", host))
+                    .unwrap_or_else(|| name.clone());
+                relay_cards.push(format!(
+                    "<li><details class=\"relay-favorite-card\" tabindex=\"0\" data-relay-url=\"{}\"><summary><span class=\"relay-favorite-heart\" aria-hidden=\"true\"></span><a href=\"/{}/{}\">{}</a></summary><div style=\"margin-top:0.35rem;opacity:0.75;\">Open the JSON to inspect the relay profile.</div></details></li>",
+                    escape_html(&relay_url),
+                    nip_lower,
+                    name,
+                    escape_html(&name)
+                ));
             }
         }
         relay_cards.sort();
@@ -1697,9 +1607,8 @@ mod tests {
         assert_eq!(index.status(), StatusCode::OK);
         assert_eq!(index.headers().get(CONTENT_TYPE).unwrap(), "text/html");
         let html = response_text(index).await;
-        assert!(html.contains("Relay One"));
         assert!(html.contains("/34/relay-one.json"));
-        assert!(html.contains("NIP 35"));
+        assert!(html.contains("Open the JSON to inspect the relay profile."));
     }
 
     #[tokio::test(flavor = "current_thread")]
