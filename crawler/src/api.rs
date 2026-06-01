@@ -22,6 +22,7 @@ use std::path::{Component, Path, PathBuf};
 use std::process::{Command, Stdio};
 use tokio::fs;
 use tokio::task::spawn;
+use tokio::sync::oneshot;
 use tower_http::trace::{self, TraceLayer};
 use ::url::Url;
 
@@ -71,7 +72,7 @@ pub(crate) async fn collect_supported_relays_for_nip(
     Ok(supported)
 }
 
-pub(crate) async fn prime_all_nip_relays_files(
+pub async fn prime_all_nip_relays_files(
     client: &reqwest::Client,
 ) -> Result<(), Box<dyn std::error::Error>> {
     info!("prime_all_nip_relays_files: starting pass");
@@ -166,18 +167,36 @@ pub(crate) async fn prime_all_nip_relays_files(
     Ok(())
 }
 
-pub(crate) async fn run_sniper_service(client: reqwest::Client) {
+pub async fn run_sniper_service_with_shutdown(
+    client: reqwest::Client,
+    mut shutdown: oneshot::Receiver<()>,
+) {
     info!("starting sniper service");
+    if let Err(e) = prime_all_nip_relays_files(&client).await {
+        warn!("Sniper service failed: {}", e);
+    }
+
     let mut interval = tokio::time::interval(std::time::Duration::from_secs(300));
-    interval.tick().await;
 
     loop {
-        info!("run_sniper_service: triggering prime pass");
-        if let Err(e) = prime_all_nip_relays_files(&client).await {
-            warn!("Sniper service failed: {}", e);
+        tokio::select! {
+            _ = interval.tick() => {
+                info!("run_sniper_service: triggering prime pass");
+                if let Err(e) = prime_all_nip_relays_files(&client).await {
+                    warn!("Sniper service failed: {}", e);
+                }
+            }
+            _ = &mut shutdown => {
+                info!("stopping sniper service");
+                break;
+            }
         }
-        interval.tick().await;
     }
+}
+
+pub(crate) async fn run_sniper_service(client: reqwest::Client) {
+    let (_shutdown_tx, shutdown_rx) = oneshot::channel::<()>();
+    run_sniper_service_with_shutdown(client, shutdown_rx).await;
 }
 
 pub(crate) async fn refresh_nip_relays_files(
