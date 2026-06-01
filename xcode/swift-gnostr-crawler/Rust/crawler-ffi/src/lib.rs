@@ -7,6 +7,7 @@ use std::{
     time::Duration,
 };
 
+use log::{error, info, warn};
 use gnostr_crawler::{
     init_tracing,
     processor::{APP_SECRET_KEY, BOOTSTRAP_RELAYS, Processor},
@@ -186,16 +187,16 @@ async fn publish_text_note(request: PublishTextNoteRequest) -> Result<PublishedT
 
     let mut accepted_relays = Vec::new();
     for relay_url in request.relays {
-        eprintln!("========> crawler publish: trying relay {relay_url}");
+        info!("crawler publish: trying relay {relay_url}");
         let mut client = Client::new(&keys, Options::new());
         client.add_relays(vec![relay_url.clone()]).await.map_err(|error| error.to_string())?;
         match client.send_event(event.clone()).await {
             Ok(_) => {
-                eprintln!("======> crawler publish: relay accepted {relay_url}");
+                info!("crawler publish: relay accepted {relay_url}");
                 accepted_relays.push(relay_url);
             }
             Err(error) => {
-                eprintln!("========> crawler publish: relay failed {relay_url}: {error}");
+                warn!("crawler publish: relay failed {relay_url}: {error}");
             }
         }
     }
@@ -222,16 +223,16 @@ async fn publish_git_note(request: PublishGitNoteRequest) -> Result<PublishedGit
 
     let mut accepted_relays = Vec::new();
     for relay_url in request.relays {
-        eprintln!("=========> crawler publish: trying relay {relay_url}");
+        info!("crawler publish: trying relay {relay_url}");
         let mut client = Client::new(&keys, Options::new());
         client.add_relays(vec![relay_url.clone()]).await.map_err(|error| error.to_string())?;
         match client.send_event(event.clone()).await {
             Ok(_) => {
-                eprintln!("===========> crawler publish: relay accepted {relay_url}");
+                info!("crawler publish: relay accepted {relay_url}");
                 accepted_relays.push(relay_url);
             }
             Err(error) => {
-                eprintln!("=======> crawler publish: relay failed {relay_url}: {error}");
+                warn!("crawler publish: relay failed {relay_url}: {error}");
             }
         }
     }
@@ -273,7 +274,7 @@ fn ensure_tracing() {
     TRACING.get_or_init(|| {
         std::env::set_var("RUST_LOG", "debug");
         if let Err(error) = init_tracing() {
-            eprintln!("crawler tracing init failed: {}", error);
+            error!("crawler tracing init failed: {}", error);
         }
     });
 }
@@ -325,7 +326,7 @@ pub unsafe extern "C" fn crawler_runtime_start_json(request_json: *const c_char)
             .build();
 
         let Ok(runtime) = runtime else {
-            eprintln!("crawler runtime failed to build tokio runtime");
+            error!("crawler runtime failed to build tokio runtime");
             return;
         };
 
@@ -343,7 +344,7 @@ pub unsafe extern "C" fn crawler_runtime_start_json(request_json: *const c_char)
 
     match ready_rx.recv_timeout(Duration::from_secs(15)) {
         Ok(Ok(())) => {
-            eprintln!("crawler runtime start: ready on port {}", port);
+            info!("crawler runtime start: ready on port {}", port);
             *guard = Some(RuntimeHandle {
                 port,
                 stop_tx: Some(stop_tx),
@@ -357,13 +358,13 @@ pub unsafe extern "C" fn crawler_runtime_start_json(request_json: *const c_char)
             .unwrap()))
         }
         Ok(Err(error)) => {
-            eprintln!("crawler runtime start: failed ready on port {}: {}", port, error);
+            error!("crawler runtime start: failed ready on port {}: {}", port, error);
             let _ = stop_tx.send(());
             let _ = join.join();
             encode(&Envelope::<String>::err(format!("crawler runtime failed to start: {}", error)))
         }
         Err(_) => {
-            eprintln!("crawler runtime start: timed out on port {}", port);
+            warn!("crawler runtime start: timed out on port {}", port);
             let _ = stop_tx.send(());
             let _ = join.join();
             encode(&Envelope::<String>::err("crawler runtime start timed out"))
@@ -532,7 +533,7 @@ pub unsafe extern "C" fn crawler_crawl_start_json(_request_json: *const c_char) 
             .build();
 
         let Ok(runtime) = runtime else {
-            eprintln!("crawler crawl failed to build tokio runtime");
+            error!("crawler crawl failed to build tokio runtime");
             return;
         };
 
@@ -544,8 +545,8 @@ pub unsafe extern "C" fn crawler_crawl_start_json(_request_json: *const c_char) 
                 _ = stop_rx => Ok(()),
             };
             match result {
-                Ok(()) => eprintln!("crawler crawl stopped"),
-                Err(error) => eprintln!("crawler crawl failed: {}", error),
+                Ok(()) => info!("crawler crawl stopped"),
+                Err(error) => error!("crawler crawl failed: {}", error),
             }
         });
     });
