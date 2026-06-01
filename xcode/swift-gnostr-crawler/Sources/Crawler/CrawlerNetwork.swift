@@ -106,20 +106,20 @@ public final class CrawlerNetworkStore: ObservableObject {
         var errors: [String] = []
         let crawlerRuntime = RustCrawlerBridge.shared.crawlerRuntimeStatus()
         let crawlerCrawl = RustCrawlerBridge.shared.crawlerCrawlStatus()
-        let relayDiscovery: [RelayDiscoveryEntry]
-        do {
-            relayDiscovery = try await self.crawlerClient.relayDiscovery()
-        } catch {
-            relayDiscovery = []
-            errors.append("crawler discovery: \(error.localizedDescription)")
-        }
-
-        let (crawlerRootRelays, crawlerErrors) = await self.loadCrawlerRootRelays()
-        errors.append(contentsOf: crawlerErrors)
+        let crawlerRootRelays = self.loadCrawlerRootRelays()
         let p2pRootRelays = CrawlerNetworkFileSystem.loadRelayEntries(
             in: self.p2pConfigRoot,
             source: "p2p"
         )
+        var relayDiscovery: [RelayDiscoveryEntry] = []
+
+        if crawlerRuntime?.running == true {
+            do {
+                relayDiscovery = try await self.crawlerClient.relayDiscovery()
+            } catch {
+                errors.append("crawler discovery: \(error.localizedDescription)")
+            }
+        }
 
         self.snapshot = CrawlerNetworkSnapshot(
             refreshedAt: Date(),
@@ -142,10 +142,12 @@ public final class CrawlerNetworkStore: ObservableObject {
 
     public func startCrawlerServe() async {
         _ = RustCrawlerBridge.shared.startCrawlerRuntime()
+        _ = RustCrawlerBridge.shared.startCrawlerCrawl()
         await self.refresh()
     }
 
     public func stopCrawlerServe() async {
+        _ = RustCrawlerBridge.shared.stopCrawlerCrawl()
         _ = RustCrawlerBridge.shared.stopCrawlerRuntime()
         await self.refresh()
     }
@@ -155,10 +157,6 @@ public final class CrawlerNetworkStore: ObservableObject {
         self.isPolling = true
         self.pollingTask = Task { [weak self] in
             guard let self else { return }
-            if !self.didBootstrapCrawler {
-                self.didBootstrapCrawler = true
-                await self.bootstrapCrawler()
-            }
             await self.pollLoop()
         }
     }
@@ -179,45 +177,11 @@ public final class CrawlerNetworkStore: ObservableObject {
         }
     }
 
-    private func bootstrapCrawler() async {
-        guard RustCrawlerBridge.shared.isAvailable else { return }
-        _ = RustCrawlerBridge.shared.startCrawlerRuntime()
-        _ = RustCrawlerBridge.shared.startCrawlerCrawl()
-        await self.refresh()
-    }
-
-    private func loadCrawlerRootRelays() async -> ([String], [String]) {
-        var relays = Set<String>()
-        var errors: [String] = []
-
-        do {
-            let jsonRelays = try await self.crawlerClient.relaysJSON()
-            relays.formUnion(jsonRelays)
-        } catch {
-            errors.append("crawler relays.json: \(error.localizedDescription)")
-        }
-
-        do {
-            let yamlRelays = try await self.crawlerClient.relaysYAML()
-            relays.formUnion(CrawlerNetworkFileSystem.parseRelayEntries(
-                from: yamlRelays,
-                fileType: "yaml"
-            ))
-        } catch {
-            errors.append("crawler relays.yaml: \(error.localizedDescription)")
-        }
-
-        do {
-            let txtRelays = try await self.crawlerClient.relaysTXT()
-            relays.formUnion(CrawlerNetworkFileSystem.parseRelayEntries(
-                from: txtRelays,
-                fileType: "txt"
-            ))
-        } catch {
-            errors.append("crawler relays.txt: \(error.localizedDescription)")
-        }
-
-        return (relays.sorted(), errors)
+    private func loadCrawlerRootRelays() -> [String] {
+        CrawlerNetworkFileSystem.loadRelayEntries(
+            in: self.crawlerConfigRoot,
+            source: "crawler"
+        )
     }
 }
 
@@ -615,19 +579,6 @@ public struct CrawlerNetworkDashboard: View {
             .padding()
 
             VStack(alignment: .leading, spacing: 8) {
-                Text("Crawler Server")
-                    .font(.headline)
-                Text(self.store.baseURL.absoluteString)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                CrawlerServerWebView(url: self.store.baseURL)
-                    .frame(maxWidth: .infinity)
-                    .frame(minHeight: 320)
-                    .cornerRadius(12)
-            }
-            .padding([.horizontal, .bottom])
-
-            VStack(alignment: .leading, spacing: 8) {
                 Text("Relay Buckets")
                     .font(.headline)
                 Text("Local snapshot from crawler and P2P config files")
@@ -703,7 +654,7 @@ public struct CrawlerNetworkDashboard: View {
         }
         .onAppear {
             self.store.startPolling()
-            Task { await self.store.refresh() }
+            Task { await self.store.startCrawlerServe() }
         }
         .onDisappear {
             self.store.stopPolling()
