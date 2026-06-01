@@ -641,6 +641,41 @@ mod tests {
         assert!(loaded.get_missing_nodes().contains(&"ROOT.1".to_string()));
     }
 
+    #[test]
+    fn protocol_slice_json_round_trips_bytes_and_flags() {
+        let slice = ProtocolSlice {
+            id: "ROOT.0.P".to_string(),
+            header: Header {
+                seq_num: 7,
+                total_packets: 63,
+            },
+            data: vec![0x00, 0xFF, 0x10, 0x20],
+            is_parity: true,
+        };
+
+        let encoded = serde_json::to_string(&slice).expect("encode slice");
+        assert!(encoded.contains("\"id\":\"ROOT.0.P\""));
+        assert!(encoded.contains("\"is_parity\":true"));
+        assert!(encoded.contains("\"data\":[0,255,16,32]"));
+
+        let decoded: ProtocolSlice = serde_json::from_str(&encoded).expect("decode slice");
+        assert_eq!(decoded, slice);
+    }
+
+    #[test]
+    fn summarize_packets_shows_packet_inventory_details() {
+        let batch = packetize("ROOT".to_string(), vec![0xAB; 2000]);
+        let lines = summarize_packets(&batch.packets);
+
+        assert_eq!(lines.len(), batch.total_packets as usize);
+        assert!(lines.iter().any(|line| line.contains("ID: ROOT.P")));
+        assert!(lines
+            .iter()
+            .any(|line| line.contains(&format!("Seq: {:>2}/{}", 0, batch.total_packets))));
+        assert!(lines.iter().any(|line| line.contains("Type: DATA")));
+        assert!(lines.iter().any(|line| line.contains("Type: PARITY")));
+    }
+
     #[tokio::test]
     async fn build_fractal_swarm_accepts_quic_listen_address() {
         let keypair = keypair_from_seed(Some(
