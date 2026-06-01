@@ -707,20 +707,20 @@ mod tests {
         println!("perfect_ip packet batch json:");
         println!(
             "{}",
-            serde_json::to_string_pretty(&batch).expect("serialize packet batch")
+            serde_json::to_string(&batch).expect("serialize packet batch")
         );
 
         println!("perfect_ip first packet json:");
         println!(
             "{}",
-            serde_json::to_string_pretty(&batch.packets.first().expect("first packet"))
+            serde_json::to_string(&batch.packets.first().expect("first packet"))
                 .expect("serialize first packet")
         );
 
         println!("perfect_ip last packet json:");
         println!(
             "{}",
-            serde_json::to_string_pretty(&batch.packets.last().expect("last packet"))
+            serde_json::to_string(&batch.packets.last().expect("last packet"))
                 .expect("serialize last packet")
         );
 
