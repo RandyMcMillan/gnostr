@@ -1,6 +1,9 @@
 import Foundation
 import SwiftUI
 import RustyLib
+#if canImport(WebKit)
+import WebKit
+#endif
 
 @MainActor
 public final class CrawlerNetworkStore: ObservableObject {
@@ -50,11 +53,64 @@ public final class CrawlerNetworkStore: ObservableObject {
         self.status = status
         self.logs = logs
     }
+
+    public var serviceURL: URL {
+        URL(string: "http://127.0.0.1:\(port)/")!
+    }
 }
+
+struct CrawlerServiceWebView: View {
+    let url: URL
+
+    var body: some View {
+        #if canImport(WebKit)
+        WebView(url: url)
+        #else
+        Text("Web view is unavailable on this platform.")
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        #endif
+    }
+}
+
+#if canImport(WebKit)
+    #if os(macOS)
+struct WebView: NSViewRepresentable {
+    let url: URL
+
+    func makeNSView(context: Context) -> WKWebView {
+        WKWebView()
+    }
+
+    func updateNSView(_ nsView: WKWebView, context: Context) {
+        let request = URLRequest(url: url)
+        if nsView.url != url {
+            nsView.load(request)
+        }
+    }
+}
+#elseif os(iOS) || os(tvOS) || os(visionOS)
+struct WebView: UIViewRepresentable {
+    let url: URL
+
+    func makeUIView(context: Context) -> WKWebView {
+        WKWebView()
+    }
+
+    func updateUIView(_ uiView: WKWebView, context: Context) {
+        let request = URLRequest(url: url)
+        if uiView.url != url {
+            uiView.load(request)
+        }
+    }
+}
+#endif
+#endif
 
 public struct CrawlerNetworkDashboard: View {
     @ObservedObject var store: CrawlerNetworkStore
     @State private var logFontSize: CGFloat = 12
+    @State private var webViewID = UUID()
+    @Environment(\.dismiss) private var dismiss
 
     public init(store: CrawlerNetworkStore) {
         self.store = store
@@ -65,10 +121,15 @@ public struct CrawlerNetworkDashboard: View {
             header
             Divider()
             logBody
+            Divider()
+            webBody
         }
         .background(.background)
         .task {
             await self.store.refresh()
+        }
+        .onChange(of: store.status) { _ in
+            webViewID = UUID()
         }
     }
 
@@ -94,6 +155,9 @@ public struct CrawlerNetworkDashboard: View {
             Button("Refresh") {
                 Task { await store.refresh() }
             }
+            Button("Done") {
+                dismiss()
+            }
         }
         .padding()
         .background(.regularMaterial)
@@ -115,5 +179,20 @@ public struct CrawlerNetworkDashboard: View {
                 }
             }
         }
+    }
+
+    private var webBody: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Crawler Web Page")
+                .font(.headline)
+                .padding(.horizontal)
+                .padding(.top, 8)
+
+            CrawlerServiceWebView(url: store.serviceURL)
+                .id(webViewID)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(.secondary.opacity(0.08))
+        }
+        .frame(minHeight: 260)
     }
 }
