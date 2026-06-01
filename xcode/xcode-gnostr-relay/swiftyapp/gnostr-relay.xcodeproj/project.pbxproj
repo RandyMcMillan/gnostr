@@ -13,7 +13,6 @@
 		291DE53B2C3DE74F007F9706 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 291DE53A2C3DE74F007F9706 /* Preview Assets.xcassets */; };
 		2986A2E32C3F8FA200D13583 /* RustyLib in Frameworks */ = {isa = PBXBuildFile; productRef = 2986A2E22C3F8FA200D13583 /* RustyLib */; };
 		4BA045532FC3D20000FE5E85 /* Crawler in Frameworks */ = {isa = PBXBuildFile; productRef = 4BA045572FC3D20000FE5E85 /* Crawler */; };
-		4BA045512FC3CFAC00FE5E85 /* swiftyrustlib in Resources */ = {isa = PBXBuildFile; fileRef = 2986A2E02C3F8F9800D13583 /* swiftyrustlib */; };
 		4BA045522FC3D11F00FE5E85 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2986A2E52C3F8FA200D13583 /* SystemConfiguration.framework */; };
 /* End PBXBuildFile section */
 
@@ -23,7 +22,6 @@
 		291DE5352C3DE74F007F9706 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		291DE5372C3DE74F007F9706 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		291DE53A2C3DE74F007F9706 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
-		2986A2E02C3F8F9800D13583 /* swiftyrustlib */ = {isa = PBXFileReference; lastKnownFileType = wrapper; path = swiftyrustlib; sourceTree = "<group>"; };
 		2986A2E52C3F8FA200D13583 /* SystemConfiguration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemConfiguration.framework; path = System/Library/Frameworks/SystemConfiguration.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
@@ -53,7 +51,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "set -eu\n\nrm -f \"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/libcrawler_ffi.dylib\"\n";
+			shellScript = "set -eu\n";
 		};
 		4BA045592FC3D20000FE5E85 /* Build crawler FFI */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -80,7 +78,6 @@
 		291DE5272C3DE74F007F9706 = {
 			isa = PBXGroup;
 			children = (
-				29603C272C3F8BB900B29635 /* Lib */,
 				291DE5322C3DE74F007F9706 /* swiftyapp */,
 				291DE5312C3DE74F007F9706 /* Products */,
 				291DE5412C3DE809007F9706 /* Frameworks */,
@@ -120,14 +117,6 @@
 				2986A2E52C3F8FA200D13583 /* SystemConfiguration.framework */,
 			);
 			name = Frameworks;
-			sourceTree = "<group>";
-		};
-		29603C272C3F8BB900B29635 /* Lib */ = {
-			isa = PBXGroup;
-			children = (
-				2986A2E02C3F8F9800D13583 /* swiftyrustlib */,
-			);
-			path = Lib;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -181,7 +170,7 @@
 			);
 			mainGroup = 291DE5272C3DE74F007F9706;
 			packageReferences = (
-				2986A2E62C3F8FA200D13583 /* XCLocalSwiftPackageReference "../Lib/swiftyrustlib" */,
+				2986A2E62C3F8FA200D13583 /* XCLocalSwiftPackageReference "Lib/swiftyrustlib" */,
 				4BA045562FC3D20000FE5E85 /* XCLocalSwiftPackageReference "../../../swift-gnostr-crawler" */,
 			);
 			productRefGroup = 291DE5312C3DE74F007F9706 /* Products */;
@@ -198,7 +187,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				4BA045512FC3CFAC00FE5E85 /* swiftyrustlib in Resources */,
 				291DE53B2C3DE74F007F9706 /* Preview Assets.xcassets in Resources */,
 				291DE5382C3DE74F007F9706 /* Assets.xcassets in Resources */,
 			);
@@ -455,16 +443,16 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		2986A2E62C3F8FA200D13583 /* XCLocalSwiftPackageReference "../Lib/swiftyrustlib" */ = {
+		2986A2E62C3F8FA200D13583 /* XCLocalSwiftPackageReference "Lib/swiftyrustlib" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = ../Lib/swiftyrustlib;
+			relativePath = Lib/swiftyrustlib;
 		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
 		2986A2E22C3F8FA200D13583 /* RustyLib */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 2986A2E62C3F8FA200D13583 /* XCLocalSwiftPackageReference "../Lib/swiftyrustlib" */;
+			package = 2986A2E62C3F8FA200D13583 /* XCLocalSwiftPackageReference "Lib/swiftyrustlib" */;
 			productName = RustyLib;
 		};
 		4BA045572FC3D20000FE5E85 /* Crawler */ = {
