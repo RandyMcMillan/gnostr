@@ -9254,6 +9254,7 @@ dependencies = [
  "gnostr-crawler",
  "gnostr-p2p",
  "gnostr-relay",
+ "reqwest",
  "tokio",
  "uniffi",
 ]

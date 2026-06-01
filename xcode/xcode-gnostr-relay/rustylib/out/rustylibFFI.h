@@ -309,6 +309,30 @@ RustBuffer uniffi_rustylib_fn_func_rust_hello(RustCallStatus *_Nonnull out_statu
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_FN_FUNC_SNIPER_SERVICE_LOGS
+#define UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_FN_FUNC_SNIPER_SERVICE_LOGS
+RustBuffer uniffi_rustylib_fn_func_sniper_service_logs(RustCallStatus *_Nonnull out_status
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_FN_FUNC_SNIPER_SERVICE_START
+#define UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_FN_FUNC_SNIPER_SERVICE_START
+RustBuffer uniffi_rustylib_fn_func_sniper_service_start(RustCallStatus *_Nonnull out_status
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_FN_FUNC_SNIPER_SERVICE_STATUS
+#define UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_FN_FUNC_SNIPER_SERVICE_STATUS
+RustBuffer uniffi_rustylib_fn_func_sniper_service_status(RustCallStatus *_Nonnull out_status
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_FN_FUNC_SNIPER_SERVICE_STOP
+#define UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_FN_FUNC_SNIPER_SERVICE_STOP
+RustBuffer uniffi_rustylib_fn_func_sniper_service_stop(RustCallStatus *_Nonnull out_status
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_FFI_RUSTYLIB_RUSTBUFFER_ALLOC
 #define UNIFFI_FFIDEF_FFI_RUSTYLIB_RUSTBUFFER_ALLOC
 RustBuffer ffi_rustylib_rustbuffer_alloc(uint64_t size, RustCallStatus *_Nonnull out_status
@@ -646,6 +670,30 @@ uint16_t uniffi_rustylib_checksum_func_rust_add(void
 #ifndef UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_CHECKSUM_FUNC_RUST_HELLO
 #define UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_CHECKSUM_FUNC_RUST_HELLO
 uint16_t uniffi_rustylib_checksum_func_rust_hello(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_CHECKSUM_FUNC_SNIPER_SERVICE_LOGS
+#define UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_CHECKSUM_FUNC_SNIPER_SERVICE_LOGS
+uint16_t uniffi_rustylib_checksum_func_sniper_service_logs(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_CHECKSUM_FUNC_SNIPER_SERVICE_START
+#define UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_CHECKSUM_FUNC_SNIPER_SERVICE_START
+uint16_t uniffi_rustylib_checksum_func_sniper_service_start(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_CHECKSUM_FUNC_SNIPER_SERVICE_STATUS
+#define UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_CHECKSUM_FUNC_SNIPER_SERVICE_STATUS
+uint16_t uniffi_rustylib_checksum_func_sniper_service_status(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_CHECKSUM_FUNC_SNIPER_SERVICE_STOP
+#define UNIFFI_FFIDEF_UNIFFI_RUSTYLIB_CHECKSUM_FUNC_SNIPER_SERVICE_STOP
+uint16_t uniffi_rustylib_checksum_func_sniper_service_stop(void
     
 );
 #endif
