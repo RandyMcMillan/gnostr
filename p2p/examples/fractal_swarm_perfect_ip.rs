@@ -198,11 +198,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         }
 
         if !root.is_dir() {
-            return Err(format!(
-                "{} must be a directory when --recursive is set",
-                root.display()
-            )
-            .into());
+            usage();
+            return Ok(());
         }
 
         println!("recursive walk root: {}", root.display());
