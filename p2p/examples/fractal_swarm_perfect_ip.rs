@@ -1,10 +1,14 @@
-use std::{fs, path::PathBuf};
+use std::{
+    fs,
+    io,
+    path::{Path, PathBuf},
+};
 
 use futures::StreamExt;
 use gnostr_p2p::keypair_from_seed;
 use gnostr_p2p::perfect_ip::{
-    build_fractal_swarm, calculate_parity, generate_manifest, packetize, summarize_packets,
-    FractalBehaviourEvent, IntegrityManager, ProtocolSlice, MTU_PAYLOAD,
+    build_fractal_swarm, generate_manifest, packetize, summarize_packets, FractalBehaviourEvent,
+    IntegrityManager, ProtocolSlice,
 };
 use libp2p::{request_response, swarm::SwarmEvent};
 use sha2::{Digest, Sha256};
@@ -12,27 +16,27 @@ use sha2::{Digest, Sha256};
 #[derive(Debug)]
 struct DemoArgs {
     file: Option<PathBuf>,
-    recursive: bool,
+    recursive: Option<PathBuf>,
     depth: usize,
     help: bool,
 }
 
 fn usage() {
     println!(
-        "Usage: fractal_swarm_perfect_ip [--file PATH] [--recursive] [--depth N] [--help]\n\
+        "Usage: fractal_swarm_perfect_ip [--file PATH] [--recursive PATH] [--depth N] [--help]\n\
          \n\
          Options:\n\
            --file PATH       Read input from PATH instead of generating example.bin\n\
-           --recursive       Print a recursive packet tree before the flat packet summary\n\
-           --depth N         Limit recursive tree printing to N levels [default: 3]\n\
+           --recursive PATH   Walk PATH as a directory tree and preserve relative paths\n\
+           --depth N         Limit recursive directory walking to N levels [default: 3]\n\
            --help            Show this help message\n"
     );
 }
 
 fn parse_args() -> DemoArgs {
-    let mut args = std::env::args().skip(1);
+    let mut args = std::env::args().skip(1).peekable();
     let mut file = None;
-    let mut recursive = false;
+    let mut recursive = None;
     let mut depth = 3usize;
     let mut help = false;
 
@@ -40,15 +44,38 @@ fn parse_args() -> DemoArgs {
         if arg == "--help" || arg == "-h" {
             help = true;
         } else if arg == "--recursive" {
-            recursive = true;
+            recursive = match args.peek() {
+                Some(next) if !next.starts_with('-') => args.next().map(PathBuf::from),
+                _ => {
+                    help = true;
+                    None
+                }
+            };
+        } else if let Some(path) = arg.strip_prefix("--recursive=") {
+            recursive = Some(PathBuf::from(path));
         } else if let Some(path) = arg.strip_prefix("--file=") {
             file = Some(PathBuf::from(path));
         } else if arg == "--file" {
-            file = args.next().map(PathBuf::from);
+            file = match args.peek() {
+                Some(next) if !next.starts_with('-') => args.next().map(PathBuf::from),
+                _ => {
+                    help = true;
+                    None
+                }
+            };
         } else if let Some(value) = arg.strip_prefix("--depth=") {
             depth = value.parse().unwrap_or(3);
         } else if arg == "--depth" {
-            depth = args.next().and_then(|value| value.parse().ok()).unwrap_or(3);
+            depth = match args.peek() {
+                Some(next) if !next.starts_with('-') => args
+                    .next()
+                    .and_then(|value| value.parse().ok())
+                    .unwrap_or(3),
+                _ => {
+                    help = true;
+                    3
+                }
+            };
         } else {
             eprintln!("unrecognized argument: {arg}");
             help = true;
@@ -77,28 +104,54 @@ fn reconstruct_payload(packets: &[ProtocolSlice]) -> Vec<u8> {
         .collect()
 }
 
-fn packet_tree_lines(id: &str, data: &[u8], depth: usize, level: usize, lines: &mut Vec<String>) {
-    let indent = "  ".repeat(level);
-    lines.push(format!("{indent}{id} ({}B)", data.len()));
-
-    if depth == 0 || data.len() <= MTU_PAYLOAD / 2 {
-        return;
+fn list_directory(root: &Path, current: &Path, depth: usize, level: usize, lines: &mut Vec<String>) -> io::Result<()> {
+    if level == 0 {
+        lines.push(".".to_string());
     }
 
-    let half = data.len() / 2;
-    let left = &data[..half];
-    let right = &data[half..];
-    let parity = calculate_parity(left, right);
+    let mut entries = Vec::new();
+    for entry in fs::read_dir(current)? {
+        entries.push(entry?);
+    }
+    entries.sort_by_key(|entry| entry.file_name());
 
-    packet_tree_lines(&format!("{id}.0"), left, depth - 1, level + 1, lines);
-    packet_tree_lines(&format!("{id}.1"), right, depth - 1, level + 1, lines);
-    lines.push(format!("{indent}{id}.P ({}B parity)", parity.len()));
+    for entry in entries {
+        let path = entry.path();
+        let relative = path
+            .strip_prefix(root)
+            .unwrap_or(&path)
+            .to_path_buf();
+        let indent = "  ".repeat(level + 1);
+        let metadata = entry.metadata()?;
+
+        if metadata.is_dir() {
+            lines.push(format!("{indent}{}/", relative.display()));
+            if level < depth {
+                list_directory(root, &path, depth, level + 1, lines)?;
+            }
+        } else if metadata.is_file() {
+            let bytes = fs::read(&path)?;
+            lines.push(format!(
+                "{indent}{} ({}B sha256:{})",
+                relative.display(),
+                bytes.len(),
+                sha256_hex(&bytes)
+            ));
+        } else {
+            lines.push(format!("{indent}{} [special]", relative.display()));
+        }
+    }
+
+    Ok(())
 }
 
-fn recursive_tree_lines(id: &str, data: &[u8], depth: usize) -> Vec<String> {
+fn print_directory_walk(path: &Path, depth: usize) -> io::Result<()> {
     let mut lines = Vec::new();
-    packet_tree_lines(id, data, depth, 0, &mut lines);
-    lines
+    list_directory(path, path, depth, 0, &mut lines)?;
+    for line in lines {
+        println!("{line}");
+    }
+    Ok(())
 }
 
 fn input_file_path(file: Option<PathBuf>) -> PathBuf {
@@ -110,6 +163,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let args = parse_args();
     if args.help {
         usage();
+        return Ok(());
+    }
+
+    if let Some(root) = args.recursive {
+        if !root.is_dir() {
+            return Err(format!("{} is not a directory", root.display()).into());
+        }
+
+        println!("recursive walk root: {}", root.display());
+        println!("recursive depth: {}", args.depth);
+        print_directory_walk(&root, args.depth)?;
         return Ok(());
     }
 
@@ -128,13 +192,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     println!("sender wrote {}", example_path.display());
     println!("sender sha256: {original_sha256}");
-
-    if args.recursive {
-        for line in recursive_tree_lines("ROOT", &original_bytes, args.depth) {
-            println!("{line}");
-        }
-    }
-
     println!("perfect_ip packet batch: {} packets", batch.total_packets);
     for line in summarize_packets(&batch.packets) {
         println!("{line}");
