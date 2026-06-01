@@ -140,6 +140,16 @@ public final class CrawlerNetworkStore: ObservableObject {
         )
     }
 
+    public func startCrawlerServe() async {
+        _ = RustCrawlerBridge.shared.startCrawlerRuntime()
+        await self.refresh()
+    }
+
+    public func stopCrawlerServe() async {
+        _ = RustCrawlerBridge.shared.stopCrawlerRuntime()
+        await self.refresh()
+    }
+
     public func startPolling() {
         guard self.pollingTask == nil else { return }
         self.isPolling = true
@@ -501,6 +511,22 @@ public struct CrawlerNetworkDashboard: View {
                     statusRow(title: "crawler runtime", state: self.store.snapshot.crawlerRuntime)
                     statusRow(title: "crawler crawl", state: self.store.snapshot.crawlerCrawl)
                     Text("refreshed \(Self.format(date: self.store.snapshot.refreshedAt))")
+                }
+
+                Section(header: Text("Serve")) {
+                    HStack {
+                        Button("Start Serve") {
+                            Task { await self.store.startCrawlerServe() }
+                        }
+                        .disabled(self.store.snapshot.crawlerRuntime?.running == true)
+
+                        Button("Stop Serve") {
+                            Task { await self.store.stopCrawlerServe() }
+                        }
+                        .disabled(self.store.snapshot.crawlerRuntime?.running != true)
+                    }
+                    Text(self.store.snapshot.crawlerRuntime?.message ?? "crawler runtime not running")
+                        .font(.caption)
                 }
 
                 Section(header: Text("Logs")) {
