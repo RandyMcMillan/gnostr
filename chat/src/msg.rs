@@ -70,7 +70,7 @@ impl Default for Msg {
             from: USER_NAME.clone(),
             content: vec!["".to_string(), "".to_string()],
             kind: MsgKind::Chat,
-            commit_id: CommitId::new(Oid::zero()),
+            commit_id: CommitId::new(Oid::ZERO_SHA1),
             nostr_event: None,
             message_id: None,
             sequence_num: None,
