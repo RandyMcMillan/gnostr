@@ -41,6 +41,7 @@ pub use api::{
     run_api_server_detached,
     run_api_server_with_shutdown,
     run_api_server_with_shutdown_and_ready,
+    run_sniper_service_with_shutdown,
 };
 pub use commands::{run_nip34, run_sniper, run_watch};
 pub use relay_metadata::Relay;
