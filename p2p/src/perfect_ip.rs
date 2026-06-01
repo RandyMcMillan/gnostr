@@ -187,7 +187,7 @@ pub async fn build_fractal_swarm(
 pub async fn run_fractal_engine(
     local_key: libp2p::identity::Keypair,
     listen_address: libp2p::Multiaddr,
-    mut manager: IntegrityManager,
+    manager: IntegrityManager,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     let mut swarm = build_fractal_swarm(local_key).await?;
     swarm.listen_on(listen_address)?;
