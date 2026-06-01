@@ -510,6 +510,12 @@ public func rustHello() -> String {
     })
 }
 
+public func sniperServiceLifecycle() -> String {
+    return try! FfiConverterString.lift(try! rustCall {
+        uniffi_rustylib_fn_func_sniper_service_lifecycle($0)
+    })
+}
+
 public func sniperServiceLogs() -> String {
     return try! FfiConverterString.lift(try! rustCall {
         uniffi_rustylib_fn_func_sniper_service_logs($0)
@@ -578,6 +584,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_rustylib_checksum_func_rust_hello() != 11814 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_rustylib_checksum_func_sniper_service_lifecycle() != 27205 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_rustylib_checksum_func_sniper_service_logs() != 22480 {
