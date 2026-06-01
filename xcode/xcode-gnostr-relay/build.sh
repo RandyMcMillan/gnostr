@@ -7,6 +7,23 @@ export PATH="${HOME}/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "${SCRIPT_DIR}"
 
+CLEAN=false
+for arg in "$@"; do
+    case "${arg}" in
+        --clean)
+            CLEAN=true
+            ;;
+        -h|--help)
+            echo "Usage: $(basename "$0") [--clean]" >&2
+            exit 0
+            ;;
+        *)
+            echo "Unknown argument: ${arg}" >&2
+            exit 1
+            ;;
+    esac
+done
+
 MY_CRATE=rustylib
 SWIFT_APP=swiftyapp
 SWIFT_PROJECT=swiftyrustlib
@@ -56,7 +73,9 @@ module ${MY_CRATE}FFI {
 }
 EOF
 
-rm -rf "${OUTDIR}/${MY_CRATE}_framework.xcframework"
+if [ "${CLEAN}" = true ]; then
+    rm -rf "${OUTDIR}/${MY_CRATE}_framework.xcframework"
+fi
 
 xcodebuild -create-xcframework \
     -library "${TARGETDIR}/aarch64-apple-ios/${RELDIR}/${STATIC_LIB_NAME}" -headers "${NEW_HEADER_DIR}" \
