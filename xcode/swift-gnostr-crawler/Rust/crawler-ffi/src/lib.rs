@@ -259,6 +259,7 @@ struct CrawlHandle {
 
 static RUNTIME: OnceLock<Mutex<Option<RuntimeHandle>>> = OnceLock::new();
 static CRAWL_RUNTIME: OnceLock<Mutex<Option<CrawlHandle>>> = OnceLock::new();
+static TRACING: OnceLock<()> = OnceLock::new();
 
 fn runtime_slot() -> &'static Mutex<Option<RuntimeHandle>> {
     RUNTIME.get_or_init(|| Mutex::new(None))
@@ -266,6 +267,15 @@ fn runtime_slot() -> &'static Mutex<Option<RuntimeHandle>> {
 
 fn crawl_runtime_slot() -> &'static Mutex<Option<CrawlHandle>> {
     CRAWL_RUNTIME.get_or_init(|| Mutex::new(None))
+}
+
+fn ensure_tracing() {
+    TRACING.get_or_init(|| {
+        std::env::set_var("RUST_LOG", "debug");
+        if let Err(error) = init_tracing() {
+            eprintln!("crawler tracing init failed: {}", error);
+        }
+    });
 }
 
 unsafe fn read_c_string<'a>(ptr: *const c_char) -> Result<&'a str, String> {
@@ -284,6 +294,7 @@ pub unsafe extern "C" fn crawler_string_free(ptr: *mut c_char) {
 
 #[no_mangle]
 pub unsafe extern "C" fn crawler_runtime_start_json(request_json: *const c_char) -> *mut c_char {
+    ensure_tracing();
     let request_json = match read_c_string(request_json) {
         Ok(value) => value,
         Err(error) => return encode(&Envelope::<String>::err(error)),
@@ -304,12 +315,6 @@ pub unsafe extern "C" fn crawler_runtime_start_json(request_json: *const c_char)
         ))
         .unwrap()));
     }
-
-    std::env::set_var("RUST_LOG", "debug");
-    if let Err(error) = init_tracing() {
-        eprintln!("crawler runtime tracing init: {}", error);
-    }
-    eprintln!("crawler runtime start: tracing initialized for port {}", port);
 
     let (stop_tx, stop_rx) = oneshot::channel::<()>();
     let (ready_tx, ready_rx) = mpsc::channel::<Result<(), String>>();
@@ -370,6 +375,7 @@ pub unsafe extern "C" fn crawler_runtime_start_json(request_json: *const c_char)
 pub unsafe extern "C" fn crawler_generate_git_note_event_json(
     request_json: *const c_char,
 ) -> *mut c_char {
+    ensure_tracing();
     let request_json = match read_c_string(request_json) {
         Ok(value) => value,
         Err(error) => return encode(&Envelope::<String>::err(error)),
@@ -390,6 +396,7 @@ pub unsafe extern "C" fn crawler_generate_git_note_event_json(
 pub unsafe extern "C" fn crawler_generate_text_note_event_json(
     request_json: *const c_char,
 ) -> *mut c_char {
+    ensure_tracing();
     let request_json = match read_c_string(request_json) {
         Ok(value) => value,
         Err(error) => return encode(&Envelope::<String>::err(error)),
@@ -410,6 +417,7 @@ pub unsafe extern "C" fn crawler_generate_text_note_event_json(
 pub unsafe extern "C" fn crawler_publish_text_note_json(
     request_json: *const c_char,
 ) -> *mut c_char {
+    ensure_tracing();
     let request_json = match read_c_string(request_json) {
         Ok(value) => value,
         Err(error) => return encode(&Envelope::<String>::err(error)),
@@ -439,6 +447,7 @@ pub unsafe extern "C" fn crawler_publish_text_note_json(
 pub unsafe extern "C" fn crawler_publish_git_note_json(
     request_json: *const c_char,
 ) -> *mut c_char {
+    ensure_tracing();
     let request_json = match read_c_string(request_json) {
         Ok(value) => value,
         Err(error) => return encode(&Envelope::<String>::err(error)),
@@ -466,6 +475,7 @@ pub unsafe extern "C" fn crawler_publish_git_note_json(
 
 #[no_mangle]
 pub unsafe extern "C" fn crawler_runtime_stop_json(_request_json: *const c_char) -> *mut c_char {
+    ensure_tracing();
     let slot = runtime_slot();
     let mut guard = slot.lock().unwrap();
     let Some(mut handle) = guard.take() else {
@@ -491,6 +501,7 @@ pub unsafe extern "C" fn crawler_runtime_stop_json(_request_json: *const c_char)
 
 #[no_mangle]
 pub unsafe extern "C" fn crawler_runtime_status_json(_request_json: *const c_char) -> *mut c_char {
+    ensure_tracing();
     let slot = runtime_slot();
     let guard = slot.lock().unwrap();
     let state = guard.as_ref().map(|handle| {
@@ -501,6 +512,7 @@ pub unsafe extern "C" fn crawler_runtime_status_json(_request_json: *const c_cha
 
 #[no_mangle]
 pub unsafe extern "C" fn crawler_crawl_start_json(_request_json: *const c_char) -> *mut c_char {
+    ensure_tracing();
     let slot = crawl_runtime_slot();
     let mut guard = slot.lock().unwrap();
     if guard.is_some() {
@@ -510,12 +522,6 @@ pub unsafe extern "C" fn crawler_crawl_start_json(_request_json: *const c_char) 
         ))
         .unwrap()));
     }
-
-    std::env::set_var("RUST_LOG", "debug");
-    if let Err(error) = init_tracing() {
-        eprintln!("crawler crawl tracing init: {}", error);
-    }
-    eprintln!("crawler crawl start: tracing initialized");
 
     let (stop_tx, stop_rx) = oneshot::channel::<()>();
     let (ready_tx, ready_rx) = mpsc::channel::<Result<(), String>>();
@@ -571,6 +577,7 @@ pub unsafe extern "C" fn crawler_crawl_start_json(_request_json: *const c_char) 
 
 #[no_mangle]
 pub unsafe extern "C" fn crawler_crawl_stop_json(_request_json: *const c_char) -> *mut c_char {
+    ensure_tracing();
     let slot = crawl_runtime_slot();
     let mut guard = slot.lock().unwrap();
     let Some(mut handle) = guard.take() else {
@@ -596,6 +603,7 @@ pub unsafe extern "C" fn crawler_crawl_stop_json(_request_json: *const c_char) -
 
 #[no_mangle]
 pub unsafe extern "C" fn crawler_crawl_status_json(_request_json: *const c_char) -> *mut c_char {
+    ensure_tracing();
     let slot = crawl_runtime_slot();
     let guard = slot.lock().unwrap();
     let state = if guard.is_some() {
@@ -608,6 +616,7 @@ pub unsafe extern "C" fn crawler_crawl_status_json(_request_json: *const c_char)
 
 #[no_mangle]
 pub unsafe extern "C" fn crawler_build_gnostr_query_json(request_json: *const c_char) -> *mut c_char {
+    ensure_tracing();
     let request_json = match read_c_string(request_json) {
         Ok(value) => value,
         Err(error) => return encode(&Envelope::<String>::err(error)),
@@ -642,6 +651,7 @@ pub unsafe extern "C" fn crawler_build_gnostr_query_json(request_json: *const c_
 
 #[no_mangle]
 pub unsafe extern "C" fn crawler_websocket_http_url_json(url: *const c_char) -> *mut c_char {
+    ensure_tracing();
     let url = match read_c_string(url) {
         Ok(value) => value,
         Err(error) => return encode(&Envelope::<String>::err(error)),
@@ -652,6 +662,7 @@ pub unsafe extern "C" fn crawler_websocket_http_url_json(url: *const c_char) -> 
 
 #[no_mangle]
 pub unsafe extern "C" fn crawler_roundtrip_relay_metadata_json(relay_json: *const c_char) -> *mut c_char {
+    ensure_tracing();
     let relay_json = match read_c_string(relay_json) {
         Ok(value) => value,
         Err(error) => return encode(&Envelope::<String>::err(error)),

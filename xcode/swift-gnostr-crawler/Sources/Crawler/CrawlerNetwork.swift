@@ -382,6 +382,7 @@ public enum CrawlerNetworkFileSystem {
 
 public struct CrawlerNetworkDashboard: View {
     @ObservedObject private var store: CrawlerNetworkStore
+    @StateObject private var logStore = CrawlerLogStore(maxLines: 200)
     @Environment(\.presentationMode) private var presentationMode
 
     public init(store: CrawlerNetworkStore) {
@@ -414,6 +415,20 @@ public struct CrawlerNetworkDashboard: View {
                     statusRow(title: "crawler runtime", state: self.store.snapshot.crawlerRuntime)
                     statusRow(title: "crawler crawl", state: self.store.snapshot.crawlerCrawl)
                     Text("refreshed \(Self.format(date: self.store.snapshot.refreshedAt))")
+                }
+
+                Section(header: Text("Logs")) {
+                    if self.logStore.lines.isEmpty {
+                        Text("No crawler logs yet.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    } else {
+                        ForEach(Array(self.logStore.lines.enumerated()), id: \.offset) { _, line in
+                            Text(line)
+                                .font(.caption.monospaced())
+                                .textSelection(.enabled)
+                        }
+                    }
                 }
 
                 if !self.store.snapshot.relayDiscovery.isEmpty {

@@ -280,12 +280,11 @@ private enum LiveRelayTestError: Error {
         bridge.onLogLine = previous
     }
 
-    var received: [String] = []
-    bridge.onLogLine = { line in
-        received.append(line)
-    }
+    let store = CrawlerLogStore(maxLines: 10, bindImmediately: false)
+    store.bind()
     bridge.onLogLine?("crawler log line")
-    #expect(received == ["crawler log line"])
+    try await Task.sleep(nanoseconds: 50_000_000)
+    #expect(store.lines.first == "crawler log line")
 }
 
 @Test func crawlerQueryParametersMakeFilterMatchesWireShape() throws {
