@@ -104,6 +104,7 @@ struct ContentView: View {
                     .font(.title3.weight(.semibold))
                     .padding(10)
                     .background(.thinMaterial, in: Circle())
+                    .foregroundStyle(serviceIconColor(for: networkStatus))
                     .shadow(radius: 2)
             }
             .accessibilityLabel("P2P settings")
@@ -247,6 +248,17 @@ struct ContentView: View {
 
     private func adjustLogFontSize(by delta: CGFloat) {
         logFontSize = min(24, max(10, logFontSize + delta))
+    }
+
+    private func serviceIconColor(for status: String) -> Color {
+        let lowercased = status.lowercased()
+        if lowercased.contains("running") {
+            return .green
+        }
+        if lowercased.contains("starting") || lowercased.contains("stopping") {
+            return .yellow
+        }
+        return .red
     }
 }
 
