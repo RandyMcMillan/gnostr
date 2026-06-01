@@ -11,9 +11,13 @@
 //! `perfect_ip.rs` gist.
 
 use std::collections::{HashMap, HashSet};
+use std::io;
+use std::path::Path;
+
+use serde::{Deserialize, Serialize};
 
 /// Packet header metadata shared by all packet types in the tree.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Header {
     /// Monotonic sequence number assigned during packetization.
     pub seq_num: u32,
@@ -25,7 +29,7 @@ pub struct Header {
 ///
 /// `is_parity` marks parity frames that describe the XOR of sibling payloads.
 /// `id` carries the recursive path for the packet, such as `ROOT.0.1.P`.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProtocolSlice {
     /// Stable recursive packet identifier.
     pub id: String,
@@ -41,7 +45,7 @@ pub struct ProtocolSlice {
 ///
 /// `total_packets` is duplicated here so callers can inspect batch metadata
 /// without walking the packet list.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PacketBatch {
     /// Number of packets in the batch.
     pub total_packets: u32,
@@ -68,6 +72,27 @@ impl IntegrityManager {
     /// Record a received packet by id, replacing any prior packet with the same id.
     pub fn record_slice(&mut self, slice: ProtocolSlice) {
         self.received_slices.insert(slice.id.clone(), slice);
+    }
+
+    /// Persist the received packet map to disk using bincode.
+    pub fn persist(&self, path: impl AsRef<Path>) -> io::Result<()> {
+        let encoded = bincode::serialize(&self.received_slices)
+            .map_err(|error| io::Error::new(io::ErrorKind::Other, error))?;
+        std::fs::write(path, encoded)
+    }
+
+    /// Load a persisted packet map from disk and attach it to the given manifest.
+    pub fn load_from_disk(
+        path: impl AsRef<Path>,
+        manifest: HashSet<String>,
+    ) -> io::Result<Self> {
+        let bytes = std::fs::read(path)?;
+        let received_slices: HashMap<String, ProtocolSlice> =
+            bincode::deserialize(&bytes).map_err(|error| io::Error::new(io::ErrorKind::Other, error))?;
+        Ok(Self {
+            manifest,
+            received_slices,
+        })
     }
 
     /// Return the packet ids from the manifest that are still missing.
@@ -249,6 +274,7 @@ pub fn summarize_packets(packets: &[ProtocolSlice]) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tempfile::NamedTempFile;
 
     #[test]
     fn process_slice_emits_parity_and_data() {
@@ -395,5 +421,51 @@ mod tests {
             .expect("parity slice")
             .data[0] ^= 0xFF;
         assert!(!corrupted.verify_integrity());
+    }
+
+    #[test]
+    fn persist_and_load_from_disk_round_trips_received_slices() {
+        let temp = NamedTempFile::new().expect("temp file");
+        let mut manager = IntegrityManager::new(vec![
+            "ROOT.0".to_string(),
+            "ROOT.1".to_string(),
+            "ROOT.P".to_string(),
+        ]);
+        manager.record_slice(ProtocolSlice {
+            id: "ROOT.0".to_string(),
+            header: Header {
+                seq_num: 0,
+                total_packets: 3,
+            },
+            data: vec![0xDE, 0xAD, 0xBE],
+            is_parity: false,
+        });
+        manager.record_slice(ProtocolSlice {
+            id: "ROOT.P".to_string(),
+            header: Header {
+                seq_num: 1,
+                total_packets: 3,
+            },
+            data: vec![0xAA],
+            is_parity: true,
+        });
+
+        manager.persist(temp.path()).expect("persist");
+        let loaded = IntegrityManager::load_from_disk(
+            temp.path(),
+            vec![
+                "ROOT.0".to_string(),
+                "ROOT.1".to_string(),
+                "ROOT.P".to_string(),
+            ]
+            .into_iter()
+            .collect(),
+        )
+        .expect("load");
+
+        assert_eq!(loaded.received_slices.len(), 2);
+        assert!(loaded.received_slices.contains_key("ROOT.0"));
+        assert!(loaded.received_slices.contains_key("ROOT.P"));
+        assert!(loaded.get_missing_nodes().contains(&"ROOT.1".to_string()));
     }
 }
