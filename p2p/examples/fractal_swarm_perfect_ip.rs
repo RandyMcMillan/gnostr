@@ -16,6 +16,7 @@ use sha2::{Digest, Sha256};
 #[derive(Debug)]
 struct DemoArgs {
     file: Option<PathBuf>,
+    out: Option<PathBuf>,
     recursive: Option<PathBuf>,
     depth: usize,
     depth_set: bool,
@@ -25,13 +26,14 @@ struct DemoArgs {
 
 fn usage() {
     println!(
-        "Usage: fractal_swarm_perfect_ip [--file PATH] [--recursive PATH] [--depth N] [--verbose] [--help]\n\
+        "Usage: fractal_swarm_perfect_ip [--file PATH] [--out PATH] [--recursive PATH] [--depth N] [--verbose] [--help]\n\
          \n\
          Options:\n\
            --file PATH       Read a single file from PATH\n\
-           --recursive PATH   Walk PATH as a directory tree and preserve relative paths\n\
-           --depth N         Limit recursive directory walking to N levels [default: 3]\n\
-           --verbose         Print packet info during file mode\n\
+          --out PATH        Write reconstructed bytes to PATH [default: example.reconstructed.bin]\n\
+          --recursive PATH   Walk PATH as a directory tree and preserve relative paths\n\
+          --depth N         Limit recursive directory walking to N levels [default: 3]\n\
+          --verbose         Print packet info during file mode\n\
            --help            Show this help message\n"
     );
 }
@@ -39,6 +41,7 @@ fn usage() {
 fn parse_args() -> DemoArgs {
     let mut args = std::env::args().skip(1).peekable();
     let mut file = None;
+    let mut out = None;
     let mut recursive = None;
     let mut depth = 3usize;
     let mut depth_set = false;
@@ -62,6 +65,16 @@ fn parse_args() -> DemoArgs {
             recursive = Some(PathBuf::from(path));
         } else if let Some(path) = arg.strip_prefix("--file=") {
             file = Some(PathBuf::from(path));
+        } else if let Some(path) = arg.strip_prefix("--out=") {
+            out = Some(PathBuf::from(path));
+        } else if arg == "--out" {
+            out = match args.peek() {
+                Some(next) if !next.starts_with('-') => args.next().map(PathBuf::from),
+                _ => {
+                    help = true;
+                    None
+                }
+            };
         } else if arg == "--file" {
             file = match args.peek() {
                 Some(next) if !next.starts_with('-') => args.next().map(PathBuf::from),
@@ -97,9 +110,13 @@ fn parse_args() -> DemoArgs {
     if recursive.is_some() && file.is_some() {
         help = true;
     }
+    if recursive.is_some() && out.is_some() {
+        help = true;
+    }
 
     DemoArgs {
         file,
+        out,
         recursive,
         depth,
         depth_set,
@@ -176,6 +193,7 @@ fn print_directory_walk(path: &Path, depth: usize) -> io::Result<()> {
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let DemoArgs {
         file,
+        out,
         recursive,
         depth,
         depth_set,
@@ -244,9 +262,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     let reconstructed = reconstruct_payload(&batch.packets);
     let reconstructed_sha256 = sha256_hex(&reconstructed);
-    fs::write("example.reconstructed.bin", &reconstructed)?;
+    let output_path = out.unwrap_or_else(|| PathBuf::from("example.reconstructed.bin"));
+    fs::write(&output_path, &reconstructed)?;
 
-    println!("peer reconstructed example.reconstructed.bin");
+    println!("peer reconstructed {}", output_path.display());
     println!("peer sha256: {reconstructed_sha256}");
     println!("sha256 match: {}", reconstructed_sha256 == original_sha256);
 
