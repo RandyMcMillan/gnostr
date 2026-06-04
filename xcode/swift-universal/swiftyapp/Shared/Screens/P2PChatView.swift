@@ -132,7 +132,9 @@ struct P2PChatView: View {
                         }
                     }
                 }
+#if !os(tvOS)
                 .textSelection(.enabled)
+#endif
                 .padding()
             }
             .frame(minHeight: 340)
@@ -147,7 +149,11 @@ struct P2PChatView: View {
 
             HStack(spacing: 8) {
                 TextField("Type a message", text: $messageDraft, axis: .vertical)
+#if !os(tvOS)
                     .textFieldStyle(.roundedBorder)
+#else
+                    .textFieldStyle(.plain)
+#endif
                     .lineLimit(1...4)
                     .onSubmit(sendCurrentMessage)
 
@@ -336,7 +342,9 @@ struct P2PChatView: View {
                 .frame(width: 86, alignment: .leading)
             Text(value)
                 .font(.system(.caption, design: .monospaced))
+#if !os(tvOS)
                 .textSelection(.enabled)
+#endif
             Spacer()
         }
     }
