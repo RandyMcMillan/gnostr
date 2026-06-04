@@ -17,6 +17,7 @@ struct P2PChatView: View {
     @State private var chatEntries: [P2PChatMessage] = []
     @State private var seenChatLogLines: Set<String> = []
     @State private var logFontSize: CGFloat = 12
+    @State private var messageDraft: String = ""
 
     init(topic: String = "gnostr-dev") {
         self.chatTopic = topic.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "gnostr-dev" : topic
@@ -31,6 +32,7 @@ struct P2PChatView: View {
                     LazyVStack(alignment: .leading, spacing: 16) {
                         chatSummary
                         messagePanel
+                        composerPanel
                     }
                     .padding()
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -138,6 +140,26 @@ struct P2PChatView: View {
         }
     }
 
+    private var composerPanel: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Send message")
+                .font(.subheadline.weight(.semibold))
+
+            HStack(spacing: 8) {
+                TextField("Type a message", text: $messageDraft, axis: .vertical)
+                    .textFieldStyle(.roundedBorder)
+                    .lineLimit(1...4)
+                    .onSubmit(sendCurrentMessage)
+
+                Button("Send", action: sendCurrentMessage)
+                    .buttonStyle(.borderedProminent)
+                    .disabled(normalizedMessageDraft.isEmpty)
+            }
+        }
+        .padding()
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
     private var logFont: Font {
         .system(size: logFontSize, weight: .regular, design: .monospaced)
     }
@@ -153,6 +175,10 @@ struct P2PChatView: View {
 
     private var visibleChatEntries: [P2PChatMessage] {
         chatEntries.filter { $0.topic == effectiveChatTopic }
+    }
+
+    private var normalizedMessageDraft: String {
+        messageDraft.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private func refreshNetworkSnapshot() {
@@ -186,6 +212,18 @@ struct P2PChatView: View {
         } catch {
             print("Failed to register chat topic: \(error)")
         }
+    }
+
+    private func sendCurrentMessage() {
+        let message = normalizedMessageDraft
+        guard !message.isEmpty else { return }
+
+        let topic = effectiveChatTopic
+        let result = p2pNetworkSendChatMessage(topic: topic, message: message)
+        guard !result.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+
+        appendLocalChatMessage(topic: topic, message: message)
+        messageDraft = ""
     }
 
     private var normalizedPrivateKey: String? {
@@ -301,6 +339,17 @@ struct P2PChatView: View {
                 .textSelection(.enabled)
             Spacer()
         }
+    }
+
+    private func appendLocalChatMessage(topic: String, message: String) {
+        let localMessage = P2PChatMessage(
+            from: "me",
+            topic: topic,
+            text: message,
+            raw: message,
+            isLocal: true
+        )
+        chatEntries.append(localMessage)
     }
 
     private func chatBubble(_ message: P2PChatMessage) -> some View {

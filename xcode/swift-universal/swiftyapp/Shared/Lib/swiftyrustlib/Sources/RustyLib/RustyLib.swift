@@ -453,6 +453,15 @@ public func p2pNetworkRegisterChatTopic(topic: String) -> String {
     })
 }
 
+public func p2pNetworkSendChatMessage(topic: String, message: String) -> String {
+    return try! FfiConverterString.lift(try! rustCall {
+        uniffi_rustylib_fn_func_p2p_network_send_chat_message(
+            FfiConverterString.lower(topic),
+            FfiConverterString.lower(message), $0
+        )
+    })
+}
+
 public func p2pNetworkStart() -> String {
     return try! FfiConverterString.lift(try! rustCall {
         uniffi_rustylib_fn_func_p2p_network_start($0)
@@ -509,6 +518,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_rustylib_checksum_func_p2p_network_register_chat_topic() != 25139 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_rustylib_checksum_func_p2p_network_send_chat_message() != 1990 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_rustylib_checksum_func_p2p_network_start() != 17127 {
