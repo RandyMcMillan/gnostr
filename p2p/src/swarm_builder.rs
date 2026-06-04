@@ -113,12 +113,13 @@ pub async fn build_swarm(
         )?
         ;
 
+    let builder = builder.with_quic();
+
     #[cfg(feature = "tor")]
     let builder = builder.with_other_transport(move |_| tor_transport)?;
 
     #[cfg(all(not(target_os = "ios"), not(target_os = "tvos")))]
     let swarm = builder
-        .with_quic()
         .with_dns()?
         .with_websocket(noise::Config::new, yamux::Config::default)
         .await?
