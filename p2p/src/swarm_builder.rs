@@ -111,13 +111,14 @@ pub async fn build_swarm(
             noise::Config::new,
             yamux::Config::default,
         )?
-        .with_quic();
+        ;
 
     #[cfg(feature = "tor")]
     let builder = builder.with_other_transport(move |_| tor_transport)?;
 
-    #[cfg(not(target_os = "ios"))]
+    #[cfg(all(not(target_os = "ios"), not(target_os = "tvos")))]
     let swarm = builder
+        .with_quic()
         .with_dns()?
         .with_websocket(noise::Config::new, yamux::Config::default)
         .await?
@@ -125,7 +126,7 @@ pub async fn build_swarm(
         .with_behaviour(|key, relay_client| build_behaviour(key, relay_client))?
         .build();
 
-    #[cfg(target_os = "ios")]
+    #[cfg(any(target_os = "ios", target_os = "tvos"))]
     let swarm = builder
         .with_relay_client(noise::Config::new, yamux::Config::default)?
         .with_behaviour(|key, relay_client| build_behaviour(key, relay_client))?

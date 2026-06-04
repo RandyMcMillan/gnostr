@@ -80,6 +80,50 @@ impl LookupClient {
         //println!("Local peer id: {local_peer_id}");
 
         let (_relay_transport, _relay_client) = relay::client::new(local_peer_id);
+
+        #[cfg(target_os = "tvos")]
+        let mut swarm = SwarmBuilder::with_existing_identity(local_key)
+            .with_tokio()
+            .with_tcp(
+                tcp::Config::default(),
+                noise::Config::new,
+                yamux::Config::default,
+            )
+            .unwrap()
+            .with_relay_client(noise::Config::new, yamux::Config::default)
+            .unwrap()
+            .with_behaviour(|key, relay_client| {
+                let local_peer_id = PeerId::from(key.public());
+
+                let store = MemoryStore::new(local_peer_id);
+                let protocol_name = resolve_protocol_name(network, protocol, protocol_version);
+                let kademlia_config = libp2p::kad::Config::new(
+                    StreamProtocol::try_from_owned(protocol_name).unwrap(),
+                );
+                let kademlia =
+                    libp2p::kad::Behaviour::with_config(local_peer_id, store, kademlia_config);
+
+                let ping = ping::Behaviour::new(ping::Config::new());
+
+                let user_agent =
+                    "substrate-node/v2.0.0-e3245d49d-x86_64-linux-gnu (unknown)".to_string();
+                let proto_version = "/substrate/1.0".to_string();
+                let identify = identify::Behaviour::new(
+                    identify::Config::new(proto_version, key.public())
+                        .with_agent_version(user_agent),
+                );
+
+                LookupBehaviour {
+                    kademlia,
+                    ping,
+                    identify,
+                    relay: relay_client,
+                }
+            })
+            .unwrap()
+            .build();
+
+        #[cfg(not(target_os = "tvos"))]
         let mut swarm = SwarmBuilder::with_existing_identity(local_key)
             .with_async_std()
             .with_tcp(

@@ -84,6 +84,29 @@ pub async fn build_fractal_swarm(
     local_key: libp2p::identity::Keypair,
 ) -> Result<Swarm<FractalBehaviour>, Box<dyn Error + Send + Sync>> {
     let peer_id = PeerId::from(local_key.public());
+
+    #[cfg(target_os = "tvos")]
+    let swarm = libp2p::SwarmBuilder::with_existing_identity(local_key)
+        .with_tokio()
+        .with_behaviour(|key| {
+            Ok::<_, Box<dyn Error + Send + Sync>>(FractalBehaviour {
+                repair_rpc: request_response::cbor::Behaviour::new(
+                    [(
+                        StreamProtocol::new("/fractal/repair/1.0.0"),
+                        request_response::ProtocolSupport::Full,
+                    )],
+                    request_response::Config::default(),
+                ),
+                kad: kad::Behaviour::new(peer_id, MemoryStore::new(peer_id)),
+                gossipsub: gossipsub::Behaviour::new(
+                    gossipsub::MessageAuthenticity::Signed(key.clone()),
+                    gossipsub::ConfigBuilder::default().build()?,
+                )?,
+            })
+        })?
+        .build();
+
+    #[cfg(not(target_os = "tvos"))]
     let swarm = libp2p::SwarmBuilder::with_existing_identity(local_key)
         .with_tokio()
         .with_quic()
