@@ -35,7 +35,6 @@ targets=(
     "x86_64-apple-ios"
     "aarch64-apple-tvos"
     "aarch64-apple-tvos-sim"
-    "x86_64-apple-tvos-sim"
     "aarch64-apple-darwin"
 )
 
@@ -58,7 +57,6 @@ TVOS_SIM_LIB="${TVOS_SIM_DIR}/${RELDIR}/${STATIC_LIB_NAME}"
 mkdir -p "${TVOS_SIM_DIR}/${RELDIR}"
 lipo -create \
     "${TARGETDIR}/aarch64-apple-tvos-sim/${RELDIR}/${STATIC_LIB_NAME}" \
-    "${TARGETDIR}/x86_64-apple-tvos-sim/${RELDIR}/${STATIC_LIB_NAME}" \
     -output "${TVOS_SIM_LIB}"
 
 # step 2 - create xcframework
