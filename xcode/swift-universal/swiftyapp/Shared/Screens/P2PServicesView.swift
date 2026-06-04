@@ -189,5 +189,6 @@ struct P2PServicesView: View {
 struct P2PServicesView_Previews: PreviewProvider {
     static var previews: some View {
         P2PServicesView()
+            .environmentObject(AppState())
     }
 }
