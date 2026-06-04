@@ -13,6 +13,7 @@
 //! previous one.
 //#![feature(trivial_bounds)]
 
+#[cfg(not(target_os = "tvos"))]
 pub mod git2 {
     pub use gnostr_asyncgit::git2::*;
     pub use gnostr_asyncgit::types;
@@ -24,42 +25,66 @@ use std::process::{Command, Stdio};
 use libp2p::identity;
 use sha2::{Digest, Sha256};
 
+#[cfg(not(target_os = "tvos"))]
 pub mod args;
+#[cfg(not(target_os = "tvos"))]
 pub mod cli;
+#[cfg(not(target_os = "tvos"))]
 pub mod behaviour;
+#[cfg(target_os = "tvos")]
+#[path = "embedded_network_tvos.rs"]
 pub mod embedded_network;
+#[cfg(not(target_os = "tvos"))]
+pub mod embedded_network;
+#[cfg(not(target_os = "tvos"))]
 pub mod fractal;
+#[cfg(not(target_os = "tvos"))]
 pub mod perfect_ip;
+#[cfg(not(target_os = "tvos"))]
 pub mod command_handler;
+#[cfg(not(target_os = "tvos"))]
 pub mod event_handler;
+#[cfg(not(target_os = "tvos"))]
 pub mod git_integration;
+#[cfg(not(target_os = "tvos"))]
 pub mod git_publisher;
+#[cfg(not(target_os = "tvos"))]
 pub mod kvs;
+#[cfg(not(target_os = "tvos"))]
 pub mod lookup;
 pub mod network_config;
+#[cfg(not(target_os = "tvos"))]
 pub mod opt;
 #[cfg(not(doc))]
-#[cfg(feature = "js")]
+#[cfg(all(feature = "js", not(target_os = "tvos")))]
 pub mod bridge;
 #[cfg(not(doc))]
-#[cfg(feature = "js")]
+#[cfg(all(feature = "js", not(target_os = "tvos")))]
 pub mod js;
 #[cfg(not(doc))]
-#[cfg(feature = "tor")]
+#[cfg(all(feature = "tor", not(target_os = "tvos")))]
 pub mod tor;
+#[cfg(not(target_os = "tvos"))]
 pub mod crawler_broadcast;
 #[cfg(not(doc))]
+#[cfg(not(target_os = "tvos"))]
 pub mod message;
+#[cfg(not(target_os = "tvos"))]
 pub mod repo_state;
 #[cfg(not(doc))]
+#[cfg(not(target_os = "tvos"))]
 pub mod relay_bridge;
+#[cfg(not(target_os = "tvos"))]
 pub mod relay_paths;
+#[cfg(not(target_os = "tvos"))]
 pub mod time;
 #[cfg(not(doc))]
-#[cfg(feature = "js")]
+#[cfg(all(feature = "js", not(target_os = "tvos")))]
 pub mod template_html;
+#[cfg(not(target_os = "tvos"))]
 pub mod swarm_builder;
 pub mod utils;
+#[cfg(not(target_os = "tvos"))]
 pub use crawler_broadcast as relay_buckets;
 
 /// Crate name.
@@ -95,20 +120,25 @@ fn seed_bytes(seed: &str) -> [u8; 32] {
     digest.into()
 }
 
-#[cfg(all(not(doc), feature = "js"))]
+#[cfg(all(not(doc), feature = "js", not(target_os = "tvos")))]
 pub use bridge::{asset_content_type, asset_response, shell_html};
-#[cfg(all(not(doc), feature = "js"))]
+#[cfg(all(not(doc), feature = "js", not(target_os = "tvos")))]
 pub use js::get_js_assets;
-#[cfg(all(not(doc), feature = "tor"))]
+#[cfg(all(not(doc), feature = "tor", not(target_os = "tvos")))]
 pub use tor::{build_transport as build_tor_transport, AddressConversion, TorError, TorTransport, TorTransportError, TokioTorStream};
+#[cfg(not(target_os = "tvos"))]
 #[cfg(not(doc))]
 pub use message::*;
+#[cfg(not(target_os = "tvos"))]
 pub use repo_state::{RepoStateQuorum, RepoStateRefs, RepoStateSnapshot};
+#[cfg(not(target_os = "tvos"))]
 #[cfg(not(doc))]
 pub use relay_bridge::{RelayBridgeCommand, RelayBridgeNotification, RelayBridgeSession, NostrRelayConnection};
+#[cfg(not(target_os = "tvos"))]
 pub use fractal::{build_fractal_swarm, run_fractal_engine, FractalBehaviour, FractalBehaviourEvent, IntegrityManager, ProtocolSlice};
+#[cfg(not(target_os = "tvos"))]
 pub use perfect_ip::{calculate_parity, process_slice, Header, ProtocolSlice as PerfectProtocolSlice, MTU_PAYLOAD};
-#[cfg(all(not(doc), feature = "js"))]
+#[cfg(all(not(doc), feature = "js", not(target_os = "tvos")))]
 pub use template_html::{get_template_assets, TemplateHtml};
 
 pub fn spawn_detached_current_exe<I, S>(args: I) -> Result<u32, Box<dyn std::error::Error>>
@@ -137,6 +167,7 @@ mod tests {
 }
 
 /// Compatibility namespace for the legacy `crate::p2p::...` module paths.
+#[cfg(not(target_os = "tvos"))]
 pub mod p2p {
     pub use crate::{
         args, behaviour, cli, command_handler, event_handler, git_integration, git_publisher, kvs,
