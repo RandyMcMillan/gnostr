@@ -142,7 +142,9 @@ struct P2PServicesView: View {
                         }
                     }
                 }
+#if !os(tvOS)
                 .textSelection(.enabled)
+#endif
                 .padding()
             }
             .frame(minHeight: 260)

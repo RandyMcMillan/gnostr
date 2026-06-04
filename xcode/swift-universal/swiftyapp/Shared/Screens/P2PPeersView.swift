@@ -35,7 +35,9 @@ struct P2PPeersView: View {
                         HStack(alignment: .firstTextBaseline) {
                             Text(peer.peer_id)
                                 .font(.caption.monospaced())
+#if !os(tvOS)
                                 .textSelection(.enabled)
+#endif
                             Spacer()
                             Text(peer.source)
                                 .font(.caption.weight(.semibold))
@@ -49,7 +51,9 @@ struct P2PPeersView: View {
                         ForEach(peer.addresses, id: \.self) { address in
                             Text(address)
                                 .font(.caption.monospaced())
+#if !os(tvOS)
                                 .textSelection(.enabled)
+#endif
                         }
                     }
                     .padding(.vertical, 4)

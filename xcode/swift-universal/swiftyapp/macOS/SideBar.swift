@@ -56,7 +56,9 @@ struct SideBar: View {
             .tag(NavigationItem.services)
         }
         .navigationTitle("gnostr")
+#if os(macOS)
         .listStyle(SidebarListStyle())
+#endif
     }
 }
 
