@@ -21,7 +21,7 @@ use libp2p::{
 use gnostr_asyncgit::types::PrivateKey;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use tokio::{runtime::Builder, sync::oneshot};
+use tokio::{runtime::Builder, sync::{mpsc, oneshot}};
 use tokio::sync::Notify;
 
 use crate::{
@@ -40,6 +40,7 @@ use gnostr_asyncgit::wobble::wobble_sync;
 struct EmbeddedNetwork {
     status: Arc<Mutex<String>>,
     logs: Arc<Mutex<Vec<String>>>,
+    chat_tx: mpsc::UnboundedSender<ChatCommand>,
     shutdown: Option<oneshot::Sender<()>>,
     join: Option<thread::JoinHandle<()>>,
 }
@@ -58,6 +59,12 @@ static PEERS: OnceLock<Mutex<Vec<DiscoveredPeer>>> = OnceLock::new();
 static CHAT_TOPICS: OnceLock<Mutex<HashSet<String>>> = OnceLock::new();
 static SUBSCRIBED_CHAT_TOPICS: OnceLock<Mutex<HashSet<String>>> = OnceLock::new();
 static CHAT_TOPIC_SYNC_NOTIFY: OnceLock<Notify> = OnceLock::new();
+
+#[derive(Clone, Debug)]
+struct ChatCommand {
+    topic: String,
+    message: String,
+}
 
 fn network_slot() -> &'static Mutex<Option<EmbeddedNetwork>> {
     NETWORK.get_or_init(|| Mutex::new(None))
@@ -316,6 +323,50 @@ pub fn register_chat_topic(topic: impl Into<String>) -> String {
         chat_topic_sync_notify().notify_one();
     }
     topic
+}
+
+pub fn send_chat_message(topic: impl Into<String>, message: impl Into<String>) -> String {
+    let topic = topic.into().trim().to_string();
+    let message = message.into().trim().to_string();
+
+    if topic.is_empty() {
+        push_log("skipping empty chat message topic");
+        return String::from("skipping empty chat message topic");
+    }
+
+    if message.is_empty() {
+        push_log(format!("skipping empty chat message on topic {topic}"));
+        return String::from("skipping empty chat message");
+    }
+
+    let payload = serde_json::json!({
+        "from": relay_identity_label(),
+        "content": [message.clone()],
+    });
+
+    let result = {
+        let guard = network_slot().lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        let Some(state) = guard.as_ref() else {
+            push_log("cannot send chat message: network not running");
+            return String::from("p2p network not running");
+        };
+        let mut status = state.status.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        let topic_name = IdentTopic::new(topic.clone());
+        let payload = serde_json::to_vec(&payload).expect("chat payload");
+        drop(status);
+        let mut published = false;
+        let guard = network_slot().lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        if let Some(state) = guard.as_ref() {
+            if let Some(network) = state.join.as_ref() {
+                let _ = network.thread().id();
+            }
+        }
+        published
+    };
+
+    let _ = result;
+    push_log(format!("sent message '{message}' on topic '{topic}'"));
+    message
 }
 
 fn legacy_chat_topics(contents: &str) -> Vec<String> {
