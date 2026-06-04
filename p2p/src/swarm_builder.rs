@@ -13,12 +13,12 @@ use libp2p::{
     },
     mdns, noise, ping, rendezvous,
     swarm::Swarm,
-    tcp, yamux, PeerId,
+    tcp, yamux, PeerId, StreamProtocol,
 };
 use tokio::io;
 use tracing::info;
 
-use crate::p2p::{behaviour::Behaviour, network_config::IPFS_PROTO_NAME};
+use crate::p2p::{behaviour::Behaviour, network_config::active_protocol_name};
 
 fn build_behaviour(
     key: &identity::Keypair,
@@ -56,13 +56,14 @@ fn build_behaviour(
         max_records: usize::MAX,
         max_value_bytes: usize::MAX,
     };
-    let mut kad_config = KadConfig::new(IPFS_PROTO_NAME.clone());
+    let protocol_name = active_protocol_name();
+    let mut kad_config = KadConfig::new(StreamProtocol::try_from_owned(protocol_name.clone()).unwrap());
     kad_config.set_query_timeout(Duration::from_secs(120));
     kad_config.set_replication_factor(std::num::NonZeroUsize::new(20).unwrap());
     kad_config.set_publication_interval(Some(Duration::from_secs(10)));
     kad_config.disjoint_query_paths(false);
     let kad_store = MemoryStore::with_config(local_peer_id, kad_store_config);
-    let mut ipfs_cfg = KadConfig::new(IPFS_PROTO_NAME);
+    let mut ipfs_cfg = KadConfig::new(StreamProtocol::try_from_owned(protocol_name).unwrap());
     ipfs_cfg.set_query_timeout(Duration::from_secs(5 * 60));
     let ipfs_store = MemoryStore::new(local_peer_id);
 

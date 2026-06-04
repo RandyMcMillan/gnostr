@@ -28,6 +28,7 @@ use crate::{
     cli,
     event_handler,
     keypair_from_seed,
+    network_config::{active_chat_topic, active_discovery_topic},
     time::run_time_sync_daemon,
     swarm_builder,
     utils::multiaddr_with_peer_id,
@@ -73,7 +74,7 @@ fn peers_slot() -> &'static Mutex<Vec<DiscoveredPeer>> {
 fn chat_topics_slot() -> &'static Mutex<HashSet<String>> {
     CHAT_TOPICS.get_or_init(|| {
         let mut topics = HashSet::new();
-        topics.insert(CHAT_TOPIC.to_string());
+        topics.insert(active_chat_topic());
         Mutex::new(topics)
     })
 }
@@ -159,6 +160,22 @@ pub fn clear_peers() {
         .clear();
 }
 
+fn reset_topic_state() {
+    {
+        let mut topics = chat_topics_slot()
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        topics.clear();
+        topics.insert(active_chat_topic());
+    }
+    {
+        let mut subscribed = subscribed_chat_topics_slot()
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        subscribed.clear();
+    }
+}
+
 fn merge_peer_discovery(peer_id: String, source: String, addresses: Vec<String>) {
     let mut peers = peers_slot().lock().unwrap_or_else(|poisoned| poisoned.into_inner());
     let mut normalized = Vec::new();
@@ -209,9 +226,6 @@ pub fn peers() -> String {
     })
 }
 
-pub const DISCOVERY_TOPIC: &str = "gnostr/p2p/presence";
-const DISCOVERY_KEY: &[u8] = b"gnostr/p2p/presence";
-pub const CHAT_TOPIC: &str = "gnostr-dev";
 const DISCOVERY_REFRESH_SECS: u64 = 20;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -222,11 +236,12 @@ pub struct PeerPresence {
 }
 
 fn discovery_topic() -> IdentTopic {
-    IdentTopic::new(DISCOVERY_TOPIC)
+    IdentTopic::new(active_discovery_topic())
 }
 
 fn discovery_key() -> KadKey {
-    KadKey::new(&DISCOVERY_KEY)
+    let topic = active_discovery_topic();
+    KadKey::new(&topic)
 }
 
 fn sync_registered_chat_topics(
@@ -554,6 +569,7 @@ pub fn start() -> String {
             .clone();
     }
 
+    reset_topic_state();
     clear_logs();
     clear_peers();
     let status = Arc::new(Mutex::new(String::from("starting p2p network")));

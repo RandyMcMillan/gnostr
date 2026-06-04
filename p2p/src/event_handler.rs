@@ -240,7 +240,7 @@ pub async fn handle_swarm_event(
             } => {
                 let topic_str = message.topic.to_string();
                 let message_text = String::from_utf8_lossy(&message.data);
-                if topic_str == crate::embedded_network::DISCOVERY_TOPIC {
+                if topic_str == crate::network_config::active_discovery_topic() {
                     if let Ok(payload) = serde_json::from_slice::<serde_json::Value>(&message.data) {
                         if payload.get("peer_id").and_then(|value| value.as_str()).is_some() {
                             if let Err(error) =
