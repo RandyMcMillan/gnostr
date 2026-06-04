@@ -39,3 +39,8 @@ pub fn p2p_network_peers() -> String {
 pub fn p2p_network_register_chat_topic(topic: String) -> String {
     gnostr_p2p::embedded_network::register_chat_topic(topic)
 }
+
+#[uniffi::export]
+pub fn p2p_network_send_chat_message(topic: String, message: String) -> String {
+    gnostr_p2p::embedded_network::send_chat_message(topic, message)
+}
