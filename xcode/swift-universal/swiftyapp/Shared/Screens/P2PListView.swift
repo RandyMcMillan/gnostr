@@ -11,7 +11,7 @@ import SwiftUI
 struct P2PListView: View {
     @EnvironmentObject private var appState: AppState
     @State private var topicDraft: String = ""
-    @State private var chatTopics: [String] = ["gnostr-dev"]
+    @State private var chatTopics: [String] = []
 
     var body: some View {
         List {
@@ -40,7 +40,7 @@ struct P2PListView: View {
                     NavigationLink(destination: P2PChatView(topic: topic)) {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(topic)
-                            if topic == "gnostr-dev" {
+                            if topic == defaultChatTopic {
                                 Text("default")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
@@ -101,9 +101,11 @@ struct P2PListView: View {
     }
 
     private func loadChatTopics() {
+        let defaultTopic = defaultChatTopic
+
         guard let privateKey = normalizedPrivateKey else {
             if chatTopics.isEmpty {
-                chatTopics = ["gnostr-dev"]
+                chatTopics = [defaultTopic]
             }
             registerChatTopicsInRelay(chatTopics)
             return
@@ -111,7 +113,7 @@ struct P2PListView: View {
 
         do {
             let result = try loadChatTopicsFromDisk(using: privateKey)
-            chatTopics = result.topics.isEmpty ? ["gnostr-dev"] : result.topics
+            chatTopics = result.topics.isEmpty ? [defaultTopic] : result.topics
             registerChatTopicsInRelay(chatTopics)
 
             if result.needsMigration {
@@ -126,7 +128,7 @@ struct P2PListView: View {
         } catch {
             print("Failed to load chat topics: \(error)")
             if chatTopics.isEmpty {
-                chatTopics = ["gnostr-dev"]
+                chatTopics = [defaultTopic]
             }
             registerChatTopicsInRelay(chatTopics)
         }
@@ -153,6 +155,11 @@ struct P2PListView: View {
     private var normalizedPrivateKey: String? {
         let trimmed = appState.privateKey.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         return trimmed.isEmpty ? nil : trimmed
+    }
+
+    private var defaultChatTopic: String {
+        let topic = appState.chatTopic.trimmingCharacters(in: .whitespacesAndNewlines)
+        return topic.isEmpty ? "gnostr-dev" : topic
     }
 
     private func encryptTopics(_ topics: [String], using privateKey: String) throws -> EncryptedChatTopicsPayload {

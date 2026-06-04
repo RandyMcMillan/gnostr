@@ -3,6 +3,7 @@ import RustyLib
 import SwiftUI
 
 struct P2PServicesView: View {
+    @EnvironmentObject private var appState: AppState
     @State private var networkStatus = p2pNetworkStatus()
     @State private var networkLogs = p2pNetworkLogs()
     @State private var logFontSize: CGFloat = 12
@@ -84,12 +85,37 @@ struct P2PServicesView: View {
 
     private var topicSummary: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Topic alignment")
+            Text("Network config")
                 .font(.subheadline.weight(.semibold))
 
-            VStack(alignment: .leading, spacing: 8) {
-                topicRow(label: "Discovery", value: "gnostr/p2p/presence")
-                topicRow(label: "Chat", value: "gnostr-dev")
+            VStack(alignment: .leading, spacing: 10) {
+                editableRow(label: "Discovery") {
+                    TextField("Discovery topic", text: $appState.discoveryTopic)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .font(.system(.caption, design: .monospaced))
+                }
+
+                editableRow(label: "Topic") {
+                    TextField("Chat topic", text: $appState.chatTopic)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .font(.system(.caption, design: .monospaced))
+                }
+
+                editableRow(label: "Protocol") {
+                    TextField("Protocol", text: $appState.networkProtocol)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .font(.system(.caption, design: .monospaced))
+                }
+
+                editableRow(label: "Version") {
+                    TextField("Version", text: $appState.networkVersion)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .font(.system(.caption, design: .monospaced))
+                }
             }
             .padding()
             .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -124,15 +150,13 @@ struct P2PServicesView: View {
         }
     }
 
-    private func topicRow(label: String, value: String) -> some View {
+    private func editableRow<Content: View>(label: String, @ViewBuilder content: () -> Content) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
             Text(label)
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
                 .frame(width: 86, alignment: .leading)
-            Text(value)
-                .font(.system(.caption, design: .monospaced))
-                .textSelection(.enabled)
+            content()
             Spacer()
         }
     }

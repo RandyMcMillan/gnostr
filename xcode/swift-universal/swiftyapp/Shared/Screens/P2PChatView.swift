@@ -144,7 +144,11 @@ struct P2PChatView: View {
 
     private var effectiveChatTopic: String {
         let topic = chatTopic.trimmingCharacters(in: .whitespacesAndNewlines)
-        return topic.isEmpty ? "gnostr-dev" : topic
+        if !topic.isEmpty {
+            return topic
+        }
+        let fallback = appState.chatTopic.trimmingCharacters(in: .whitespacesAndNewlines)
+        return fallback.isEmpty ? "gnostr-dev" : fallback
     }
 
     private var visibleChatEntries: [P2PChatMessage] {
