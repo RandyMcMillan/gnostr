@@ -223,6 +223,23 @@ impl IntegrityManager {
 pub async fn build_fractal_swarm(
     local_key: libp2p::identity::Keypair,
 ) -> Result<Swarm<FractalBehaviour>, Box<dyn Error + Send + Sync>> {
+    #[cfg(target_os = "tvos")]
+    let swarm = libp2p::SwarmBuilder::with_existing_identity(local_key)
+        .with_tokio()
+        .with_behaviour(|_| {
+            Ok::<_, Box<dyn Error + Send + Sync>>(FractalBehaviour {
+                repair_rpc: request_response::json::Behaviour::new(
+                    [(
+                        StreamProtocol::new("/fractal/repair/1.0.0/json"),
+                        request_response::ProtocolSupport::Full,
+                    )],
+                    request_response::Config::default(),
+                ),
+            })
+        })?
+        .build();
+
+    #[cfg(not(target_os = "tvos"))]
     let swarm = libp2p::SwarmBuilder::with_existing_identity(local_key)
         .with_tokio()
         .with_quic()
