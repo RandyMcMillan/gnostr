@@ -339,33 +339,21 @@ pub fn send_chat_message(topic: impl Into<String>, message: impl Into<String>) -
         return String::from("skipping empty chat message");
     }
 
-    let payload = serde_json::json!({
-        "from": relay_identity_label(),
-        "content": [message.clone()],
-    });
-
-    let result = {
+    let sender = {
         let guard = network_slot().lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         let Some(state) = guard.as_ref() else {
             push_log("cannot send chat message: network not running");
             return String::from("p2p network not running");
         };
-        let mut status = state.status.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
-        let topic_name = IdentTopic::new(topic.clone());
-        let payload = serde_json::to_vec(&payload).expect("chat payload");
-        drop(status);
-        let mut published = false;
-        let guard = network_slot().lock().unwrap_or_else(|poisoned| poisoned.into_inner());
-        if let Some(state) = guard.as_ref() {
-            if let Some(network) = state.join.as_ref() {
-                let _ = network.thread().id();
-            }
-        }
-        published
+        state.chat_tx.clone()
     };
 
-    let _ = result;
-    push_log(format!("sent message '{message}' on topic '{topic}'"));
+    if sender.send(ChatCommand { topic: topic.clone(), message: message.clone() }).is_err() {
+        push_log(format!("failed to queue chat message on topic {topic}"));
+        return String::from("failed to queue chat message");
+    }
+
+    push_log(format!("queued chat message '{message}' on topic '{topic}'"));
     message
 }
 
@@ -628,6 +616,7 @@ pub fn start() -> String {
     let thread_logs = Arc::new(Mutex::new(Vec::new()));
     let thread_logs_clone = Arc::clone(&thread_logs);
     let (shutdown_tx, mut shutdown_rx) = oneshot::channel::<()>();
+    let (chat_tx, mut chat_rx) = mpsc::unbounded_channel::<ChatCommand>();
 
     let join = thread::spawn(move || {
         let runtime = Builder::new_multi_thread()
@@ -704,6 +693,34 @@ pub fn start() -> String {
                         push_log(format!("p2p network stopping peer={peer_id}"));
                         break;
                     }
+                    Some(command) = chat_rx.recv() => {
+                        let payload = serde_json::json!({
+                            "from": relay_identity_label(),
+                            "content": [command.message.clone()],
+                        });
+                        match serde_json::to_vec(&payload) {
+                            Ok(payload) => {
+                                let topic = IdentTopic::new(command.topic.clone());
+                                match swarm.behaviour_mut().gossipsub.publish(topic, payload) {
+                                    Ok(_) => {
+                                        push_log(format!(
+                                            "sent message '{}' on topic '{}'",
+                                            command.message, command.topic
+                                        ));
+                                    }
+                                    Err(error) => {
+                                        push_log(format!(
+                                            "failed to publish chat message on topic {}: {}",
+                                            command.topic, error
+                                        ));
+                                    }
+                                }
+                            }
+                            Err(error) => {
+                                push_log(format!("failed to encode chat message: {error}"));
+                            }
+                        }
+                    }
                     _ = chat_topic_sync.as_mut() => {
                         if let Err(error) = sync_chat_topics(&mut swarm) {
                             push_log(format!("chat topic sync failed: {error}"));
@@ -748,6 +765,7 @@ pub fn start() -> String {
     *guard = Some(EmbeddedNetwork {
         status,
         logs: thread_logs_clone,
+        chat_tx,
         shutdown: Some(shutdown_tx),
         join: Some(join),
     });

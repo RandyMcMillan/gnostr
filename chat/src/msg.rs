@@ -45,6 +45,7 @@ pub enum MsgKind {
 
 /// A single chat message or structured payload moving through the swarm.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[serde(default)]
 pub struct Msg {
     /// Sender label shown in the UI.
     pub from: String,
