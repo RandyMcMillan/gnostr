@@ -30,6 +30,10 @@ listen-onion-service = [
 ]
 
 [dependencies]
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.140"
+
+[target.'cfg(not(target_os = "tvos"))'.dependencies]
 ansi_term = "0.12"
 anyhow = "1.0.98"
 async-std = { version = "1.12", features = ["attributes"] }
@@ -88,9 +92,6 @@ libp2p = { version = "0.54.1", features = [
 log = "0.4.29"
 rand = "0.8.5"
 reqwest = { workspace = true }
-serde = { version = "1.0.219", features = ["derive"] }
-serde_json = "1.0.140"
-serde_yaml = "0.9"
 bincode = { workspace = true }
 base64 = { workspace = true }
 chacha20poly1305 = { workspace = true }
@@ -112,8 +113,6 @@ tracing-subscriber = { version = "0.3.22", default-features = false, features = 
   "fmt",
 ] }
 warp = { workspace = true }
-
-[target.'cfg(not(target_os = "tvos"))'.dependencies]
 gnostr-asyncgit = { path = "../asyncgit", package = "gnostr-asyncgit", version = ">=949455.1873.486970", default-features = false, features = [
   "nostr",
   "vendor-openssl",

@@ -22,7 +22,9 @@ pub mod git2 {
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 
+#[cfg(not(target_os = "tvos"))]
 use libp2p::identity;
+#[cfg(not(target_os = "tvos"))]
 use sha2::{Digest, Sha256};
 
 #[cfg(not(target_os = "tvos"))]
@@ -52,6 +54,7 @@ pub mod git_publisher;
 pub mod kvs;
 #[cfg(not(target_os = "tvos"))]
 pub mod lookup;
+#[cfg(not(target_os = "tvos"))]
 pub mod network_config;
 #[cfg(not(target_os = "tvos"))]
 pub mod opt;
@@ -83,6 +86,7 @@ pub mod time;
 pub mod template_html;
 #[cfg(not(target_os = "tvos"))]
 pub mod swarm_builder;
+#[cfg(not(target_os = "tvos"))]
 pub mod utils;
 #[cfg(not(target_os = "tvos"))]
 pub use crawler_broadcast as relay_buckets;
@@ -98,6 +102,7 @@ pub fn js_source_dir() -> PathBuf {
 /// Build a deterministic libp2p keypair from an optional secret seed string.
 ///
 /// Hex SHA-256 seeds are used directly; any other input is hashed into a 32-byte seed.
+#[cfg(not(target_os = "tvos"))]
 pub fn keypair_from_seed(secret_key_seed: Option<String>) -> identity::Keypair {
     match secret_key_seed {
         Some(seed) => identity::Keypair::ed25519_from_bytes(seed_bytes(&seed))
@@ -106,6 +111,7 @@ pub fn keypair_from_seed(secret_key_seed: Option<String>) -> identity::Keypair {
     }
 }
 
+#[cfg(not(target_os = "tvos"))]
 fn seed_bytes(seed: &str) -> [u8; 32] {
     if seed.len() == 64 && seed.chars().all(|c| c.is_ascii_hexdigit()) {
         let mut bytes = [0u8; 32];

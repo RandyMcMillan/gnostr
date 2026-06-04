@@ -5,7 +5,8 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::network_config::{active_chat_topic, active_discovery_topic};
+const DEFAULT_DISCOVERY_TOPIC: &str = "gnostr/p2p/presence";
+const DEFAULT_CHAT_TOPIC: &str = "gnostr-dev";
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct DiscoveredPeer {
@@ -29,7 +30,7 @@ fn network() -> &'static Mutex<EmbeddedNetwork> {
     NETWORK.get_or_init(|| {
         let mut state = EmbeddedNetwork::default();
         state.status = "tvOS stub: not running".to_string();
-        state.chat_topics.insert(active_chat_topic());
+        state.chat_topics.insert(DEFAULT_CHAT_TOPIC.to_string());
         Mutex::new(state)
     })
 }
@@ -111,7 +112,11 @@ pub fn start() -> String {
     let mut state = network()
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
-    state.status = format!("tvOS stub: discovery={}, chat={}", active_discovery_topic(), active_chat_topic());
+    state.status = format!(
+        "tvOS stub: discovery={}, chat={}",
+        DEFAULT_DISCOVERY_TOPIC,
+        DEFAULT_CHAT_TOPIC
+    );
     "tvOS stub network started".to_string()
 }
 
