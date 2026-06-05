@@ -119,7 +119,8 @@ public final class GitPeerService {
     public func announce(repository url: URL) throws {
         guard let app = self.app, self.state == .running else { throw ServiceError.notRunning }
         let envelope = GitPeerEnvelope(kind: .status, repository: url.lastPathComponent, payload: "available")
-        self.broadcast(envelope, using: app)
+        guard let data = try? JSONEncoder().encode(envelope) else { throw ServiceError.unableToEncodeEnvelope }
+        self.broadcast(data, using: app)
     }
 
     public func send(_ envelope: GitPeerEnvelope, to peer: PeerID) throws {
@@ -141,14 +142,13 @@ public final class GitPeerService {
         }
     }
 
-    private func broadcast(_ envelope: GitPeerEnvelope, using app: Application) {
+    private func broadcast(_ data: Data, using app: Application) {
         guard self.state == .running else { return }
-        guard let data = try? JSONEncoder().encode(envelope) else { return }
         app.logger.notice("Announcing repository presence to connected peers")
         app.peers.getPeerIDs(supportingProtocol: .init(Self.protocolName)!).whenSuccess { peers in
-            peers.forEach {
+            peers.forEach { peer in
                 app.newRequest(
-                    to: $0,
+                    to: peer,
                     forProtocol: Self.protocolName,
                     withRequest: data,
                     style: .noResponseExpected,
@@ -156,9 +156,9 @@ public final class GitPeerService {
                 ).whenComplete { result in
                     switch result {
                     case .failure(let error):
-                        app.logger.error("Failed to announce to \($0): \(error)")
+                        app.logger.error("Failed to announce to \(peer): \(error)")
                     case .success:
-                        app.logger.trace("Announced to \($0)")
+                        app.logger.trace("Announced to \(peer)")
                     }
                 }
             }
