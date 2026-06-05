@@ -78,6 +78,12 @@ struct LibP2PTests {
         try await app.asyncShutdown()
     }
 
+    @Test func testLibP2P_Async_RegistersBootCommand() async throws {
+        let app = try await Application.make(.testing, peerID: .ephemeral)
+        #expect(app.asyncCommands.commands["boot"] != nil)
+        try await app.asyncShutdown()
+    }
+
     @Test func testLibP2P_Async_CustomLogger() async throws {
         let logger = Logger(label: "custom")
         let app = try await Application.make(.testing, peerID: .ephemeral, logger: logger)
