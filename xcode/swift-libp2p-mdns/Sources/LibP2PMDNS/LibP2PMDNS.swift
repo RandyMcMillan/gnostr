@@ -125,14 +125,14 @@ final public class MulticastPeerDiscovery: Discovery, PeerDiscovery, LifecycleHa
                 self.interfaceAddressV4 = ia
                 self.interfaceAddressV6 = try! MulticastPeerDiscovery.interfaceAddress(
                     forCodec: .ip6,
-                    onDevice: MulticastPeerDiscovery.interfaceAddressDevice(ia)!
-                )!
+                    onDevice: try! MulticastPeerDiscovery.interfaceAddressDevice(ia) ?? .init(name: "", address: ia, interfaceIndex: 0)
+                ) ?? try! MulticastPeerDiscovery.defaultInterfaceAddress(codec: .ip6)
             } else if ia.protocol == .inet6 {
                 self.interfaceAddressV6 = ia
                 self.interfaceAddressV4 = try! MulticastPeerDiscovery.interfaceAddress(
                     forCodec: .ip4,
-                    onDevice: MulticastPeerDiscovery.interfaceAddressDevice(ia)!
-                )!
+                    onDevice: try! MulticastPeerDiscovery.interfaceAddressDevice(ia) ?? .init(name: "", address: ia, interfaceIndex: 0)
+                ) ?? try! MulticastPeerDiscovery.defaultInterfaceAddress(codec: .ip4)
             } else {
                 self.interfaceAddressV4 = try! MulticastPeerDiscovery.defaultInterfaceAddress(codec: .ip4)
                 self.interfaceAddressV6 = try! MulticastPeerDiscovery.defaultInterfaceAddress(codec: .ip6)
@@ -175,7 +175,9 @@ final public class MulticastPeerDiscovery: Discovery, PeerDiscovery, LifecycleHa
         codec: MultiaddrProtocol,
         deviceName: String? = nil
     ) throws -> SocketAddress {
-        guard codec == .ip4 || codec == .ip6 else { return nil }
+        guard codec == .ip4 || codec == .ip6 else {
+            return try! SocketAddress(ipAddress: "127.0.0.1", port: 0)
+        }
         if let address = try System.enumerateDevices().compactMap({ device -> SocketAddress? in
             guard device.address != nil else { return nil }
             if let deviceName, device.name != deviceName { return nil }
