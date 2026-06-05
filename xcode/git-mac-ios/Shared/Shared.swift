@@ -93,7 +93,7 @@ public final class GitPeerService {
         self.state = .starting
         do {
             let peerID = try self.loadPeerID()
-            let app = Application(.detect(), peerID: peerID)
+            let app = try await Application.make(.detect(), peerID: peerID)
             app.logger.logLevel = .info
             app.security.use(.noise)
             app.muxers.use(.yamux)
@@ -183,8 +183,7 @@ public final class GitPeerService {
     }
 
     private func installDiscovery(on app: Application) {
-        app.discovery.onPeerDiscovered(app) { [weak self] peer in
-            guard let self else { return }
+        app.discovery.onPeerDiscovered(app) { peer in
             app.connections.getConnectionsToPeer(peer: peer.peer, on: nil).whenSuccess { conns in
                 guard conns.isEmpty else { return }
                 guard let address = peer.addresses.first(where: { $0.description.contains("/tcp/") }) else {
