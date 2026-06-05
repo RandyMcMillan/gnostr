@@ -383,7 +383,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				2051FABB225C78E300BC00BC /* libGit.a in Frameworks */,
-				4BB2FF8F2FD3702900028826 /* LibP2PTesting in Frameworks */,
 				4BB2FF8D2FD3702900028826 /* LibP2P in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
