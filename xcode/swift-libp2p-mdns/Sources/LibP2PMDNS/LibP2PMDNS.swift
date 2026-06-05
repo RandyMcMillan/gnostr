@@ -123,16 +123,10 @@ final public class MulticastPeerDiscovery: Discovery, PeerDiscovery, LifecycleHa
         if let ia = interfaceAddress {
             if ia.protocol == .inet {
                 self.interfaceAddressV4 = ia
-                self.interfaceAddressV6 = try! MulticastPeerDiscovery.interfaceAddress(
-                    forCodec: .ip6,
-                    onDevice: try! MulticastPeerDiscovery.interfaceAddressDevice(ia) ?? .init(name: "", address: ia, interfaceIndex: 0)
-                ) ?? try! MulticastPeerDiscovery.defaultInterfaceAddress(codec: .ip6)
+                self.interfaceAddressV6 = try! MulticastPeerDiscovery.defaultInterfaceAddress(codec: .ip6)
             } else if ia.protocol == .inet6 {
                 self.interfaceAddressV6 = ia
-                self.interfaceAddressV4 = try! MulticastPeerDiscovery.interfaceAddress(
-                    forCodec: .ip4,
-                    onDevice: try! MulticastPeerDiscovery.interfaceAddressDevice(ia) ?? .init(name: "", address: ia, interfaceIndex: 0)
-                ) ?? try! MulticastPeerDiscovery.defaultInterfaceAddress(codec: .ip4)
+                self.interfaceAddressV4 = try! MulticastPeerDiscovery.defaultInterfaceAddress(codec: .ip4)
             } else {
                 self.interfaceAddressV4 = try! MulticastPeerDiscovery.defaultInterfaceAddress(codec: .ip4)
                 self.interfaceAddressV6 = try! MulticastPeerDiscovery.defaultInterfaceAddress(codec: .ip6)
