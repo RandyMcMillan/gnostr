@@ -679,6 +679,12 @@
 			);
 			dependencies = (
 			);
+			packageProductDependencies = (
+				4BB2FF8C2FD3702900028826 /* LibP2P */,
+				4BB2FF902FD3702900028826 /* LibP2PNoise */,
+				4BB2FF912FD3702900028826 /* LibP2PYAMUX */,
+				4BB2FF922FD3702900028826 /* LibP2PMDNS */,
+			);
 			name = MacApp;
 			productName = MacApp;
 			productReference = 2051FAB8225C78D000BC00BC /* Git.app */;
@@ -695,6 +701,12 @@
 			buildRules = (
 			);
 			dependencies = (
+			);
+			packageProductDependencies = (
+				4BB2FF8C2FD3702900028826 /* LibP2P */,
+				4BB2FF902FD3702900028826 /* LibP2PNoise */,
+				4BB2FF912FD3702900028826 /* LibP2PYAMUX */,
+				4BB2FF922FD3702900028826 /* LibP2PMDNS */,
 			);
 			name = iOSApp;
 			productName = iOSApp;
