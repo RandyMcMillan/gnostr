@@ -18,6 +18,7 @@ private(set) weak var app: App!
             if repository == nil {
                 _home.update(.create)
             } else {
+                let repositoryURL = repository!.url
                 repository!.status = { status in
                     self.repository?.packed {
                         if $0 {
@@ -31,7 +32,7 @@ private(set) weak var app: App!
                 repository!.refresh()
                 Task {
                     do {
-                        try GitPeerService.shared.announce(repository: repository!.url)
+                        try GitPeerService.shared.announce(repository: repositoryURL)
                     } catch {
                         print("Failed to announce repository: \(error)")
                     }
