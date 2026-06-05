@@ -847,6 +847,7 @@ final public class MulticastPeerDiscovery: Discovery, PeerDiscovery, LifecycleHa
     enum Errors: Error {
         case timedOut
         case mdnsServiceNotStarted
+        case noAddressForDevice
         case notImplemented
     }
 }
