@@ -375,6 +375,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				2051FABA225C78DD00BC00BC /* libGit.a in Frameworks */,
+				4BB2FF8D2FD3702900028826 /* LibP2P in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1496,6 +1497,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = git.mac;
 				PRODUCT_MODULE_NAME = GitMac;
 				SDKROOT = macosx;
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 			};
 			name = Debug;
@@ -1559,6 +1561,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = git.mac;
 				PRODUCT_MODULE_NAME = GitMac;
 				SDKROOT = macosx;
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				SWIFT_COMPILATION_MODE = wholemodule;
 			};
 			name = Release;
@@ -1627,6 +1630,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = git.ios;
 				PRODUCT_MODULE_NAME = GitiOS;
 				SDKROOT = iphoneos;
+				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -1690,6 +1694,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = git.ios;
 				PRODUCT_MODULE_NAME = GitiOS;
 				SDKROOT = iphoneos;
+				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VALIDATE_PRODUCT = YES;
