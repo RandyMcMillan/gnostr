@@ -48,6 +48,20 @@ public struct GitPeerEnvelope: Codable {
     }
 }
 
+public struct GitPeerRepositoryAdvertisement: Codable {
+    public let name: String
+    public let path: String
+    public let peer: String
+    public let timestamp: Date
+
+    public init(url: URL, peer: String, timestamp: Date = .init()) {
+        self.name = url.lastPathComponent
+        self.path = url.path
+        self.peer = peer
+        self.timestamp = timestamp
+    }
+}
+
 public protocol GitPeerServiceDelegate: AnyObject {
     func gitPeerService(_ service: GitPeerService, didDiscover peer: PeerID)
     func gitPeerService(_ service: GitPeerService, didLose peer: PeerID)
@@ -82,6 +96,8 @@ public final class GitPeerService {
     public weak var delegate: GitPeerServiceDelegate?
     private var app: Application?
     private var state: LifecycleState = .stopped
+    private var peers: [String: PeerID] = [:]
+    private var advertisement: GitPeerRepositoryAdvertisement?
 
     public var isRunning: Bool { self.state == .running }
     public var peerID: PeerID? { self.app?.peerID }
@@ -121,7 +137,23 @@ public final class GitPeerService {
 
     public func announce(repository url: URL) throws {
         guard let app = self.app, self.state == .running else { throw ServiceError.notRunning }
-        app.logger.notice("Repository \(url.lastPathComponent) is ready for peer discovery")
+        guard let peerID = app.peerID else { throw ServiceError.peerIdentityUnavailable }
+
+        let advertisement = GitPeerRepositoryAdvertisement(url: url, peer: peerID.shortDescription)
+        self.advertisement = advertisement
+
+        guard let payload = try? JSONEncoder().encode(advertisement) else { throw ServiceError.unableToEncodeEnvelope }
+        let envelope = GitPeerEnvelope(
+            kind: .hello,
+            repository: advertisement.name,
+            payload: String(decoding: payload, as: UTF8.self),
+            peer: advertisement.peer
+        )
+
+        app.logger.notice("Advertising repository \(advertisement.name) to \(self.peers.count) peer(s)")
+        for peer in self.peers.values {
+            self.send(envelope, to: peer)
+        }
     }
 
     public func send(_ envelope: GitPeerEnvelope, to peer: PeerID) throws {
@@ -186,6 +218,16 @@ public final class GitPeerService {
         app.discovery.onPeerDiscovered(app) { peer in
             app.connections.getConnectionsToPeer(peer: peer.peer, on: nil).whenSuccess { conns in
                 guard conns.isEmpty else { return }
+                self.peers[peer.peer.b58String] = peer.peer
+                if let advertisement = self.advertisement, let payload = try? JSONEncoder().encode(advertisement) {
+                    let envelope = GitPeerEnvelope(
+                        kind: .hello,
+                        repository: advertisement.name,
+                        payload: String(decoding: payload, as: UTF8.self),
+                        peer: advertisement.peer
+                    )
+                    self.send(envelope, to: peer.peer)
+                }
                 guard let address = peer.addresses.first(where: { $0.description.contains("/tcp/") }) else {
                     app.logger.warning("No dialable TCP address for peer \(peer.peer)")
                     return
@@ -203,9 +245,20 @@ public final class GitPeerService {
                 protocol: Self.protocolName,
                 handler: TopologyHandler(
                     onConnect: { [weak self] peer, _ in
+                        self?.peers[peer.b58String] = peer
                         self?.delegate?.gitPeerService(self ?? GitPeerService.shared, didDiscover: peer)
+                        if let advertisement = self?.advertisement, let payload = try? JSONEncoder().encode(advertisement) {
+                            let envelope = GitPeerEnvelope(
+                                kind: .hello,
+                                repository: advertisement.name,
+                                payload: String(decoding: payload, as: UTF8.self),
+                                peer: advertisement.peer
+                            )
+                            self?.send(envelope, to: peer)
+                        }
                     },
                     onDisconnect: { [weak self] peer in
+                        self?.peers.removeValue(forKey: peer.b58String)
                         self?.delegate?.gitPeerService(self ?? GitPeerService.shared, didLose: peer)
                     }
                 )
