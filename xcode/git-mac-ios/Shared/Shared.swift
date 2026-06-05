@@ -111,7 +111,7 @@ public final class GitPeerService {
     public func stop() async {
         guard self.state == .running, let app = self.app else { return }
         self.state = .stopping
-        await app.asyncShutdown()
+        try? await app.asyncShutdown()
         self.app = nil
         self.state = .stopped
     }
@@ -119,8 +119,7 @@ public final class GitPeerService {
     public func announce(repository url: URL) throws {
         guard let app = self.app, self.state == .running else { throw ServiceError.notRunning }
         let envelope = GitPeerEnvelope(kind: .status, repository: url.lastPathComponent, payload: "available")
-        guard let data = try? JSONEncoder().encode(envelope) else { throw ServiceError.unableToEncodeEnvelope }
-        self.broadcast(data, using: app)
+        self.broadcast(envelope, using: app)
     }
 
     public func send(_ envelope: GitPeerEnvelope, to peer: PeerID) throws {
@@ -142,31 +141,26 @@ public final class GitPeerService {
         }
     }
 
-    private func broadcast(_ data: Data, using app: Application) {
+    private func broadcast(_ envelope: GitPeerEnvelope, using app: Application) {
         guard self.state == .running else { return }
+        guard let data = try? JSONEncoder().encode(envelope) else { return }
         app.logger.notice("Announcing repository presence to connected peers")
-        app.peers.getPeers(supportingProtocol: .init(Self.protocolName)!).map { peers in
-            peers.compactMap { peerID in
-                try? PeerID(cid: peerID)
-            }.forEach {
-                self.sendData(data, to: $0, using: app)
-            }
-        }
-    }
-
-    private func sendData(_ data: Data, to peer: PeerID, using app: Application) {
-        app.newRequest(
-            to: peer,
-            forProtocol: Self.protocolName,
-            withRequest: data,
-            style: .noResponseExpected,
-            withHandlers: .inherit
-        ).whenComplete { result in
-            switch result {
-            case .failure(let error):
-                app.logger.error("Failed to announce to \(peer): \(error)")
-            case .success:
-                app.logger.trace("Announced to \(peer)")
+        app.peers.getPeerIDs(supportingProtocol: .init(Self.protocolName)!).whenSuccess { peers in
+            peers.forEach {
+                app.newRequest(
+                    to: $0,
+                    forProtocol: Self.protocolName,
+                    withRequest: data,
+                    style: .noResponseExpected,
+                    withHandlers: .inherit
+                ).whenComplete { result in
+                    switch result {
+                    case .failure(let error):
+                        app.logger.error("Failed to announce to \($0): \(error)")
+                    case .success:
+                        app.logger.trace("Announced to \($0)")
+                    }
+                }
             }
         }
     }
@@ -176,7 +170,7 @@ public final class GitPeerService {
             return try PeerID(marshaledPrivateKey: data)
         }
         let peerID = try PeerID(.Ed25519)
-        UserDefaults.standard.set(try peerID.marshalPrivateKey(), forKey: Self.peerStorageKey)
+        UserDefaults.standard.set(Data(try peerID.marshalPrivateKey()), forKey: Self.peerStorageKey)
         return peerID
     }
 
