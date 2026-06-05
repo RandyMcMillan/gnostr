@@ -22,6 +22,13 @@ private(set) weak var app: App!
                     }
                 }
                 refresh()
+                Task {
+                    do {
+                        try GitPeerService.shared.announce(repository: repository!.url)
+                    } catch {
+                        print("Failed to announce repository: \(error)")
+                    }
+                }
             }
         }
     }
