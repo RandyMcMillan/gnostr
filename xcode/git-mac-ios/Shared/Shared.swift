@@ -152,7 +152,7 @@ public final class GitPeerService {
 
         app.logger.notice("Advertising repository \(advertisement.name) to \(self.peers.count) peer(s)")
         for peer in self.peers.values {
-            self.send(envelope, to: peer)
+            try? self.send(envelope, to: peer)
         }
     }
 
@@ -226,7 +226,7 @@ public final class GitPeerService {
                         payload: String(decoding: payload, as: UTF8.self),
                         peer: advertisement.peer
                     )
-                    self.send(envelope, to: peer.peer)
+                    try? self.send(envelope, to: peer.peer)
                 }
                 guard let address = peer.addresses.first(where: { $0.description.contains("/tcp/") }) else {
                     app.logger.warning("No dialable TCP address for peer \(peer.peer)")
@@ -254,7 +254,7 @@ public final class GitPeerService {
                                 payload: String(decoding: payload, as: UTF8.self),
                                 peer: advertisement.peer
                             )
-                            self?.send(envelope, to: peer)
+                            try? self?.send(envelope, to: peer)
                         }
                     },
                     onDisconnect: { [weak self] peer in
