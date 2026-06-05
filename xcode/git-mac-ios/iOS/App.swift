@@ -101,6 +101,14 @@ private(set) weak var app: App!
             self.load()
             self.rate()
         }
+
+        Task {
+            do {
+                try await GitPeerService.shared.start()
+            } catch {
+                print("Failed to start Git peer service: \(error)")
+            }
+        }
         
         if #available(iOS 10.0, *) {
             UNUserNotificationCenter.current().delegate = self
@@ -114,6 +122,20 @@ private(set) weak var app: App!
         }
         
         return true
+    }
+
+    func applicationDidEnterBackground(_: UIApplication) {
+        Task { await GitPeerService.shared.stop() }
+    }
+
+    func applicationWillEnterForeground(_: UIApplication) {
+        Task {
+            do {
+                try await GitPeerService.shared.start()
+            } catch {
+                print("Failed to restart Git peer service: \(error)")
+            }
+        }
     }
     
     @available(iOS 10.0, *) func userNotificationCenter(_: UNUserNotificationCenter, willPresent: UNNotification, withCompletionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
