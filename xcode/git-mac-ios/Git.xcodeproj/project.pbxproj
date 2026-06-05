@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 50;
+	objectVersion = 60;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -113,6 +113,8 @@
 		20EB2504227711E20043EBD2 /* Session.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20EB2503227711E20043EBD2 /* Session.swift */; };
 		20EB2505227711E20043EBD2 /* Session.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20EB2503227711E20043EBD2 /* Session.swift */; };
 		20EB2507227713010043EBD2 /* TestSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20EB2506227713010043EBD2 /* TestSession.swift */; };
+		4BB2FF8D2FD3702900028826 /* LibP2P in Frameworks */ = {isa = PBXBuildFile; productRef = 4BB2FF8C2FD3702900028826 /* LibP2P */; };
+		4BB2FF8F2FD3702900028826 /* LibP2PTesting in Frameworks */ = {isa = PBXBuildFile; productRef = 4BB2FF8E2FD3702900028826 /* LibP2PTesting */; };
 		CE02C30C22A2B3180022DE9B /* config0 in Resources */ = {isa = PBXBuildFile; fileRef = CE02C30B22A2B3170022DE9B /* config0 */; };
 		CE02C30E22A2B3250022DE9B /* TestConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE02C30D22A2B3250022DE9B /* TestConfig.swift */; };
 		CE02C31022A2B3C90022DE9B /* Config.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE02C30F22A2B3C90022DE9B /* Config.swift */; };
@@ -381,6 +383,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				2051FABB225C78E300BC00BC /* libGit.a in Frameworks */,
+				4BB2FF8F2FD3702900028826 /* LibP2PTesting in Frameworks */,
+				4BB2FF8D2FD3702900028826 /* LibP2P in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -728,6 +732,9 @@
 				Base,
 			);
 			mainGroup = 20F6E088225C729200418216;
+			packageReferences = (
+				4BB2FF8B2FD3702900028826 /* XCLocalSwiftPackageReference "../swift-libp2p" */,
+			);
 			productRefGroup = 20F6E088225C729200418216;
 			projectDirPath = "";
 			projectRoot = "";
@@ -1748,6 +1755,24 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		4BB2FF8B2FD3702900028826 /* XCLocalSwiftPackageReference "../swift-libp2p" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = "../swift-libp2p";
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		4BB2FF8C2FD3702900028826 /* LibP2P */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = LibP2P;
+		};
+		4BB2FF8E2FD3702900028826 /* LibP2PTesting */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = LibP2PTesting;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 20F6E089225C729200418216 /* Project object */;
 }
