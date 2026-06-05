@@ -77,6 +77,13 @@ public extension GitPeerServiceDelegate {
 public final class GitPeerService {
     public static let shared = GitPeerService()
 
+    public struct Status {
+        public let isRunning: Bool
+        public let peerCount: Int
+        public let hasAdvertisement: Bool
+        public let peerID: String?
+    }
+
     private enum LifecycleState {
         case stopped
         case starting
@@ -101,6 +108,15 @@ public final class GitPeerService {
 
     public var isRunning: Bool { self.state == .running }
     public var peerID: PeerID? { self.app?.peerID }
+    public var status: Status {
+        Status(
+            isRunning: self.isRunning,
+            peerCount: self.peers.count,
+            hasAdvertisement: self.advertisement != nil,
+            peerID: self.peerID?.b58String
+        )
+    }
+    public var connectedPeers: [PeerID] { Array(self.peers.values) }
 
     private init() {}
 
