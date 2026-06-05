@@ -35,7 +35,11 @@ private(set) weak var app: App!
     }
     
     func applicationShouldTerminateAfterLastWindowClosed(_: NSApplication) -> Bool { return true }
-    func browsed(_ url: URL) { Hub.session.update(url, bookmark: (try! url.bookmarkData(options: .withSecurityScope))) { self.load() } }
+    func browsed(_ url: URL) { Hub.session.update(url, bookmark: (try! url.bookmarkData(options: .withSecurityScope))) { self.load() }     }
+    
+    func applicationWillTerminate(_: Notification) {
+        Task { await GitPeerService.shared.stop() }
+    }
     
     @available(OSX 10.14, *) func userNotificationCenter(_: UNUserNotificationCenter, willPresent:
         UNNotification, withCompletionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
@@ -166,6 +170,14 @@ private(set) weak var app: App!
         Hub.session.load {
             self.load()
             self.rate()
+        }
+
+        Task {
+            do {
+                try await GitPeerService.shared.start()
+            } catch {
+                print("Failed to start Git peer service: \(error)")
+            }
         }
         
         if #available(OSX 10.14, *) {
