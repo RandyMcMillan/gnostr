@@ -1,5 +1,8 @@
 import Foundation
 import LibP2P
+import LibP2PNoise
+import LibP2PYAMUX
+import LibP2PMDNS
 
 extension String {
     static func key(_ key: String) -> String { return NSLocalizedString(key, comment: "") }
@@ -118,9 +121,7 @@ public final class GitPeerService {
 
     public func announce(repository url: URL) throws {
         guard let app = self.app, self.state == .running else { throw ServiceError.notRunning }
-        let envelope = GitPeerEnvelope(kind: .status, repository: url.lastPathComponent, payload: "available")
-        guard let data = try? JSONEncoder().encode(envelope) else { throw ServiceError.unableToEncodeEnvelope }
-        self.broadcast(data, using: app)
+        app.logger.notice("Repository \(url.lastPathComponent) is ready for peer discovery")
     }
 
     public func send(_ envelope: GitPeerEnvelope, to peer: PeerID) throws {
@@ -138,29 +139,6 @@ public final class GitPeerService {
                 app.logger.error("Failed to send git peer envelope to \(peer): \(error)")
             case .success:
                 app.logger.trace("Sent git peer envelope to \(peer)")
-            }
-        }
-    }
-
-    private func broadcast(_ data: Data, using app: Application) {
-        guard self.state == .running else { return }
-        app.logger.notice("Announcing repository presence to connected peers")
-        app.peers.getPeerIDs(supportingProtocol: .init(Self.protocolName)!).whenSuccess { peers in
-            peers.forEach { peer in
-                app.newRequest(
-                    to: peer,
-                    forProtocol: Self.protocolName,
-                    withRequest: data,
-                    style: .noResponseExpected,
-                    withHandlers: .inherit
-                ).whenComplete { result in
-                    switch result {
-                    case .failure(let error):
-                        app.logger.error("Failed to announce to \(peer): \(error)")
-                    case .success:
-                        app.logger.trace("Announced to \(peer)")
-                    }
-                }
             }
         }
     }
