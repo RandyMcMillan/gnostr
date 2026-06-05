@@ -137,7 +137,7 @@ public final class GitPeerService {
 
     public func announce(repository url: URL) throws {
         guard let app = self.app, self.state == .running else { throw ServiceError.notRunning }
-        guard let peerID = app.peerID else { throw ServiceError.peerIdentityUnavailable }
+        let peerID = app.peerID
 
         let advertisement = GitPeerRepositoryAdvertisement(url: url, peer: peerID.shortDescription)
         self.advertisement = advertisement
