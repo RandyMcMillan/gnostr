@@ -2,28 +2,45 @@
 
 set -euo pipefail
 
+render_variants() {
+  local source_file="$1"
+  shift
+
+  for variant in "$@"; do
+    local size="${variant%%:*}"
+    local output_name="${variant#*:}"
+
+    sips -z "$size" "$size" "$source_file" --out "icon.iconset/$output_name" >/dev/null
+  done
+}
+
 mkdir -p icon.iconset
-sips -z 16 16     app/gnostr.png --out icon.iconset/icon_16x16.png
-sips -z 32 32     app/gnostr.png --out icon.iconset/icon_16x16@2x.png
-sips -z 32 32     app/gnostr.png --out icon.iconset/icon_32x32.png
-sips -z 64 64     app/gnostr.png --out icon.iconset/icon_32x32@2x.png
-sips -z 128 128   app/gnostr.png --out icon.iconset/icon_128x128.png
-sips -z 256 256   app/gnostr.png --out icon.iconset/icon_128x128@2x.png
-sips -z 256 256   app/gnostr.png --out icon.iconset/icon_256x256.png
-sips -z 512 512   app/gnostr.png --out icon.iconset/icon_256x256@2x.png
-sips -z 512 512   app/gnostr.png --out icon.iconset/icon_512x512.png
-sips -z 1024 1024  app/gnostr.png --out icon.iconset/icon_1024x1024.png
-sips -z 2048 2048  app/gnostr.png --out icon.iconset/icon_1024x1024@2x.png
-sips -z 16 16     app/background.png --out icon.iconset/background-icon_16x16.png
-sips -z 32 32     app/background.png --out icon.iconset/background-icon_16x16@2x.png
-sips -z 32 32     app/background.png --out icon.iconset/background-icon_32x32.png
-sips -z 64 64     app/background.png --out icon.iconset/background-icon_32x32@2x.png
-sips -z 128 128   app/background.png --out icon.iconset/background-icon_128x128.png
-sips -z 256 256   app/background.png --out icon.iconset/background-icon_128x128@2x.png
-sips -z 256 256   app/background.png --out icon.iconset/background-icon_256x256.png
-sips -z 512 512   app/background.png --out icon.iconset/background-icon_256x256@2x.png
-sips -z 512 512   app/background.png --out icon.iconset/background-icon_512x512.png
-sips -z 1024 1024  app/background.png --out icon.iconset/background-icon_1024x1024.png
-sips -z 2048 2048  app/background.png --out icon.iconset/background-icon_1024x1024@2x.png
+
+render_variants app/gnostr.png \
+  16:icon_16x16.png \
+  32:icon_16x16@2x.png \
+  32:icon_32x32.png \
+  64:icon_32x32@2x.png \
+  128:icon_128x128.png \
+  256:icon_128x128@2x.png \
+  256:icon_256x256.png \
+  512:icon_256x256@2x.png \
+  512:icon_512x512.png \
+  1024:icon_1024x1024.png \
+  2048:icon_1024x1024@2x.png
+
+render_variants app/background.png \
+  16:background-icon_16x16.png \
+  32:background-icon_16x16@2x.png \
+  32:background-icon_32x32.png \
+  64:background-icon_32x32@2x.png \
+  128:background-icon_128x128.png \
+  256:background-icon_128x128@2x.png \
+  256:background-icon_256x256.png \
+  512:background-icon_256x256@2x.png \
+  512:background-icon_512x512.png \
+  1024:background-icon_1024x1024.png \
+  2048:background-icon_1024x1024@2x.png
+
 iconutil -c icns --output icon.icns icon.iconset
 rm -R icon.iconset
