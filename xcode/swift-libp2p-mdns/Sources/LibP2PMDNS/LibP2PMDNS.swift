@@ -134,12 +134,12 @@ final public class MulticastPeerDiscovery: Discovery, PeerDiscovery, LifecycleHa
                     onDevice: MulticastPeerDiscovery.interfaceAddressDevice(ia)!
                 )!
             } else {
-                self.interfaceAddressV4 = try! MulticastPeerDiscovery.defaultInterfaceAddress(codec: .ip4)!
-                self.interfaceAddressV6 = try! MulticastPeerDiscovery.defaultInterfaceAddress(codec: .ip6)!
+                self.interfaceAddressV4 = try! MulticastPeerDiscovery.defaultInterfaceAddress(codec: .ip4)
+                self.interfaceAddressV6 = try! MulticastPeerDiscovery.defaultInterfaceAddress(codec: .ip6)
             }
         } else {
-            self.interfaceAddressV4 = try! MulticastPeerDiscovery.defaultInterfaceAddress(codec: .ip4)!
-            self.interfaceAddressV6 = try! MulticastPeerDiscovery.defaultInterfaceAddress(codec: .ip6)!
+            self.interfaceAddressV4 = try! MulticastPeerDiscovery.defaultInterfaceAddress(codec: .ip4)
+            self.interfaceAddressV6 = try! MulticastPeerDiscovery.defaultInterfaceAddress(codec: .ip6)
         }
         self.eventLoop = app.eventLoopGroup.next()
         self._state = .init(.stopped)
@@ -173,11 +173,12 @@ final public class MulticastPeerDiscovery: Discovery, PeerDiscovery, LifecycleHa
 
     private static func defaultInterfaceAddress(
         codec: MultiaddrProtocol,
-        deviceName: String = "en0"
-    ) throws -> SocketAddress? {
+        deviceName: String? = nil
+    ) throws -> SocketAddress {
         guard codec == .ip4 || codec == .ip6 else { return nil }
-        return try System.enumerateDevices().compactMap({ device -> SocketAddress? in
-            guard device.name == deviceName && device.address != nil else { return nil }
+        if let address = try System.enumerateDevices().compactMap({ device -> SocketAddress? in
+            guard device.address != nil else { return nil }
+            if let deviceName, device.name != deviceName { return nil }
             guard let ma = try? device.address?.toMultiaddr() else { return nil }
 
             guard let tcp = ma.tcpAddress else { return nil }
@@ -193,7 +194,11 @@ final public class MulticastPeerDiscovery: Discovery, PeerDiscovery, LifecycleHa
 
             return nil
 
-        }).first
+        }).first {
+            return address
+        }
+
+        return try! SocketAddress(ipAddress: codec == .ip4 ? "127.0.0.1" : "::1", port: 0)
     }
 
     private static func interfaceAddress(
@@ -430,7 +435,7 @@ final public class MulticastPeerDiscovery: Discovery, PeerDiscovery, LifecycleHa
         }
 
         guard let targetDevice else {
-            fatalError("Could not find device for \(interfaceAddress)")
+            throw Errors.noAddressForDevice
         }
 
         self.logger.debug("Using device: \(targetDevice)")
@@ -869,13 +874,21 @@ extension MulticastPeerDiscovery {
         DispatchQueue.global().asyncAfter(
             deadline: .now() + .seconds(3),
             execute: {
-                try! self.start()
+                do {
+                    try self.start()
+                } catch {
+                    self.logger.error("Failed to start mDNS: \(error)")
+                }
             }
         )
     }
 
     public func shutdown(_ application: Application) {
-        try! self.stop()
+        do {
+            try self.stop()
+        } catch {
+            self.logger.error("Failed to stop mDNS: \(error)")
+        }
     }
 }
 
