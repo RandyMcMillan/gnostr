@@ -61,9 +61,6 @@
 		2051FABA225C78DD00BC00BC /* libGit.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 2051FAB6225C78CF00BC00BC /* libGit.a */; };
 		2051FABB225C78E300BC00BC /* libGit.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 2051FAB7225C78D000BC00BC /* libGit.a */; };
 		2051FABC225C78EA00BC00BC /* libGit.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 2051FAB6225C78CF00BC00BC /* libGit.a */; };
-		4BB2FF932FD3702900028826 /* LibP2PNoise in Frameworks */ = {isa = PBXBuildFile; productRef = 4BB2FF902FD3702900028826 /* LibP2PNoise */; };
-		4BB2FF942FD3702900028826 /* LibP2PYAMUX in Frameworks */ = {isa = PBXBuildFile; productRef = 4BB2FF912FD3702900028826 /* LibP2PYAMUX */; };
-		4BB2FF952FD3702900028826 /* LibP2PMDNS in Frameworks */ = {isa = PBXBuildFile; productRef = 4BB2FF922FD3702900028826 /* LibP2PMDNS */; };
 		2055EFDC2276C9C000658C04 /* Home.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2055EFDB2276C9C000658C04 /* Home.swift */; };
 		205CF271227ABE49002BDAE0 /* TestRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 205CF270227ABE49002BDAE0 /* TestRepository.swift */; };
 		205FF459227C22B80085E4F4 /* Stage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 205FF458227C22B80085E4F4 /* Stage.swift */; };
@@ -111,13 +108,26 @@
 		20CB671B226071CA0064C31C /* Shared.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20CB6719226071CA0064C31C /* Shared.swift */; };
 		20CB671F2260857E0064C31C /* Shared.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 20CB671E2260857E0064C31C /* Shared.xcassets */; };
 		20CB67202260857E0064C31C /* Shared.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 20CB671E2260857E0064C31C /* Shared.xcassets */; };
+		20DD00012200000100000001 /* TestPeerProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20DD00002200000100000001 /* TestPeerProtocol.swift */; };
+		20DD00032200000100000001 /* PeerProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20DD00022200000100000001 /* PeerProtocol.swift */; };
 		20E098A022819D060061123C /* Create.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20E0989F22819D060061123C /* Create.swift */; };
 		20E76BE6225E264300E023D8 /* compressed0 in Resources */ = {isa = PBXBuildFile; fileRef = 20E76BE5225E264300E023D8 /* compressed0 */; };
 		20EB2504227711E20043EBD2 /* Session.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20EB2503227711E20043EBD2 /* Session.swift */; };
 		20EB2505227711E20043EBD2 /* Session.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20EB2503227711E20043EBD2 /* Session.swift */; };
 		20EB2507227713010043EBD2 /* TestSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20EB2506227713010043EBD2 /* TestSession.swift */; };
 		4BB2FF8D2FD3702900028826 /* LibP2P in Frameworks */ = {isa = PBXBuildFile; productRef = 4BB2FF8C2FD3702900028826 /* LibP2P */; };
-		4BB2FF8F2FD3702900028826 /* LibP2PTesting in Frameworks */ = {isa = PBXBuildFile; productRef = 4BB2FF8E2FD3702900028826 /* LibP2PTesting */; };
+		4BB2FF932FD3702900028826 /* LibP2PNoise in Frameworks */ = {isa = PBXBuildFile; productRef = 4BB2FF902FD3702900028826 /* LibP2PNoise */; };
+		4BB2FF942FD3702900028826 /* LibP2PYAMUX in Frameworks */ = {isa = PBXBuildFile; productRef = 4BB2FF912FD3702900028826 /* LibP2PYAMUX */; };
+		4BB2FF952FD3702900028826 /* LibP2PMDNS in Frameworks */ = {isa = PBXBuildFile; productRef = 4BB2FF922FD3702900028826 /* LibP2PMDNS */; };
+		4BBE4AE42FD3ABA800D16DC0 /* PeerProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20DD00022200000100000001 /* PeerProtocol.swift */; };
+		4BBE4AE52FD3ABA800D16DC0 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
+		4BBE4AE62FD3ABA800D16DC0 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
+		4BBE4AE72FD3ABA800D16DC0 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
+		4BBE4AE82FD3ABA800D16DC0 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
+		4BBE4AE92FD3ABA800D16DC0 /* LibP2P in Frameworks */ = {isa = PBXBuildFile; productRef = 4BB2FF8C2FD3702900028826 /* LibP2P */; };
+		4BBE4AEA2FD3ABA800D16DC0 /* LibP2PNoise in Frameworks */ = {isa = PBXBuildFile; productRef = 4BB2FF902FD3702900028826 /* LibP2PNoise */; };
+		4BBE4AEB2FD3ABA800D16DC0 /* LibP2PYAMUX in Frameworks */ = {isa = PBXBuildFile; productRef = 4BB2FF912FD3702900028826 /* LibP2PYAMUX */; };
+		4BBE4AEC2FD3ABA800D16DC0 /* LibP2PMDNS in Frameworks */ = {isa = PBXBuildFile; productRef = 4BB2FF922FD3702900028826 /* LibP2PMDNS */; };
 		CE02C30C22A2B3180022DE9B /* config0 in Resources */ = {isa = PBXBuildFile; fileRef = CE02C30B22A2B3170022DE9B /* config0 */; };
 		CE02C30E22A2B3250022DE9B /* TestConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE02C30D22A2B3250022DE9B /* TestConfig.swift */; };
 		CE02C31022A2B3C90022DE9B /* Config.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE02C30F22A2B3C90022DE9B /* Config.swift */; };
@@ -184,8 +194,6 @@
 		CEE6A965229280FD00977743 /* Packer.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEE6A963229280FD00977743 /* Packer.swift */; };
 		CEE6A96722928D7100977743 /* TestRefresh.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEE6A96622928D7100977743 /* TestRefresh.swift */; };
 		CEE6A9692292998000977743 /* TestRestoreIndex.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEE6A9682292998000977743 /* TestRestoreIndex.swift */; };
-		20DD00032200000100000001 /* PeerProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20DD00022200000100000001 /* PeerProtocol.swift */; };
-		20DD00012200000100000001 /* TestPeerProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20DD00002200000100000001 /* TestPeerProtocol.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -211,7 +219,6 @@
 		2048A0D3225C744400290E54 /* Tree.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Tree.swift; sourceTree = "<group>"; };
 		2048A0D4225C744400290E54 /* Status.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Status.swift; sourceTree = "<group>"; };
 		2048A0D5225C744400290E54 /* Hub.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Hub.swift; sourceTree = "<group>"; };
-		20DD00022200000100000001 /* PeerProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeerProtocol.swift; sourceTree = "<group>"; };
 		2048A0D6225C744400290E54 /* Parse.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Parse.swift; sourceTree = "<group>"; };
 		2048A0D8225C744400290E54 /* Tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = Tests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		2048A0EF225C745100290E54 /* commit1 */ = {isa = PBXFileReference; lastKnownFileType = file; path = commit1; sourceTree = "<group>"; };
@@ -290,6 +297,8 @@
 		20CB6719226071CA0064C31C /* Shared.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Shared.swift; sourceTree = "<group>"; };
 		20CB671E2260857E0064C31C /* Shared.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Shared.xcassets; sourceTree = "<group>"; };
 		20CCE743226214270014CAC9 /* Git.sketch */ = {isa = PBXFileReference; lastKnownFileType = file; path = Git.sketch; sourceTree = "<group>"; };
+		20DD00002200000100000001 /* TestPeerProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestPeerProtocol.swift; sourceTree = "<group>"; };
+		20DD00022200000100000001 /* PeerProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeerProtocol.swift; sourceTree = "<group>"; };
 		20E0989F22819D060061123C /* Create.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Create.swift; sourceTree = "<group>"; };
 		20E76BE5225E264300E023D8 /* compressed0 */ = {isa = PBXFileReference; lastKnownFileType = file; path = compressed0; sourceTree = "<group>"; };
 		20EB2503227711E20043EBD2 /* Session.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Session.swift; sourceTree = "<group>"; };
@@ -348,7 +357,6 @@
 		CED7E395229E9BB1003B8721 /* Alert.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Alert.swift; sourceTree = "<group>"; };
 		CEE6A95F2292782F00977743 /* packed-refs0 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "packed-refs0"; sourceTree = "<group>"; };
 		CEE6A9612292785E00977743 /* TestUnpack.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestUnpack.swift; sourceTree = "<group>"; };
-		20DD00002200000100000001 /* TestPeerProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestPeerProtocol.swift; sourceTree = "<group>"; };
 		CEE6A963229280FD00977743 /* Packer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Packer.swift; sourceTree = "<group>"; };
 		CEE6A96622928D7100977743 /* TestRefresh.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestRefresh.swift; sourceTree = "<group>"; };
 		CEE6A9682292998000977743 /* TestRestoreIndex.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestRestoreIndex.swift; sourceTree = "<group>"; };
@@ -393,11 +401,15 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4BBE4AEB2FD3ABA800D16DC0 /* LibP2PYAMUX in Frameworks */,
+				4BBE4AEA2FD3ABA800D16DC0 /* LibP2PNoise in Frameworks */,
 				2051FABB225C78E300BC00BC /* libGit.a in Frameworks */,
-				4BB2FF932FD3702900028826 /* LibP2PNoise in Frameworks */,
-				4BB2FF942FD3702900028826 /* LibP2PYAMUX in Frameworks */,
-				4BB2FF952FD3702900028826 /* LibP2PMDNS in Frameworks */,
-				4BB2FF8D2FD3702900028826 /* LibP2P in Frameworks */,
+				4BBE4AE92FD3ABA800D16DC0 /* LibP2P in Frameworks */,
+				4BBE4AEC2FD3ABA800D16DC0 /* LibP2PMDNS in Frameworks */,
+				4BBE4AE52FD3ABA800D16DC0 /* (null) in Frameworks */,
+				4BBE4AE62FD3ABA800D16DC0 /* (null) in Frameworks */,
+				4BBE4AE72FD3ABA800D16DC0 /* (null) in Frameworks */,
+				4BBE4AE82FD3ABA800D16DC0 /* (null) in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -685,13 +697,13 @@
 			);
 			dependencies = (
 			);
+			name = MacApp;
 			packageProductDependencies = (
 				4BB2FF8C2FD3702900028826 /* LibP2P */,
 				4BB2FF902FD3702900028826 /* LibP2PNoise */,
 				4BB2FF912FD3702900028826 /* LibP2PYAMUX */,
 				4BB2FF922FD3702900028826 /* LibP2PMDNS */,
 			);
-			name = MacApp;
 			productName = MacApp;
 			productReference = 2051FAB8225C78D000BC00BC /* Git.app */;
 			productType = "com.apple.product-type.application";
@@ -708,13 +720,13 @@
 			);
 			dependencies = (
 			);
+			name = iOSApp;
 			packageProductDependencies = (
 				4BB2FF8C2FD3702900028826 /* LibP2P */,
 				4BB2FF902FD3702900028826 /* LibP2PNoise */,
 				4BB2FF912FD3702900028826 /* LibP2PYAMUX */,
 				4BB2FF922FD3702900028826 /* LibP2PMDNS */,
 			);
-			name = iOSApp;
 			productName = iOSApp;
 			productReference = 2051FAB9225C78D000BC00BC /* Git.app */;
 			productType = "com.apple.product-type.application";
@@ -892,7 +904,7 @@
 				20710E092286CA6A00104F72 /* Rest.swift in Sources */,
 				2048A0E1225C744400290E54 /* Serial.swift in Sources */,
 				2048A0EB225C744400290E54 /* Hub.swift in Sources */,
-				20DD00032200000100000001 /* PeerProtocol.swift in Sources */,
+				4BBE4AE42FD3ABA800D16DC0 /* PeerProtocol.swift in Sources */,
 				2048A0DB225C744400290E54 /* Hash.swift in Sources */,
 				CEAE6CC022A26BFE001E1AE1 /* Factory.swift in Sources */,
 				CEAE6CC322A28062001E1AE1 /* History.swift in Sources */,
@@ -1371,7 +1383,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
-				DEVELOPMENT_TEAM = 7AMWG3RLHN;
+				DEVELOPMENT_TEAM = M684FYCYG6;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
@@ -1439,7 +1451,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
-				DEVELOPMENT_TEAM = 7AMWG3RLHN;
+				DEVELOPMENT_TEAM = M684FYCYG6;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
@@ -1524,13 +1536,13 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = git.mac;
 				PRODUCT_MODULE_NAME = GitMac;
 				SDKROOT = macosx;
-				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 			};
 			name = Debug;
@@ -1589,12 +1601,12 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = git.mac;
 				PRODUCT_MODULE_NAME = GitMac;
 				SDKROOT = macosx;
-				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				SWIFT_COMPILATION_MODE = wholemodule;
 			};
 			name = Release;
@@ -1652,6 +1664,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				INFOPLIST_FILE = iOS/iOS.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -1663,7 +1676,6 @@
 				PRODUCT_BUNDLE_IDENTIFIER = git.ios;
 				PRODUCT_MODULE_NAME = GitiOS;
 				SDKROOT = iphoneos;
-				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -1717,6 +1729,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				INFOPLIST_FILE = iOS/iOS.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -1727,7 +1740,6 @@
 				PRODUCT_BUNDLE_IDENTIFIER = git.ios;
 				PRODUCT_MODULE_NAME = GitiOS;
 				SDKROOT = iphoneos;
-				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VALIDATE_PRODUCT = YES;
@@ -1828,10 +1840,6 @@
 		4BB2FF922FD3702900028826 /* LibP2PMDNS */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = LibP2PMDNS;
-		};
-		4BB2FF8E2FD3702900028826 /* LibP2PTesting */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = LibP2PTesting;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
