@@ -14,6 +14,9 @@ Commands:
   mac-test    Run the Mac test scheme
   ios-build   Build the iOS scheme
   ios-test    Run the iOS test scheme
+  resolve     Resolve Swift package dependencies
+  clean       Remove the project's derived data folder
+  reset       Remove derived data and package resolution state
   build       Build Mac and iOS
   test        Test Mac and iOS
   all         Build and then test Mac and iOS
@@ -25,6 +28,23 @@ run_xcodebuild() {
   local scheme="$1"
   shift
   xcodebuild -project "$PROJECT" -scheme "$scheme" "$@"
+}
+
+project_derived_data() {
+  printf '%s\n' "$ROOT_DIR/.xcodebuild"
+}
+
+clean() {
+  rm -rf "$(project_derived_data)"
+}
+
+reset() {
+  clean
+  rm -rf "$ROOT_DIR/Git.xcodeproj/project.xcworkspace/xcshareddata/swiftpm"
+}
+
+resolve() {
+  xcodebuild -project "$PROJECT" -resolvePackageDependencies
 }
 
 mac_build() {
@@ -55,6 +75,15 @@ case "${1:-}" in
     ;;
   ios-test)
     ios_test
+    ;;
+  resolve)
+    resolve
+    ;;
+  clean)
+    clean
+    ;;
+  reset)
+    reset
     ;;
   build)
     mac_build

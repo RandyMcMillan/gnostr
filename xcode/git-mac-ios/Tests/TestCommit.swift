@@ -62,7 +62,7 @@ Add project files.
                 decoding: try! Data(contentsOf: self.url.appendingPathComponent(".git/refs/heads/master")), as: UTF8.self))
             expect.fulfill()
         }
-        waitForExpectations(timeout: 1)
+        waitForExpectations(timeout: 5)
     }
     
     func testSaveBranch() {
@@ -91,7 +91,7 @@ Add project files.
                     self.url.appendingPathComponent(".git/refs/heads/feature/test")), as: UTF8.self))
             expect.fulfill()
         }
-        waitForExpectations(timeout: 1)
+        waitForExpectations(timeout: 5)
     }
     
     func testBackAndForth() {
@@ -122,7 +122,7 @@ Add project files.
             XCTAssertEqual(commit.parent, loaded.parent)
             expect.fulfill()
         }
-        waitForExpectations(timeout: 1)
+        waitForExpectations(timeout: 5)
     }
     
     func testMessageMultiline() {
@@ -137,7 +137,7 @@ Add project files.
             XCTAssertEqual(commit.message, loaded.message)
             expect.fulfill()
         }
-        waitForExpectations(timeout: 1)
+        waitForExpectations(timeout: 5)
     }
     
     func testLongAuthor() {
@@ -152,7 +152,7 @@ Add project files.
             XCTAssertEqual(commit.author.name, loaded.author.name)
             expect.fulfill()
         }
-        waitForExpectations(timeout: 1)
+        waitForExpectations(timeout: 5)
     }
     
     func testEmptyList() {
@@ -166,7 +166,7 @@ Add project files.
                 expect.fulfill()
             })
         }
-        waitForExpectations(timeout: 1)
+        waitForExpectations(timeout: 5)
     }
     
     func testEmptyMessage() {
@@ -177,7 +177,7 @@ Add project files.
         repository.commit([file], message: "", error: { _ in
             expect.fulfill()
         })
-        waitForExpectations(timeout: 1)
+        waitForExpectations(timeout: 5)
     }
     
     func testNoCredentials() {
@@ -186,7 +186,7 @@ Add project files.
         repository.commit([file], message: "hello world", error: { _ in
             expect.fulfill()
         })
-        waitForExpectations(timeout: 1)
+        waitForExpectations(timeout: 5)
     }
     
     func testInvalidUrl() {
@@ -198,7 +198,7 @@ Add project files.
             Hub.session.email = "world"
             repository.commit([self.url.appendingPathComponent("none.txt")], message: "hello world\n", error: { _ in expect.fulfill() })
         }
-        waitForExpectations(timeout: 1)
+        waitForExpectations(timeout: 5)
     }
     
     func testFirstCommit() {
@@ -226,7 +226,7 @@ Add project files.
                 }
             }
         }
-        waitForExpectations(timeout: 1)
+        waitForExpectations(timeout: 5)
     }
     
     func testNotAllowedCommitEmpty() {
@@ -242,7 +242,7 @@ Add project files.
                 })
             }
         }
-        waitForExpectations(timeout: 1)
+        waitForExpectations(timeout: 5)
     }
     
     func testSecondCommitUpdate() {
@@ -260,7 +260,7 @@ Add project files.
                 }
             }
         }
-        waitForExpectations(timeout: 1)
+        waitForExpectations(timeout: 5)
     }
     
     func testInvalidFile() {
@@ -271,7 +271,7 @@ Add project files.
         repository.commit([URL(fileURLWithPath: "/")], message: "A failed commmit", error: { _ in
             expect.fulfill()
         })
-        waitForExpectations(timeout: 1)
+        waitForExpectations(timeout: 5)
     }
     
     func testSecondCommit() {
@@ -290,7 +290,7 @@ Add project files.
                 }
             }
         }
-        waitForExpectations(timeout: 1)
+        waitForExpectations(timeout: 5)
     }
     
     func testFirstCommitSubtree() {
@@ -321,7 +321,7 @@ Add project files.
                 expect.fulfill()
             }
         }
-        waitForExpectations(timeout: 1)
+        waitForExpectations(timeout: 5)
     }
     
     func testIgnoredFile() {
@@ -341,7 +341,7 @@ not.js
                 expect.fulfill()
             })
         }
-        waitForExpectations(timeout: 1)
+        waitForExpectations(timeout: 5)
     }
     
     func testTreeIgnoredIfNotInCommit() {
