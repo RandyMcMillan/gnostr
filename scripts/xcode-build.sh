@@ -376,3 +376,14 @@ case "$MODE" in
     exit 1
     ;;
 esac
+
+
+## xcodebuild -project xcode/git-mac-ios/Git.xcodeproj -scheme Tests-MacOS -destination 'platform=iOS Simulator,name=iPhone 16' \
+##    -only-testing:Tests-MacOS/TestCheckout \
+##    -only-testing:Tests-MacOS/TestClone \
+##    -only-testing:Tests-MacOS/TestMerge \
+##    -only-testing:Tests-MacOS/TestPull \
+##    -only-testing:Tests-MacOS/TestUnpack \
+##    -only-testing:Tests-MacOS/TestUser \
+##    test
+
