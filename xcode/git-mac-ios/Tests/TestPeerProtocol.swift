@@ -11,10 +11,13 @@ final class TestPeerProtocol: XCTestCase {
             remote: "example.com/demo.git",
             peer: "peer-1"
         )
+        print("refs payload: \(refs)")
         let payload = try JSONEncoder().encode(refs)
         let envelope = Envelope(kind: "refs", repository: refs.repository, payload: String(decoding: payload, as: UTF8.self), peer: refs.peer)
+        print("encoded envelope: \(envelope)")
         let data = try JSONEncoder().encode(envelope)
         let decoded = try JSONDecoder().decode(Envelope.self, from: data)
+        print("decoded envelope: \(decoded)")
         XCTAssertEqual("refs", decoded.kind)
         XCTAssertEqual("demo", decoded.repository)
         XCTAssertEqual("peer-1", decoded.peer)
@@ -31,6 +34,7 @@ final class TestPeerProtocol: XCTestCase {
         )
         let data = try JSONEncoder().encode(request)
         let decoded = try JSONDecoder().decode(PushRequest.self, from: data)
+        print("push request decoded repository=\(decoded.repository) old=\(decoded.old) new=\(decoded.new) peer=\(decoded.peer)")
         XCTAssertEqual("demo", decoded.repository)
         XCTAssertEqual("old", decoded.old)
         XCTAssertEqual("new", decoded.new)
@@ -66,6 +70,7 @@ final class TestPeerProtocol: XCTestCase {
             self.new = new
             self.pack = pack.base64EncodedString()
             self.peer = peer
+            print("PushRequest init repository=\(repository) old=\(old) new=\(new) packBytes=\(pack.count) peer=\(peer)")
         }
     }
 }
