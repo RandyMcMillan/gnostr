@@ -517,7 +517,7 @@ public final class GitPeerService {
                     try? self.sendStatus(to: peer.peer)
                 }
                 guard let address = self.preferredDialAddress(for: peer.addresses) else {
-                    app.logger.warning("No dialable TCP address for peer \(peer.peer)")
+                    app.logger.warning("No dialable address for peer \(peer.peer)")
                     return
                 }
                 do {
