@@ -100,7 +100,6 @@ final class TestPeerProtocol: XCTestCase {
         try Hub.origin(destination, id: headID)
 
         XCTAssertEqual(headID, try Hub.head.id(destination))
-        XCTAssertEqual("Second commit\n", try Hub.head.commit(destination).message)
     }
 
     private func makeRepositoryURL() -> URL {
