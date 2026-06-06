@@ -33,7 +33,11 @@ final class Tree {
     }
     
     init(_ url: URL, ignore: Ignore, update: [URL], entries: [Index.Entry]) {
-        try! FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: nil).forEach {
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory), isDirectory.boolValue,
+              let contents = try? FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: nil)
+        else { return }
+        contents.forEach {
             let content = $0.resolvingSymlinksInPath()
             if content.hasDirectoryPath {
                 let child = Tree(content, ignore: ignore, update: update, entries: entries)
