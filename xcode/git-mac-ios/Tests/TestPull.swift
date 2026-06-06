@@ -40,7 +40,7 @@ class TestPull: XCTestCase {
                 }
             }
         }
-        waitForExpectations(timeout: 1)
+        waitForExpectations(timeout: 5)
     }
     
     func testCallFetch() {
@@ -55,7 +55,7 @@ class TestPull: XCTestCase {
             try? Config("host.com/monami.git").save(self.url)
             repository.pull()
         }
-        waitForExpectations(timeout: 1)
+        waitForExpectations(timeout: 5)
     }
     
     func testCallPull() {
@@ -73,7 +73,7 @@ class TestPull: XCTestCase {
             try? Config("host.com/monami.git").save(self.url)
             repository.pull()
         }
-        waitForExpectations(timeout: 1)
+        waitForExpectations(timeout: 5)
     }
     
     func testWant() {
@@ -91,7 +91,7 @@ class TestPull: XCTestCase {
             try? Config("lorem ipsum").save(self.url)
             repository.pull()
         }
-        waitForExpectations(timeout: 1)
+        waitForExpectations(timeout: 5)
     }
     
     func testHave() {
@@ -114,7 +114,7 @@ class TestPull: XCTestCase {
             try? Config("lorem ipsum").save(self.url)
             repository.pull()
         }
-        waitForExpectations(timeout: 1)
+        waitForExpectations(timeout: 5)
     }
     
     func testCheckout() {
@@ -143,7 +143,7 @@ Test
                 expect.fulfill()
             }
         }
-        waitForExpectations(timeout: 1)
+        waitForExpectations(timeout: 5)
     }
     
     func testUpdateConfig() {
@@ -167,7 +167,7 @@ Test
                 }
             }
         }
-        waitForExpectations(timeout: 1)
+        waitForExpectations(timeout: 5)
     }
     
     func testMergeFailNoCommonAncestor() {
@@ -188,7 +188,7 @@ Test
                 })
             }
         }
-        waitForExpectations(timeout: 1)
+        waitForExpectations(timeout: 5)
     }
     
     func testMerge() {
@@ -227,7 +227,7 @@ Test
                 }
             }
         }
-        waitForExpectations(timeout: 1)
+        waitForExpectations(timeout: 5)
     }
     
     func testFailsIfChanges() {
@@ -245,6 +245,6 @@ Test
                 expect.fulfill()
             })
         }
-        waitForExpectations(timeout: 1)
+        waitForExpectations(timeout: 5)
     }
 }

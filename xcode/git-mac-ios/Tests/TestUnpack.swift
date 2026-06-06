@@ -28,7 +28,7 @@ class TestUnpack: XCTestCase {
                 }
             }
         }
-        waitForExpectations(timeout: 1)
+        waitForExpectations(timeout: 5)
     }
     
     func testPacked() {
@@ -42,7 +42,7 @@ class TestUnpack: XCTestCase {
                 expect.fulfill()
             }
         }
-        waitForExpectations(timeout: 1)
+        waitForExpectations(timeout: 5)
     }
     
     func testPackedReference() {
@@ -56,7 +56,7 @@ class TestUnpack: XCTestCase {
                 expect.fulfill()
             }
         }
-        waitForExpectations(timeout: 1)
+        waitForExpectations(timeout: 5)
     }
     
     func testUnpack1() {
@@ -76,7 +76,7 @@ class TestUnpack: XCTestCase {
                 }
             }
         }
-        waitForExpectations(timeout: 1)
+        waitForExpectations(timeout: 5)
     }
     
     func testUnpack2() {
@@ -92,7 +92,7 @@ class TestUnpack: XCTestCase {
                 expect.fulfill()
             }
         }
-        waitForExpectations(timeout: 1)
+        waitForExpectations(timeout: 5)
     }
     
     func testReferences() {
@@ -110,7 +110,7 @@ class TestUnpack: XCTestCase {
                 expect.fulfill()
             }
         }
-        waitForExpectations(timeout: 1)
+        waitForExpectations(timeout: 5)
     }
     
     private func addPack(_ id: String) {

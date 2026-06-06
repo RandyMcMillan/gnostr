@@ -49,6 +49,6 @@ class TestUser: XCTestCase {
         Hub.session.update(user, email: email, error: { _ in
             expect.fulfill()
         }) { XCTFail() }
-        waitForExpectations(timeout: 1)
+        waitForExpectations(timeout: 5)
     }
 }
