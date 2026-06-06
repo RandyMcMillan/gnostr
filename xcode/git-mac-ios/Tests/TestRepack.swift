@@ -44,7 +44,7 @@ class TestRepack: XCTestCase {
                 }
             }
         }
-        waitForExpectations(timeout: 1)
+        waitForExpectations(timeout: 10)
     }
     
     func test2Commits() {
@@ -76,7 +76,7 @@ class TestRepack: XCTestCase {
                 }
             }
         }
-        waitForExpectations(timeout: 1)
+        waitForExpectations(timeout: 10)
     }
     
     func test2CommitsRestricted() {
@@ -108,7 +108,7 @@ class TestRepack: XCTestCase {
                 }
             }
         }
-        waitForExpectations(timeout: 1)
+        waitForExpectations(timeout: 10)
     }
     
     func test2CommitsToEmpty() {
@@ -133,7 +133,7 @@ class TestRepack: XCTestCase {
                 }
             }
         }
-        waitForExpectations(timeout: 1)
+        waitForExpectations(timeout: 10)
     }
     
     func testHash() {

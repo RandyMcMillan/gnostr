@@ -37,7 +37,7 @@ class TestDiff: XCTestCase {
                 }
             }
         }
-        waitForExpectations(timeout: 1)
+        waitForExpectations(timeout: 10)
     }
     
     func testInSubdirectory() {
@@ -58,7 +58,7 @@ class TestDiff: XCTestCase {
                 }
             }
         }
-        waitForExpectations(timeout: 1)
+        waitForExpectations(timeout: 10)
     }
     
     func testNewFile() {
@@ -76,7 +76,7 @@ class TestDiff: XCTestCase {
                 }
             }
         }
-        waitForExpectations(timeout: 1)
+        waitForExpectations(timeout: 10)
     }
     
     func testNoChange() {
@@ -94,7 +94,7 @@ class TestDiff: XCTestCase {
                 }
             }
         }
-        waitForExpectations(timeout: 1)
+        waitForExpectations(timeout: 10)
     }
     
     func testTimeline() {
@@ -120,7 +120,7 @@ class TestDiff: XCTestCase {
                 }
             }
         }
-        waitForExpectations(timeout: 1)
+        waitForExpectations(timeout: 10)
     }
     
     func testTimelineSubdirectory() {

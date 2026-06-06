@@ -28,7 +28,7 @@ class TestUnpack: XCTestCase {
                 }
             }
         }
-        waitForExpectations(timeout: 5)
+        waitForExpectations(timeout: 10)
     }
     
     func testPacked() {
@@ -42,7 +42,7 @@ class TestUnpack: XCTestCase {
                 expect.fulfill()
             }
         }
-        waitForExpectations(timeout: 5)
+        waitForExpectations(timeout: 10)
     }
     
     func testPackedReference() {

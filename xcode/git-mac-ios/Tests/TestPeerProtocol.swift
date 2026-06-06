@@ -101,6 +101,7 @@ final class TestPeerProtocol: XCTestCase {
 
         XCTAssertEqual(headID, try Hub.head.id(destination))
         XCTAssertEqual("Second commit\n", try Hub.head.commit(destination).message)
+        XCTAssertEqual(baseID, try Hub.head.commit(destination).parent.first)
         XCTAssertEqual("file.txt", try Hub.head.tree(destination).items.first?.url.lastPathComponent)
     }
 
