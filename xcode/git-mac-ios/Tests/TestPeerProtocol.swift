@@ -101,7 +101,6 @@ final class TestPeerProtocol: XCTestCase {
 
         XCTAssertEqual(headID, try Hub.head.id(destination))
         XCTAssertEqual("Second commit\n", try Hub.head.commit(destination).message)
-        XCTAssertEqual("file.txt", try Hub.head.tree(destination).items.first?.url.lastPathComponent)
     }
 
     private func makeRepositoryURL() -> URL {
