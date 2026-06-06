@@ -2,8 +2,22 @@ import XCTest
 @testable import Git
 
 final class TestPeerProtocol: XCTestCase {
+    private var urlsToRemove = [URL]()
+
+    override func setUp() {
+        Hub.session = Session()
+        Hub.session.name = "peer"
+        Hub.session.email = "peer@example.com"
+        Hub.factory.rest = MockRest()
+    }
+
+    override func tearDown() {
+        urlsToRemove.forEach { try? FileManager.default.removeItem(at: $0) }
+        urlsToRemove.removeAll()
+    }
+
     func testEnvelopeRoundTrip() throws {
-        let refs = Refs(
+        let refs = GitPeerRepositoryRefs(
             repository: "demo",
             branch: "main",
             reference: "refs/heads/main",
@@ -13,64 +27,87 @@ final class TestPeerProtocol: XCTestCase {
         )
         print("refs payload: \(refs)")
         let payload = try JSONEncoder().encode(refs)
-        let envelope = Envelope(kind: "refs", repository: refs.repository, payload: String(decoding: payload, as: UTF8.self), peer: refs.peer)
+        let envelope = GitPeerEnvelope(
+            kind: .refs,
+            repository: refs.repository,
+            payload: String(decoding: payload, as: UTF8.self),
+            peer: refs.peer
+        )
         print("encoded envelope: \(envelope)")
         let data = try JSONEncoder().encode(envelope)
-        let decoded = try JSONDecoder().decode(Envelope.self, from: data)
+        let decoded = try JSONDecoder().decode(GitPeerEnvelope.self, from: data)
         print("decoded envelope: \(decoded)")
-        XCTAssertEqual("refs", decoded.kind)
+        XCTAssertEqual(.refs, decoded.kind)
         XCTAssertEqual("demo", decoded.repository)
         XCTAssertEqual("peer-1", decoded.peer)
-        XCTAssertEqual(refs.commit, try JSONDecoder().decode(Refs.self, from: decoded.payload!.data(using: .utf8)!).commit)
+        XCTAssertEqual(refs.commit, try JSONDecoder().decode(GitPeerRepositoryRefs.self, from: decoded.payload!.data(using: .utf8)!).commit)
     }
 
     func testPushRequestCarriesPackBytes() throws {
-        let request = PushRequest(
-            repository: "demo",
-            old: "old",
-            new: "new",
-            pack: Data([0xde, 0xad, 0xbe, 0xef]),
+        let source = makeRepositoryURL()
+        let destination = makeRepositoryURL()
+        let ready = expectation(description: "source repository committed")
+        var baseID = ""
+        var headID = ""
+
+        try! Data("hello world\n".utf8).write(to: source.appendingPathComponent("file.txt"))
+        Hub.create(source) { repository in
+            repository.commit([source.appendingPathComponent("file.txt")], message: "First commit\n") {
+                baseID = try! Hub.head.id(source)
+                try! Data("hello world updated\n".utf8).write(to: source.appendingPathComponent("file.txt"))
+                repository.commit([source.appendingPathComponent("file.txt")], message: "Second commit\n") {
+                    headID = try! Hub.head.id(source)
+                    ready.fulfill()
+                }
+            }
+        }
+
+        waitForExpectations(timeout: 2)
+
+        let pack = try Hub.pack(source, from: headID)
+        let request = GitPeerPushRequest(
+            repository: source.lastPathComponent,
+            old: baseID,
+            new: headID,
+            pack: pack,
             peer: "peer-1"
         )
-        let data = try JSONEncoder().encode(request)
-        let decoded = try JSONDecoder().decode(PushRequest.self, from: data)
-        print("push request decoded repository=\(decoded.repository) old=\(decoded.old) new=\(decoded.new) peer=\(decoded.peer)")
-        XCTAssertEqual("demo", decoded.repository)
-        XCTAssertEqual("old", decoded.old)
-        XCTAssertEqual("new", decoded.new)
-        XCTAssertEqual(Data([0xde, 0xad, 0xbe, 0xef]), Data(base64Encoded: decoded.pack))
-    }
+        let response = GitPeerPackResponse(
+            repository: source.lastPathComponent,
+            want: headID,
+            have: baseID,
+            pack: pack,
+            peer: "peer-1"
+        )
 
-    private struct Envelope: Codable {
-        let kind: String
-        let repository: String?
-        let payload: String?
-        let peer: String?
-    }
+        let requestData = try JSONEncoder().encode(request)
+        let decodedRequest = try JSONDecoder().decode(GitPeerPushRequest.self, from: requestData)
+        let responseData = try JSONEncoder().encode(response)
+        let decodedResponse = try JSONDecoder().decode(GitPeerPackResponse.self, from: responseData)
 
-    private struct Refs: Codable {
-        let repository: String
-        let branch: String
-        let reference: String
-        let commit: String
-        let remote: String
-        let peer: String
-    }
+        print("push request decoded repository=\(decodedRequest.repository) old=\(decodedRequest.old) new=\(decodedRequest.new) peer=\(decodedRequest.peer)")
+        XCTAssertEqual(pack, Data(base64Encoded: decodedRequest.pack))
+        XCTAssertEqual(pack, Data(base64Encoded: decodedResponse.pack))
 
-    private struct PushRequest: Codable {
-        let repository: String
-        let old: String
-        let new: String
-        let pack: String
-        let peer: String
-
-        init(repository: String, old: String, new: String, pack: Data, peer: String) {
-            self.repository = repository
-            self.old = old
-            self.new = new
-            self.pack = pack.base64EncodedString()
-            self.peer = peer
-            print("PushRequest init repository=\(repository) old=\(old) new=\(new) packBytes=\(pack.count) peer=\(peer)")
+        let destinationReady = expectation(description: "destination repository created")
+        Hub.create(destination) { _ in
+            destinationReady.fulfill()
         }
+        waitForExpectations(timeout: 2)
+
+        try Hub.unpack(Data(base64Encoded: decodedRequest.pack)!, url: destination)
+        try Hub.update(destination, id: headID)
+        try Hub.origin(destination, id: headID)
+
+        XCTAssertEqual(headID, try Hub.head.id(destination))
+        XCTAssertEqual("Second commit\n", try Hub.head.commit(destination).message)
+        XCTAssertEqual(baseID, try Hub.head.commit(destination).parent.first)
+    }
+
+    private func makeRepositoryURL() -> URL {
+        let url = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(UUID().uuidString)
+        urlsToRemove.append(url)
+        try! FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        return url
     }
 }
