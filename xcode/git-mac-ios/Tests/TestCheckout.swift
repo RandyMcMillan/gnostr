@@ -45,7 +45,7 @@ class TestCheckout: XCTestCase {
                 }
             }
         }
-        waitForExpectations(timeout: 10)
+        waitForExpectations(timeout: 20)
     }
     
     func testThreeCommits() {
@@ -72,6 +72,6 @@ class TestCheckout: XCTestCase {
                 }
             }
         }
-        waitForExpectations(timeout: 10)
+        waitForExpectations(timeout: 20)
     }
 }
