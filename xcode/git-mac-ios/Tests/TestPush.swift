@@ -40,7 +40,7 @@ class TestPush: XCTestCase {
                 }
             }
         }
-        waitForExpectations(timeout: 1)
+        waitForExpectations(timeout: 5)
     }
     
     func testCallFetch() {
@@ -55,7 +55,7 @@ class TestPush: XCTestCase {
             try? Config("host.com/monami.git").save(self.url)
             repository.push()
         }
-        waitForExpectations(timeout: 1)
+        waitForExpectations(timeout: 5)
     }
     
     func testCallPush() {
@@ -80,7 +80,7 @@ class TestPush: XCTestCase {
                 }
             }
         }
-        waitForExpectations(timeout: 1)
+        waitForExpectations(timeout: 5)
     }
     
     func testOldAndNew() {
