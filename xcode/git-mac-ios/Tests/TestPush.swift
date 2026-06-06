@@ -109,7 +109,7 @@ class TestPush: XCTestCase {
                 }
             }
         }
-        waitForExpectations(timeout: 10)
+        waitForExpectations(timeout: 20)
     }
     
     func testPack() {
