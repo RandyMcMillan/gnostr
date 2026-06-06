@@ -1,11 +1,12 @@
 import Git
 import AppKit
+import LibP2P
 import StoreKit
 import UserNotifications
 
 private(set) weak var app: App!
 
-@NSApplicationMain final class App: NSApplication, NSApplicationDelegate, UNUserNotificationCenterDelegate, NSTouchBarDelegate {
+@NSApplicationMain final class App: NSApplication, NSApplicationDelegate, UNUserNotificationCenterDelegate, NSTouchBarDelegate, GitPeerServiceDelegate {
     private(set) weak var home: Home!
     private(set) var repository: Repository? {
         didSet {
@@ -182,6 +183,7 @@ private(set) weak var app: App!
 
         Task {
             do {
+                GitPeerService.shared.delegate = self
                 try await GitPeerService.shared.start()
             } catch {
                 print("Failed to start Git peer service: \(error)")
@@ -309,6 +311,18 @@ private(set) weak var app: App!
             components.day = 3
             UserDefaults.standard.setValue(Calendar.current.date(byAdding: components, to: Date())!, forKey: "rating")
         }
+    }
+
+    func gitPeerService(_ service: GitPeerService, didDiscover peer: PeerID) {
+        DispatchQueue.main.async { self.home?.recount() }
+    }
+
+    func gitPeerService(_ service: GitPeerService, didLose peer: PeerID) {
+        DispatchQueue.main.async { self.home?.recount() }
+    }
+
+    func gitPeerService(_ service: GitPeerService, didReceive envelope: GitPeerEnvelope, from peer: PeerID) {
+        DispatchQueue.main.async { self.home?.recount() }
     }
     
     @discardableResult private func orderIfReady<W: NSWindow>(_ type: W.Type) -> W? {

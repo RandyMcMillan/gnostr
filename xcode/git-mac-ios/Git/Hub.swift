@@ -28,4 +28,20 @@ public final class Hub {
     public class func clone(_ remote: String, local: URL, error: @escaping((Error) -> Void) = { _ in }, done: @escaping(() -> Void) = { }) {
         dispatch.background({ try factory.clone(remote, local: local, error: error, done: done) }, error: error)
     }
+
+    public class func branch(_ url: URL) -> String? {
+        return head.branch(url)
+    }
+
+    public class func remote(_ url: URL) -> String {
+        return head.remote(url)
+    }
+
+    public class func reference(_ url: URL) -> String? {
+        return try? head.reference(url)
+    }
+
+    public class func id(_ url: URL) -> String? {
+        return try? head.id(url)
+    }
 }

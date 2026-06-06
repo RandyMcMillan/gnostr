@@ -299,10 +299,11 @@ final class Home: Window  {
         app.terminate(nil)
     }
     
-    private func recount() {
-        count.stringValue = {
-            "\($0.filter({ $0.check.checked }).count)/\($0.count)"
-        } (list.documentView!.subviews.compactMap({ $0 as? Item }))
+    func recount() {
+        let items = list.documentView!.subviews.compactMap({ $0 as? Item })
+        let selected = items.filter({ $0.check.checked }).count
+        let peers = GitPeerService.shared.status.peerCount
+        count.stringValue = peers > 0 ? "\(selected)/\(items.count) | \(peers)p" : "\(selected)/\(items.count)"
     }
     
     private func make(_ image: String, action: Selector) -> Button.Image {

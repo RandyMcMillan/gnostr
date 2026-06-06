@@ -1,4 +1,5 @@
 import Foundation
+import Git
 import LibP2P
 import LibP2PNoise
 import LibP2PYAMUX
@@ -62,6 +63,59 @@ public struct GitPeerRepositoryAdvertisement: Codable {
     }
 }
 
+public struct GitPeerRepositoryStatus: Codable {
+    public let repository: String
+    public let branch: String
+    public let remote: String
+    public let peer: String
+    public let peerCount: Int
+    public let timestamp: Date
+
+    public init(
+        repository: String,
+        branch: String,
+        remote: String,
+        peer: String,
+        peerCount: Int,
+        timestamp: Date = .init()
+    ) {
+        self.repository = repository
+        self.branch = branch
+        self.remote = remote
+        self.peer = peer
+        self.peerCount = peerCount
+        self.timestamp = timestamp
+    }
+}
+
+public struct GitPeerRepositoryRefs: Codable {
+    public let repository: String
+    public let branch: String
+    public let reference: String
+    public let commit: String
+    public let remote: String
+    public let peer: String
+    public let timestamp: Date
+
+    public init(
+        repository: String,
+        branch: String,
+        reference: String,
+        commit: String,
+        remote: String,
+        peer: String,
+        timestamp: Date = .init()
+    ) {
+        self.repository = repository
+        self.branch = branch
+        self.reference = reference
+        self.commit = commit
+        self.remote = remote
+        self.peer = peer
+        self.timestamp = timestamp
+    }
+}
+
 public protocol GitPeerServiceDelegate: AnyObject {
     func gitPeerService(_ service: GitPeerService, didDiscover peer: PeerID)
     func gitPeerService(_ service: GitPeerService, didLose peer: PeerID)
@@ -105,6 +159,9 @@ public final class GitPeerService {
     private var state: LifecycleState = .stopped
     private var peers: [String: PeerID] = [:]
     private var advertisement: GitPeerRepositoryAdvertisement?
+    private var repositoryURL: URL?
+    private var peerStatuses: [String: GitPeerRepositoryStatus] = [:]
+    private var peerRefs: [String: GitPeerRepositoryRefs] = [:]
 
     public var isRunning: Bool { self.state == .running }
     public var peerID: PeerID? { self.app?.peerID }
@@ -117,6 +174,8 @@ public final class GitPeerService {
         )
     }
     public var connectedPeers: [PeerID] { Array(self.peers.values) }
+    public var knownPeerStatuses: [GitPeerRepositoryStatus] { Array(self.peerStatuses.values) }
+    public var knownPeerRefs: [GitPeerRepositoryRefs] { Array(self.peerRefs.values) }
 
     private init() {}
 
@@ -155,6 +214,7 @@ public final class GitPeerService {
         guard let app = self.app, self.state == .running else { throw ServiceError.notRunning }
         let peerID = app.peerID
 
+        self.repositoryURL = url
         let advertisement = GitPeerRepositoryAdvertisement(url: url, peer: peerID.shortDescription)
         self.advertisement = advertisement
 
@@ -169,6 +229,8 @@ public final class GitPeerService {
         app.logger.notice("Advertising repository \(advertisement.name) to \(self.peers.count) peer(s)")
         for peer in self.peers.values {
             try? self.send(envelope, to: peer)
+            try? self.sendStatus(to: peer)
+            try? self.requestRefs(from: peer)
         }
     }
 
@@ -191,6 +253,80 @@ public final class GitPeerService {
         }
     }
 
+    public func sendStatus(to peer: PeerID) throws {
+        guard let envelope = self.statusEnvelope else { return }
+        try self.send(envelope, to: peer)
+    }
+
+    public func requestRefs(from peer: PeerID) throws {
+        guard let app = self.app, self.state == .running else { throw ServiceError.notRunning }
+        let request = GitPeerEnvelope(kind: .refs, repository: self.advertisement?.name, peer: self.peerID?.shortDescription)
+        guard let data = try? JSONEncoder().encode(request) else { throw ServiceError.unableToEncodeEnvelope }
+        app.newRequest(
+            to: peer,
+            forProtocol: Self.protocolName,
+            withRequest: data,
+            style: .responseExpected,
+            withHandlers: .inherit
+        ).whenComplete { result in
+            switch result {
+            case .failure(let error):
+                app.logger.error("Failed to request git peer refs from \(peer): \(error)")
+            case .success(let response):
+                guard let str = String(data: response, encoding: .utf8),
+                      let data = str.data(using: .utf8),
+                      let refs = try? JSONDecoder().decode(GitPeerRepositoryRefs.self, from: data) else {
+                    app.logger.error("Failed to decode git peer refs from \(peer)")
+                    return
+                }
+                self.peerRefs[peer.b58String] = refs
+                app.logger.trace("Received git peer refs from \(peer)")
+            }
+        }
+    }
+
+    private var statusEnvelope: GitPeerEnvelope? {
+        guard let peerID = self.peerID, let repositoryURL = self.repositoryURL else { return nil }
+        let branch = Hub.branch(repositoryURL) ?? "unknown"
+        let remote = Hub.remote(repositoryURL)
+        let payload = GitPeerRepositoryStatus(
+            repository: repositoryURL.lastPathComponent,
+            branch: branch,
+            remote: remote,
+            peer: peerID.shortDescription,
+            peerCount: self.peers.count
+        )
+        guard let data = try? JSONEncoder().encode(payload) else { return nil }
+        return GitPeerEnvelope(
+            kind: .status,
+            repository: payload.repository,
+            payload: String(decoding: data, as: UTF8.self),
+            peer: payload.peer
+        )
+    }
+
+    private var refsEnvelope: GitPeerEnvelope? {
+        guard let peerID = self.peerID, let repositoryURL = self.repositoryURL else { return nil }
+        let branch = Hub.branch(repositoryURL) ?? "unknown"
+        let reference = Hub.reference(repositoryURL) ?? branch
+        let commit = Hub.id(repositoryURL) ?? ""
+        let remote = Hub.remote(repositoryURL)
+        let payload = GitPeerRepositoryRefs(
+            repository: repositoryURL.lastPathComponent,
+            branch: branch,
+            reference: reference,
+            commit: commit,
+            remote: remote,
+            peer: peerID.shortDescription
+        )
+        guard let data = try? JSONEncoder().encode(payload) else { return nil }
+        return GitPeerEnvelope(
+            kind: .refs,
+            repository: payload.repository,
+            payload: String(decoding: data, as: UTF8.self),
+            peer: payload.peer
+        )
+    }
     private func loadPeerID() throws -> PeerID {
         if let data = UserDefaults.standard.data(forKey: Self.peerStorageKey) {
             return try PeerID(marshaledPrivateKey: data)
@@ -214,6 +350,21 @@ public final class GitPeerService {
                     if let str = String(data: Data(payload.readableBytesView), encoding: .utf8),
                        let data = str.data(using: .utf8),
                        let envelope = try? JSONDecoder().decode(GitPeerEnvelope.self, from: data) {
+                        if envelope.kind == .hello {
+                            try? self?.sendStatus(to: peer)
+                            try? self?.requestRefs(from: peer)
+                        } else if envelope.kind == .refs {
+                            if let refs = self?.refsEnvelope?.payload {
+                                return .respondThenClose(refs)
+                            }
+                        }
+                        if envelope.kind == .refs,
+                           let refs = envelope.payload?.data(using: .utf8).flatMap({ try? JSONDecoder().decode(GitPeerRepositoryRefs.self, from: $0) }) {
+                            self?.peerRefs[peer.b58String] = refs
+                        } else if envelope.kind == .status,
+                            let status = envelope.payload?.data(using: .utf8).flatMap({ try? JSONDecoder().decode(GitPeerRepositoryStatus.self, from: $0) }) {
+                            self?.peerStatuses[peer.b58String] = status
+                        }
                         self?.delegate?.gitPeerService(self ?? GitPeerService.shared, didReceive: envelope, from: peer)
                     } else if let str = String(data: Data(payload.readableBytesView), encoding: .utf8) {
                         let envelope = GitPeerEnvelope(kind: .error, payload: str, peer: peer.shortDescription)
@@ -243,6 +394,7 @@ public final class GitPeerService {
                         peer: advertisement.peer
                     )
                     try? self.send(envelope, to: peer.peer)
+                    try? self.sendStatus(to: peer.peer)
                 }
                 guard let address = peer.addresses.first(where: { $0.description.contains("/tcp/") }) else {
                     app.logger.warning("No dialable TCP address for peer \(peer.peer)")
@@ -271,10 +423,13 @@ public final class GitPeerService {
                                 peer: advertisement.peer
                             )
                             try? self?.send(envelope, to: peer)
+                            try? self?.sendStatus(to: peer)
+                            try? self?.requestRefs(from: peer)
                         }
                     },
                     onDisconnect: { [weak self] peer in
                         self?.peers.removeValue(forKey: peer.b58String)
+                        self?.peerStatuses.removeValue(forKey: peer.b58String)
                         self?.delegate?.gitPeerService(self ?? GitPeerService.shared, didLose: peer)
                     }
                 )

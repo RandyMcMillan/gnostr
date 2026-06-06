@@ -1,11 +1,12 @@
 import Git
 import UIKit
+import LibP2P
 import StoreKit
 import UserNotifications
 
 private(set) weak var app: App!
 
-@UIApplicationMain final class App: UIViewController, UIApplicationDelegate, UNUserNotificationCenterDelegate, UIDocumentBrowserViewControllerDelegate {
+@UIApplicationMain final class App: UIViewController, UIApplicationDelegate, UNUserNotificationCenterDelegate, UIDocumentBrowserViewControllerDelegate, GitPeerServiceDelegate {
     var window: UIWindow?
     private(set) weak var tabs: Tab!
     private(set) weak var _home: Home!
@@ -112,6 +113,7 @@ private(set) weak var app: App!
 
         Task {
             do {
+                GitPeerService.shared.delegate = self
                 try await GitPeerService.shared.start()
             } catch {
                 print("Failed to start Git peer service: \(error)")
@@ -290,6 +292,18 @@ private(set) weak var app: App!
         [_settings, _market, _home, _add, _history].compactMap { $0 }.forEach { item in
             item.isHidden = item !== view
         }
+    }
+
+    func gitPeerService(_ service: GitPeerService, didDiscover peer: PeerID) {
+        DispatchQueue.main.async { self._home?.recount() }
+    }
+
+    func gitPeerService(_ service: GitPeerService, didLose peer: PeerID) {
+        DispatchQueue.main.async { self._home?.recount() }
+    }
+
+    func gitPeerService(_ service: GitPeerService, didReceive envelope: GitPeerEnvelope, from peer: PeerID) {
+        DispatchQueue.main.async { self._home?.recount() }
     }
     @objc private func back() { dismiss(animated: true) }
 }

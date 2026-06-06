@@ -327,10 +327,11 @@ final class Home: UIView {
         }
     }
     
-    private func recount() {
-        count.text = {
-            "\($0.filter({ $0.check.isSelected }).count)/\($0.count)"
-        } (list.subviews.compactMap({ $0 as? Item }))
+    func recount() {
+        let items = list.subviews.compactMap({ $0 as? Item })
+        let selected = items.filter({ $0.check.isSelected }).count
+        let peers = GitPeerService.shared.status.peerCount
+        count.text = peers > 0 ? "\(selected)/\(items.count) | \(peers)p" : "\(selected)/\(items.count)"
     }
     
     @objc private func file(_ item: Item) { File(item.url) }
