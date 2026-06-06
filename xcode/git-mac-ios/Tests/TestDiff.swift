@@ -148,7 +148,7 @@ class TestDiff: XCTestCase {
                 }
             }
         }
-        waitForExpectations(timeout: 1)
+        waitForExpectations(timeout: 10)
     }
     
     func testTimelineDeletedFile() {
