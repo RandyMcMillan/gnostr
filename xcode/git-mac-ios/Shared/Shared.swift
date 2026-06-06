@@ -53,7 +53,7 @@ public final class GitPeerService {
     }
 
     private static let peerStorageKey = "GitPeerService.peerID"
-    private static let protocolName = "/git/1.0.0"
+    private static let protocolName = "/gnostr/git/1.0.0"
 
     public weak var delegate: GitPeerServiceDelegate?
     private var app: Application?
