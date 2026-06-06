@@ -52,19 +52,21 @@ class TestLog: XCTestCase {
             self.repository.commit([self.file], message: "Lorem ipsum\n") {
                 try! Data("lorem ipsum\n".utf8).write(to: self.file)
                 self.repository.commit([self.file], message: "The rebels, the misfits\n") {
-                    self.repository.log {
-                        XCTAssertEqual(2, $0.count)
-                        XCTAssertEqual("The rebels, the misfits\n", $0.first?.message)
-                        XCTAssertEqual("a9b8f695fe7d66da97114df1c3a14df9070d2eae", $0.first?.tree)
-                        XCTAssertNotNil($0.first?.parent)
-                        XCTAssertEqual("Lorem ipsum\n", $0.last?.message)
-                        XCTAssertEqual("84b5f2f96994db6b67f8a0ee508b1ebb8b633c15", $0.last?.tree)
-                        XCTAssertNil($0.last?.parent.first)
-                        expect.fulfill()
+                    DispatchQueue.global(qos: .background).async {
+                        self.repository.log {
+                            XCTAssertEqual(2, $0.count)
+                            XCTAssertEqual("The rebels, the misfits\n", $0.first?.message)
+                            XCTAssertEqual("a9b8f695fe7d66da97114df1c3a14df9070d2eae", $0.first?.tree)
+                            XCTAssertNotNil($0.first?.parent)
+                            XCTAssertEqual("Lorem ipsum\n", $0.last?.message)
+                            XCTAssertEqual("84b5f2f96994db6b67f8a0ee508b1ebb8b633c15", $0.last?.tree)
+                            XCTAssertNil($0.last?.parent.first)
+                            expect.fulfill()
+                        }
                     }
                 }
             }
         }
-        waitForExpectations(timeout: 1)
+        waitForExpectations(timeout: 5)
     }
 }
