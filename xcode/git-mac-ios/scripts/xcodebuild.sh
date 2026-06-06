@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-PROJECT="$ROOT_DIR/Git.xcodeproj"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+PROJECT="$PROJECT_DIR/Git.xcodeproj"
 IOS_DESTINATION="${XCODE_IOS_DESTINATION:-platform=iOS Simulator,name=iPhone 16}"
 
 usage() {
@@ -27,11 +29,11 @@ EOF
 run_xcodebuild() {
   local scheme="$1"
   shift
-  xcodebuild -project "$PROJECT" -scheme "$scheme" "$@"
+  xcodebuild -project "$PROJECT" -scheme "$scheme" -derivedDataPath "$(project_derived_data)" "$@"
 }
 
 project_derived_data() {
-  printf '%s\n' "$ROOT_DIR/.xcodebuild"
+  printf '%s\n' "$PROJECT_DIR/.xcodebuild"
 }
 
 clean() {
@@ -40,8 +42,9 @@ clean() {
 
 reset() {
   clean
-  rm -rf "$ROOT_DIR/Git.xcodeproj/project.xcworkspace/xcuserdata"
-  rm -rf "$ROOT_DIR/Git.xcodeproj/project.xcworkspace/xcshareddata/swiftpm"
+  rm -rf "$PROJECT_DIR/Git.xcodeproj/project.xcworkspace/xcuserdata"
+  rm -rf "$PROJECT_DIR/Git.xcodeproj/project.xcworkspace/xcshareddata/swiftpm"
+  rm -rf "$REPO_DIR/.xcodebuild"
 }
 
 resolve() {
