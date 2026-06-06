@@ -26,6 +26,7 @@ private(set) weak var app: App!
                             self._home.update(.packed)
                         } else {
                             self._home.update(.ready, items: status)
+                            GitPeerService.shared.sync(repository: repositoryURL)
                         }
                     }
                 }

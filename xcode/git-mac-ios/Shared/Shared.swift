@@ -17,152 +17,6 @@ enum State {
     case first
 }
 
-public struct GitPeerEnvelope: Codable {
-    public enum Kind: String, Codable {
-        case hello
-        case status
-        case refs
-        case fetch
-        case pack
-        case push
-        case error
-    }
-
-    public var kind: Kind
-    public var repository: String?
-    public var payload: String?
-    public var peer: String?
-    public var timestamp: Date
-
-    public init(
-        kind: Kind,
-        repository: String? = nil,
-        payload: String? = nil,
-        peer: String? = nil,
-        timestamp: Date = .init()
-    ) {
-        self.kind = kind
-        self.repository = repository
-        self.payload = payload
-        self.peer = peer
-        self.timestamp = timestamp
-    }
-}
-
-public struct GitPeerRepositoryAdvertisement: Codable {
-    public let name: String
-    public let path: String
-    public let peer: String
-    public let timestamp: Date
-
-    public init(url: URL, peer: String, timestamp: Date = .init()) {
-        self.name = url.lastPathComponent
-        self.path = url.path
-        self.peer = peer
-        self.timestamp = timestamp
-    }
-}
-
-public struct GitPeerRepositoryStatus: Codable {
-    public let repository: String
-    public let branch: String
-    public let remote: String
-    public let peer: String
-    public let peerCount: Int
-    public let timestamp: Date
-
-    public init(
-        repository: String,
-        branch: String,
-        remote: String,
-        peer: String,
-        peerCount: Int,
-        timestamp: Date = .init()
-    ) {
-        self.repository = repository
-        self.branch = branch
-        self.remote = remote
-        self.peer = peer
-        self.peerCount = peerCount
-        self.timestamp = timestamp
-    }
-}
-
-public struct GitPeerRepositoryRefs: Codable {
-    public let repository: String
-    public let branch: String
-    public let reference: String
-    public let commit: String
-    public let remote: String
-    public let peer: String
-    public let timestamp: Date
-
-    public init(
-        repository: String,
-        branch: String,
-        reference: String,
-        commit: String,
-        remote: String,
-        peer: String,
-        timestamp: Date = .init()
-    ) {
-        self.repository = repository
-        self.branch = branch
-        self.reference = reference
-        self.commit = commit
-        self.remote = remote
-        self.peer = peer
-        self.timestamp = timestamp
-    }
-}
-
-public struct GitPeerFetchRequest: Codable {
-    public let repository: String
-    public let want: String
-    public let have: String
-    public let peer: String
-    public let timestamp: Date
-
-    public init(
-        repository: String,
-        want: String,
-        have: String,
-        peer: String,
-        timestamp: Date = .init()
-    ) {
-        self.repository = repository
-        self.want = want
-        self.have = have
-        self.peer = peer
-        self.timestamp = timestamp
-    }
-}
-
-public struct GitPeerPackResponse: Codable {
-    public let repository: String
-    public let want: String
-    public let have: String
-    public let pack: String
-    public let peer: String
-    public let timestamp: Date
-
-    public init(
-        repository: String,
-        want: String,
-        have: String,
-        pack: Data,
-        peer: String,
-        timestamp: Date = .init()
-    ) {
-        self.repository = repository
-        self.want = want
-        self.have = have
-        self.pack = pack.base64EncodedString()
-        self.peer = peer
-        self.timestamp = timestamp
-    }
-}
-
 public protocol GitPeerServiceDelegate: AnyObject {
     func gitPeerService(_ service: GitPeerService, didDiscover peer: PeerID)
     func gitPeerService(_ service: GitPeerService, didLose peer: PeerID)
@@ -389,6 +243,66 @@ public final class GitPeerService {
         }
     }
 
+    public func sync(repository url: URL) {
+        guard self.state == .running, self.repositoryURL == url, let localCommit = Hub.id(url), !localCommit.isEmpty else { return }
+        for peer in self.peers.values {
+            guard let refs = self.peerRefs[peer.b58String], refs.commit != localCommit else { continue }
+            try? self.requestPush(to: peer, old: refs.commit, new: localCommit)
+        }
+    }
+
+    public func requestPush(to peer: PeerID, old: String, new: String) throws {
+        guard let app = self.app, self.state == .running else { throw ServiceError.notRunning }
+        guard let repositoryURL = self.repositoryURL else { throw ServiceError.notRunning }
+        let pack = try Hub.pack(repositoryURL, from: new, to: old.isEmpty ? nil : old)
+        let request = GitPeerPushRequest(
+            repository: repositoryURL.lastPathComponent,
+            old: old,
+            new: new,
+            pack: pack,
+            peer: self.peerID?.shortDescription ?? ""
+        )
+        guard let data = try? JSONEncoder().encode(request) else { throw ServiceError.unableToEncodeEnvelope }
+        let envelope = GitPeerEnvelope(
+            kind: .push,
+            repository: request.repository,
+            payload: String(decoding: data, as: UTF8.self),
+            peer: request.peer
+        )
+        guard let requestData = try? JSONEncoder().encode(envelope) else { throw ServiceError.unableToEncodeEnvelope }
+        app.newRequest(
+            to: peer,
+            forProtocol: Self.protocolName,
+            withRequest: requestData,
+            style: .responseExpected,
+            withHandlers: .inherit
+        ).whenComplete { result in
+            switch result {
+            case .failure(let error):
+                app.logger.error("Failed to push git pack to \(peer): \(error)")
+            case .success(let response):
+                guard let str = String(data: response, encoding: .utf8),
+                      let data = str.data(using: .utf8),
+                      let envelope = try? JSONDecoder().decode(GitPeerEnvelope.self, from: data),
+                      let payload = envelope.payload?.data(using: .utf8),
+                      let ack = try? JSONDecoder().decode(GitPeerPushResponse.self, from: payload),
+                      ack.accepted else {
+                    app.logger.error("Failed to decode git push response from \(peer)")
+                    return
+                }
+                self.peerRefs[peer.b58String] = GitPeerRepositoryRefs(
+                    repository: ack.repository,
+                    branch: Hub.branch(repositoryURL) ?? "unknown",
+                    reference: ack.new,
+                    commit: ack.new,
+                    remote: Hub.remote(repositoryURL),
+                    peer: peer.shortDescription
+                )
+                app.logger.notice("Applied git push to \(peer)")
+            }
+        }
+    }
+
     private var statusEnvelope: GitPeerEnvelope? {
         guard let peerID = self.peerID, let repositoryURL = self.repositoryURL else { return nil }
         let branch = Hub.branch(repositoryURL) ?? "unknown"
@@ -485,6 +399,33 @@ public final class GitPeerService {
                                 return .respondThenClose(String(data: data, encoding: .utf8) ?? "")
                             } catch {
                                 req.logger.error("Failed to generate peer pack: \(error)")
+                                return .close
+                            }
+                        } else if envelope.kind == .push,
+                            let payload = envelope.payload?.data(using: .utf8),
+                            let push = try? JSONDecoder().decode(GitPeerPushRequest.self, from: payload),
+                            let repositoryURL = self?.repositoryURL,
+                            let packData = Data(base64Encoded: push.pack) {
+                            do {
+                                try Hub.unpack(packData, url: repositoryURL)
+                                try Hub.update(repositoryURL, id: push.new)
+                                try Hub.origin(repositoryURL, id: push.new)
+                                let response = GitPeerPushResponse(
+                                    repository: push.repository,
+                                    accepted: true,
+                                    new: push.new,
+                                    peer: self?.peerID?.shortDescription ?? ""
+                                )
+                                let ack = GitPeerEnvelope(
+                                    kind: .push,
+                                    repository: response.repository,
+                                    payload: String(decoding: try JSONEncoder().encode(response), as: UTF8.self),
+                                    peer: response.peer
+                                )
+                                let data = try JSONEncoder().encode(ack)
+                                return .respondThenClose(String(data: data, encoding: .utf8) ?? "")
+                            } catch {
+                                req.logger.error("Failed to apply peer push: \(error)")
                                 return .close
                             }
                         }
