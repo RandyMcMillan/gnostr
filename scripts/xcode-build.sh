@@ -17,7 +17,7 @@ CLEAN=false
 
 usage() {
   cat <<'EOF'
-Usage: xcode-build.sh [--mode build|test|all|list] [--project relay|p2p|appwithtool|universal|all] [--configuration Debug|Release] [--clean]
+Usage: xcode-build.sh [--mode build|test|all|list] [--project relay|p2p|appwithtool|universal|git-mac-ios-mac|git-mac-ios-ios|all] [--configuration Debug|Release] [--clean]
 
 Modes:
   build   Build the selected Xcode projects
@@ -26,7 +26,7 @@ Modes:
   list    Print the known projects, schemes, and test coverage
 
 Options:
-  --project NAME        Select relay, p2p, appwithtool, universal, or all (default)
+  --project NAME        Select relay, p2p, appwithtool, universal, git-mac-ios-mac, git-mac-ios-ios, or all (default)
   --configuration NAME  Xcode build configuration (default: Debug)
   --clean               Remove per-project derived data before running
   --help                Show this help
@@ -60,6 +60,9 @@ project_path() {
     universal)
       printf '%s\n' "xcode/swift-universal/swiftyapp/Universal_App.xcodeproj"
       ;;
+    git-mac-ios-mac|git-mac-ios-ios)
+      printf '%s\n' "xcode/git-mac-ios/Git.xcodeproj"
+      ;;
     *)
       echo "Unsupported project: $1" >&2
       exit 1
@@ -67,7 +70,7 @@ project_path() {
   esac
 }
 
-project_scheme() {
+project_build_scheme() {
   case "$1" in
     relay)
       printf '%s\n' "gnostr-relay"
@@ -80,6 +83,39 @@ project_scheme() {
       ;;
     universal)
       printf '%s\n' "Universal_App (iOS)"
+      ;;
+    git-mac-ios-mac)
+      printf '%s\n' "Mac"
+      ;;
+    git-mac-ios-ios)
+      printf '%s\n' "iOS"
+      ;;
+    *)
+      echo "Unsupported project: $1" >&2
+      exit 1
+      ;;
+  esac
+}
+
+project_test_scheme() {
+  case "$1" in
+    relay)
+      printf '%s\n' "gnostr-relay"
+      ;;
+    p2p)
+      printf '%s\n' "swiftyapp"
+      ;;
+    appwithtool)
+      printf '%s\n' "AppWithTool"
+      ;;
+    universal)
+      printf '%s\n' "Universal_App (iOS)"
+      ;;
+    git-mac-ios-mac)
+      printf '%s\n' "Tests-MacOS"
+      ;;
+    git-mac-ios-ios)
+      printf '%s\n' "Tests-iOS"
       ;;
     *)
       echo "Unsupported project: $1" >&2
@@ -109,6 +145,12 @@ project_test_schemes() {
   case "$1" in
     appwithtool)
       printf '%s\n' "AppWithToolTests AppWithToolUITests"
+      ;;
+    git-mac-ios-mac)
+      printf '%s\n' "Tests-MacOS"
+      ;;
+    git-mac-ios-ios)
+      printf '%s\n' "Tests-iOS"
       ;;
     *)
       return 1
@@ -166,8 +208,11 @@ project_build_destination() {
     appwithtool)
       printf '%s\n' "generic/platform=macOS"
       ;;
-    universal)
+    universal|git-mac-ios-ios)
       printf '%s\n' "generic/platform=iOS Simulator"
+      ;;
+    git-mac-ios-mac)
+      printf '%s\n' "generic/platform=macOS"
       ;;
     *)
       echo "Unsupported project: $1" >&2
@@ -179,9 +224,9 @@ project_build_destination() {
 selected_projects() {
   case "$PROJECT_FILTER" in
     all)
-      printf '%s\n' relay p2p appwithtool universal
+      printf '%s\n' relay p2p appwithtool universal git-mac-ios-mac git-mac-ios-ios
       ;;
-    relay|p2p|appwithtool|universal)
+    relay|p2p|appwithtool|universal|git-mac-ios-mac|git-mac-ios-ios)
       printf '%s\n' "$PROJECT_FILTER"
       ;;
     *)
@@ -219,7 +264,11 @@ run_xcodebuild() {
   local project_path_value
   local derived_data_path
 
-  scheme="$(project_scheme "$project")"
+  if [[ "$action" == "build" ]]; then
+    scheme="$(project_build_scheme "$project")"
+  else
+    scheme="$(project_test_scheme "$project")"
+  fi
   project_path_value="$(project_path "$project")"
   derived_data_path="$DERIVED_DATA_ROOT/$project/$CONFIGURATION/$action"
   local build_destination
@@ -304,10 +353,10 @@ done
 
 case "$MODE" in
   list)
-    for project in relay p2p appwithtool universal; do
+  for project in relay p2p appwithtool universal git-mac-ios-mac git-mac-ios-ios; do
       printf '%s\t%s\t%s\t%s\n' \
         "$project" \
-        "$(project_scheme "$project")" \
+      "$(project_build_scheme "$project")" \
         "$(project_path "$project")" \
         "$(project_test_schemes "$project" 2>/dev/null || true)"
     done
