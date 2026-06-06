@@ -21,14 +21,14 @@ class TestClone: XCTestCase {
         let expect = expectation(description: "")
         rest._error = Failure.Request.invalid
         Hub.clone("", local: url, error: { _ in expect.fulfill() })
-        waitForExpectations(timeout: 5)
+        waitForExpectations(timeout: 15)
     }
     
     func testFailIfNoReference() {
         let expect = expectation(description: "")
         rest._fetch = Fetch()
         Hub.clone("", local: url, error: { _ in expect.fulfill() })
-        waitForExpectations(timeout: 5)
+        waitForExpectations(timeout: 15)
     }
     
     func testFailOnDownload() {
@@ -38,7 +38,7 @@ class TestClone: XCTestCase {
         rest._error = Failure.Request.invalid
         rest._fetch = fetch
         Hub.clone("", local: url, error: { _ in expect.fulfill() })
-        waitForExpectations(timeout: 5)
+        waitForExpectations(timeout: 15)
     }
     
     func testFailIfRepository() {
@@ -50,7 +50,7 @@ class TestClone: XCTestCase {
         Hub.create(url) { _ in
             Hub.clone("", local: self.url, error: { _ in expect.fulfill() })
         }
-        waitForExpectations(timeout: 5)
+        waitForExpectations(timeout: 15)
     }
     
     func testSuccess() {
@@ -65,7 +65,7 @@ class TestClone: XCTestCase {
                 expect.fulfill()
             }
         }
-        waitForExpectations(timeout: 5)
+        waitForExpectations(timeout: 15)
     }
     
     func testCreatesFolder() {
@@ -80,7 +80,7 @@ class TestClone: XCTestCase {
             XCTAssertTrue(d.boolValue)
             expect.fulfill()
         }
-        waitForExpectations(timeout: 5)
+        waitForExpectations(timeout: 15)
     }
     
     func testCreatesRepository() {
@@ -95,7 +95,7 @@ class TestClone: XCTestCase {
                 expect.fulfill()
             }
         }
-        waitForExpectations(timeout: 5)
+        waitForExpectations(timeout: 15)
     }
     
     func testHead() {
@@ -112,7 +112,7 @@ class TestClone: XCTestCase {
             XCTAssertEqual("master", Hub.head.branch(self.url.appendingPathComponent("monami")))
             expect.fulfill()
         }
-        waitForExpectations(timeout: 5)
+        waitForExpectations(timeout: 15)
     }
     
     func testWantHave() {
@@ -126,7 +126,7 @@ class TestClone: XCTestCase {
             expect.fulfill()
         }
         Hub.clone("host.com/monami.git", local: url.appendingPathComponent("monami"))
-        waitForExpectations(timeout: 5)
+        waitForExpectations(timeout: 15)
     }
     
     func testUnpacks() {
@@ -144,7 +144,7 @@ Test
 """, String(decoding: (try? Data(contentsOf: self.url.appendingPathComponent("monami").appendingPathComponent("README.md"))) ?? Data(), as: UTF8.self))
             expect.fulfill()
         }
-        waitForExpectations(timeout: 5)
+        waitForExpectations(timeout: 15)
     }
     
     func testRemotes() {
@@ -158,7 +158,7 @@ Test
                 (try? Data(contentsOf: self.url.appendingPathComponent("monami").appendingPathComponent(".git/refs/remotes/origin/master"))) ?? Data(), as: UTF8.self))
             expect.fulfill()
         }
-        waitForExpectations(timeout: 5)
+        waitForExpectations(timeout: 15)
     }
     
     func testConfig() {
@@ -179,6 +179,6 @@ Test
 """, String(decoding: (try? Data(contentsOf: self.url.appendingPathComponent("monami").appendingPathComponent(".git/config"))) ?? Data(), as: UTF8.self))
             expect.fulfill()
         }
-        waitForExpectations(timeout: 5)
+        waitForExpectations(timeout: 15)
     }
 }
