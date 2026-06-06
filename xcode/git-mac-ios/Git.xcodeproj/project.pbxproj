@@ -283,6 +283,13 @@
 			remoteGlobalIDString = 20F6E0BA225C732200418216;
 			remoteInfo = MacApp;
 		};
+		4BBE4B3D2FD491D700D16DC0 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 20F6E089225C729200418216 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 20F6E0CE225C733600418216;
+			remoteInfo = iOSApp;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -846,6 +853,7 @@
 			buildRules = (
 			);
 			dependencies = (
+				4BBE4B3E2FD491D700D16DC0 /* PBXTargetDependency */,
 			);
 			name = "Tests-iOS";
 			productName = Tests;
@@ -881,6 +889,9 @@
 					};
 					20F6E0CE225C733600418216 = {
 						CreatedOnToolsVersion = 10.2;
+					};
+					4BBE4AF12FD47BC100D16DC0 = {
+						TestTargetID = 20F6E0CE225C733600418216;
 					};
 				};
 			};
@@ -1241,6 +1252,11 @@
 			target = 20F6E0BA225C732200418216 /* MacApp */;
 			targetProxy = 4BBE4B3B2FD47D9B00D16DC0 /* PBXContainerItemProxy */;
 		};
+		4BBE4B3E2FD491D700D16DC0 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 20F6E0CE225C733600418216 /* iOSApp */;
+			targetProxy = 4BBE4B3D2FD491D700D16DC0 /* PBXContainerItemProxy */;
+		};
 /* End PBXTargetDependency section */
 
 /* Begin PBXVariantGroup section */
@@ -1571,6 +1587,7 @@
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				BUNDLE_LOADER = "$(TEST_HOST)";
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -1640,6 +1657,7 @@
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				BUNDLE_LOADER = "$(TEST_HOST)";
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -1972,6 +1990,7 @@
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				BUNDLE_LOADER = "$(TEST_HOST)";
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -2036,6 +2055,7 @@
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Git.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Git";
 			};
 			name = Debug;
 		};
@@ -2044,6 +2064,7 @@
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				BUNDLE_LOADER = "$(TEST_HOST)";
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -2102,6 +2123,7 @@
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Git.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Git";
 			};
 			name = Release;
 		};
