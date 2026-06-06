@@ -40,6 +40,7 @@ clean() {
 
 reset() {
   clean
+  rm -rf "$ROOT_DIR/Git.xcodeproj/project.xcworkspace/xcuserdata"
   rm -rf "$ROOT_DIR/Git.xcodeproj/project.xcworkspace/xcshareddata/swiftpm"
 }
 
