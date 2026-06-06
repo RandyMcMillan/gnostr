@@ -4803,6 +4803,7 @@ dependencies = [
  "clap 4.6.1",
  "futures",
  "futures-util",
+ "getrandom 0.1.16",
  "gnostr-asyncgit",
  "gnostr-crawler",
  "gnostr-js",
