@@ -696,6 +696,7 @@
 			buildRules = (
 			);
 			dependencies = (
+				4BB2FF9D2FD3702900028826 /* PBXTargetDependency */,
 			);
 			name = MacApp;
 			packageProductDependencies = (
@@ -719,6 +720,7 @@
 			buildRules = (
 			);
 			dependencies = (
+				4BB2FF9E2FD3702900028826 /* PBXTargetDependency */,
 			);
 			name = iOSApp;
 			packageProductDependencies = (
@@ -1842,6 +1844,36 @@
 			productName = LibP2PMDNS;
 		};
 /* End XCSwiftPackageProductDependency section */
+
+/* Begin PBXContainerItemProxy section */
+		4BB2FF9B2FD3702900028826 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 20F6E089225C729200418216 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 20F6E092225C72A100418216;
+			remoteInfo = Mac;
+		};
+		4BB2FF9C2FD3702900028826 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 20F6E089225C729200418216 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 20F6E0A0225C72AC00418216;
+			remoteInfo = iOS;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXTargetDependency section */
+		4BB2FF9D2FD3702900028826 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 20F6E092225C72A100418216 /* Mac */;
+			targetProxy = 4BB2FF9B2FD3702900028826 /* PBXContainerItemProxy */;
+		};
+		4BB2FF9E2FD3702900028826 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 20F6E0A0225C72AC00418216 /* iOS */;
+			targetProxy = 4BB2FF9C2FD3702900028826 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 	};
 	rootObject = 20F6E089225C729200418216 /* Project object */;
 }
