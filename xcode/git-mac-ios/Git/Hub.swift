@@ -44,4 +44,20 @@ public final class Hub {
     public class func id(_ url: URL) -> String? {
         return try? head.id(url)
     }
+
+    public class func pack(_ url: URL, from: String, to: String? = nil) throws -> Data {
+        return try Pack.Maker(url, from: from, to: to).data
+    }
+
+    public class func unpack(_ data: Data, url: URL) throws {
+        try Pack(data).unpack(url)
+    }
+
+    public class func update(_ url: URL, id: String) throws {
+        try head.update(url, id: id)
+    }
+
+    public class func origin(_ url: URL, id: String) throws {
+        try head.origin(url, id: id)
+    }
 }

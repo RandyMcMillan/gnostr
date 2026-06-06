@@ -116,6 +116,53 @@ public struct GitPeerRepositoryRefs: Codable {
     }
 }
 
+public struct GitPeerFetchRequest: Codable {
+    public let repository: String
+    public let want: String
+    public let have: String
+    public let peer: String
+    public let timestamp: Date
+
+    public init(
+        repository: String,
+        want: String,
+        have: String,
+        peer: String,
+        timestamp: Date = .init()
+    ) {
+        self.repository = repository
+        self.want = want
+        self.have = have
+        self.peer = peer
+        self.timestamp = timestamp
+    }
+}
+
+public struct GitPeerPackResponse: Codable {
+    public let repository: String
+    public let want: String
+    public let have: String
+    public let pack: String
+    public let peer: String
+    public let timestamp: Date
+
+    public init(
+        repository: String,
+        want: String,
+        have: String,
+        pack: Data,
+        peer: String,
+        timestamp: Date = .init()
+    ) {
+        self.repository = repository
+        self.want = want
+        self.have = have
+        self.pack = pack.base64EncodedString()
+        self.peer = peer
+        self.timestamp = timestamp
+    }
+}
+
 public protocol GitPeerServiceDelegate: AnyObject {
     func gitPeerService(_ service: GitPeerService, didDiscover peer: PeerID)
     func gitPeerService(_ service: GitPeerService, didLose peer: PeerID)
@@ -275,12 +322,69 @@ public final class GitPeerService {
             case .success(let response):
                 guard let str = String(data: response, encoding: .utf8),
                       let data = str.data(using: .utf8),
-                      let refs = try? JSONDecoder().decode(GitPeerRepositoryRefs.self, from: data) else {
+                      let envelope = try? JSONDecoder().decode(GitPeerEnvelope.self, from: data),
+                      let refsData = envelope.payload?.data(using: .utf8),
+                      let refs = try? JSONDecoder().decode(GitPeerRepositoryRefs.self, from: refsData) else {
                     app.logger.error("Failed to decode git peer refs from \(peer)")
                     return
                 }
                 self.peerRefs[peer.b58String] = refs
                 app.logger.trace("Received git peer refs from \(peer)")
+                guard let repositoryURL = self.repositoryURL else { return }
+                let localCommit = Hub.id(repositoryURL) ?? ""
+                guard refs.commit != localCommit else { return }
+                try? self.requestPack(from: peer, want: refs.commit, have: localCommit)
+            }
+        }
+    }
+
+    public func requestPack(from peer: PeerID, want: String, have: String) throws {
+        guard let app = self.app, self.state == .running else { throw ServiceError.notRunning }
+        guard let repositoryURL = self.repositoryURL else { throw ServiceError.notRunning }
+        let request = GitPeerFetchRequest(
+            repository: repositoryURL.lastPathComponent,
+            want: want,
+            have: have,
+            peer: self.peerID?.shortDescription ?? ""
+        )
+        guard let data = try? JSONEncoder().encode(request) else { throw ServiceError.unableToEncodeEnvelope }
+        let envelope = GitPeerEnvelope(
+            kind: .fetch,
+            repository: request.repository,
+            payload: String(decoding: data, as: UTF8.self),
+            peer: request.peer
+        )
+        guard let requestData = try? JSONEncoder().encode(envelope) else { throw ServiceError.unableToEncodeEnvelope }
+        app.newRequest(
+            to: peer,
+            forProtocol: Self.protocolName,
+            withRequest: requestData,
+            style: .responseExpected,
+            withHandlers: .inherit
+        ).whenComplete { result in
+            switch result {
+            case .failure(let error):
+                app.logger.error("Failed to fetch git pack from \(peer): \(error)")
+            case .success(let response):
+                guard let str = String(data: response, encoding: .utf8),
+                      let data = str.data(using: .utf8),
+                      let envelope = try? JSONDecoder().decode(GitPeerEnvelope.self, from: data),
+                      let payload = envelope.payload?.data(using: .utf8),
+                      let pack = try? JSONDecoder().decode(GitPeerPackResponse.self, from: payload),
+                      let packData = Data(base64Encoded: pack.pack) else {
+                    app.logger.error("Failed to decode git pack response from \(peer)")
+                    return
+                }
+                do {
+                    try Hub.unpack(packData, url: repositoryURL)
+                    if !want.isEmpty {
+                        try Hub.update(repositoryURL, id: want)
+                        try Hub.origin(repositoryURL, id: want)
+                    }
+                    app.logger.notice("Applied git pack from \(peer)")
+                } catch {
+                    app.logger.error("Failed to apply git pack from \(peer): \(error)")
+                }
             }
         }
     }
@@ -354,8 +458,34 @@ public final class GitPeerService {
                             try? self?.sendStatus(to: peer)
                             try? self?.requestRefs(from: peer)
                         } else if envelope.kind == .refs {
-                            if let refs = self?.refsEnvelope?.payload {
-                                return .respondThenClose(refs)
+                            if let refs = self?.refsEnvelope,
+                               let data = try? JSONEncoder().encode(refs),
+                               let response = String(data: data, encoding: .utf8) {
+                                return .respondThenClose(response)
+                            }
+                        } else if envelope.kind == .fetch,
+                            let payload = envelope.payload?.data(using: .utf8),
+                            let fetch = try? JSONDecoder().decode(GitPeerFetchRequest.self, from: payload),
+                            let repositoryURL = self?.repositoryURL {
+                            do {
+                                let pack = try Hub.pack(repositoryURL, from: fetch.want, to: fetch.have.isEmpty ? nil : fetch.have)
+                                let response = GitPeerPackResponse(
+                                    repository: fetch.repository,
+                                    want: fetch.want,
+                                    have: fetch.have,
+                                    pack: pack,
+                                    peer: self?.peerID?.shortDescription ?? ""
+                                )
+                                let data = try JSONEncoder().encode(GitPeerEnvelope(
+                                    kind: .pack,
+                                    repository: response.repository,
+                                    payload: String(decoding: try JSONEncoder().encode(response), as: UTF8.self),
+                                    peer: response.peer
+                                ))
+                                return .respondThenClose(String(data: data, encoding: .utf8) ?? "")
+                            } catch {
+                                req.logger.error("Failed to generate peer pack: \(error)")
+                                return .close
                             }
                         }
                         if envelope.kind == .refs,
