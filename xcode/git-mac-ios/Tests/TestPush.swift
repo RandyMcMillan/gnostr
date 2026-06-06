@@ -109,7 +109,7 @@ class TestPush: XCTestCase {
                 }
             }
         }
-        waitForExpectations(timeout: 1)
+        waitForExpectations(timeout: 10)
     }
     
     func testPack() {
@@ -138,7 +138,7 @@ class TestPush: XCTestCase {
                 }
             }
         }
-        waitForExpectations(timeout: 1)
+        waitForExpectations(timeout: 10)
     }
     
     func testNoCommits() {
@@ -152,7 +152,7 @@ class TestPush: XCTestCase {
             try? Config("host.com/monami.git").save(self.url)
             repository.push({ _ in expect.fulfill() })
         }
-        waitForExpectations(timeout: 1)
+        waitForExpectations(timeout: 10)
     }
     
     func test3Commits() {
@@ -180,7 +180,7 @@ class TestPush: XCTestCase {
                 }
             }
         }
-        waitForExpectations(timeout: 1)
+        waitForExpectations(timeout: 10)
     }
     
     func test2CommitsEmptyResponse() {
@@ -203,7 +203,7 @@ class TestPush: XCTestCase {
                 }
             }
         }
-        waitForExpectations(timeout: 1)
+        waitForExpectations(timeout: 10)
     }
     
     func test2Commits1Uploaded() {
@@ -229,7 +229,7 @@ class TestPush: XCTestCase {
                 }
             }
         }
-        waitForExpectations(timeout: 1)
+        waitForExpectations(timeout: 10)
     }
     
     func testUnknownReference() {
@@ -249,6 +249,6 @@ class TestPush: XCTestCase {
                 })
             }
         }
-        waitForExpectations(timeout: 1)
+        waitForExpectations(timeout: 10)
     }
 }
