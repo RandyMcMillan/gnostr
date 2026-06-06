@@ -1,6 +1,9 @@
 import Foundation
 import Git
 import LibP2P
+import LibP2PAutoNAT
+import LibP2PDCUtR
+import LibP2PRelay
 import LibP2PNoise
 import LibP2PYAMUX
 import LibP2PMDNS
@@ -90,8 +93,12 @@ public final class GitPeerService {
             app.logger.logLevel = .debug
             app.security.use(.noise)
             app.muxers.use(.yamux)
+            app.relay.use(.relay)
+            app.autonat.use(.autonat)
+            app.dcutr.use(.dcutr)
             app.discovery.use(.mdns)
             app.servers.use(.tcp(host: "0.0.0.0", port: 0))
+            app.logger.notice("Enabled relay/AutoNAT/DCUtR for hole punching")
             self.installRoutes(on: app)
             self.installDiscovery(on: app)
             try await app.startup()
@@ -497,6 +504,7 @@ public final class GitPeerService {
                 }
                 self.peers[peer.peer.b58String] = peer.peer
                 app.logger.notice("Discovered peer \(peer.peer.shortDescription) at \(peer.addresses.count) address(es)")
+                app.logger.debug("Peer \(peer.peer.shortDescription) addresses: \(peer.addresses.map(\.description).joined(separator: ", "))")
                 if let advertisement = self.advertisement, let payload = try? JSONEncoder().encode(advertisement) {
                     let envelope = GitPeerEnvelope(
                         kind: .hello,
@@ -508,11 +516,12 @@ public final class GitPeerService {
                     try? self.send(envelope, to: peer.peer)
                     try? self.sendStatus(to: peer.peer)
                 }
-                guard let address = peer.addresses.first(where: { $0.description.contains("/tcp/") }) else {
+                guard let address = self.preferredDialAddress(for: peer.addresses) else {
                     app.logger.warning("No dialable TCP address for peer \(peer.peer)")
                     return
                 }
                 do {
+                    app.logger.notice("Dialing peer \(peer.peer.shortDescription) via \(address)")
                     try app.newStream(to: address, forProtocol: Self.protocolName)
                 } catch {
                     app.logger.error("Failed to dial peer \(peer.peer): \(error)")
@@ -550,5 +559,11 @@ public final class GitPeerService {
                 )
             )
         )
+    }
+
+    private func preferredDialAddress(for addresses: [Multiaddr]) -> Multiaddr? {
+        addresses.first(where: { $0.description.contains("/p2p-circuit/") })
+            ?? addresses.first(where: { $0.description.contains("/tcp/") })
+            ?? addresses.first
     }
 }
