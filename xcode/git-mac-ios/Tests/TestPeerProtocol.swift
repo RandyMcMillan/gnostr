@@ -51,16 +51,16 @@ final class TestPeerProtocol: XCTestCase {
         var headID = ""
 
         try! Data("hello world\n".utf8).write(to: source.appendingPathComponent("file.txt"))
-        Hub.create(source) { repository in
-            repository.commit([source.appendingPathComponent("file.txt")], message: "First commit\n") {
+        Hub.create(source, result: { repository in
+            repository.commit([source.appendingPathComponent("file.txt")], message: "First commit\n", done: {
                 baseID = try! Hub.head.id(source)
                 try! Data("hello world updated\n".utf8).write(to: source.appendingPathComponent("file.txt"))
-                repository.commit([source.appendingPathComponent("file.txt")], message: "Second commit\n") {
+                repository.commit([source.appendingPathComponent("file.txt")], message: "Second commit\n", done: {
                     headID = try! Hub.head.id(source)
                     ready.fulfill()
-                }
-            }
-        }
+                })
+            })
+        })
 
         waitForExpectations(timeout: 2)
 
@@ -90,9 +90,9 @@ final class TestPeerProtocol: XCTestCase {
         XCTAssertEqual(pack, Data(base64Encoded: decodedResponse.pack))
 
         let destinationReady = expectation(description: "destination repository created")
-        Hub.create(destination) { _ in
+        Hub.create(destination, result: { _ in
             destinationReady.fulfill()
-        }
+        })
         waitForExpectations(timeout: 2)
 
         try Hub.unpack(Data(base64Encoded: decodedRequest.pack)!, url: destination)
@@ -101,7 +101,7 @@ final class TestPeerProtocol: XCTestCase {
 
         XCTAssertEqual(headID, try Hub.head.id(destination))
         XCTAssertEqual("Second commit\n", try Hub.head.commit(destination).message)
-        XCTAssertEqual(baseID, try Hub.head.commit(destination).parent.first)
+        XCTAssertEqual("file.txt", try Hub.head.tree(destination).items.first?.url.lastPathComponent)
     }
 
     private func makeRepositoryURL() -> URL {
