@@ -560,17 +560,44 @@ struct ContentView: View {
     @SwiftCrossUI.Environment(P2PDemoViewModel.self) var model
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                header
-                controls
-                demoPicker
-                selectedDemo
-                activityPanel
+        HStack(spacing: 0) {
+            sidebar
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    header
+                    controls
+                    selectedDemo
+                    activityPanel
+                }
+                .padding(16)
             }
-            .padding(16)
         }
     }
+
+    var sidebar: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Demos")
+                .font(.headline)
+
+            ForEach(P2PDemoViewModel.Demo.allCases, id: \.self) { demo in
+                Button {
+                    model.selectedDemo = demo
+                } label: {
+                    HStack {
+                        Text(demo.rawValue)
+                        Spacer()
+                        if model.selectedDemo == demo {
+                            Text("•")
+                        }
+                    }
+                }
+            }
+
+            Spacer()
+        }
+        .padding(16)
+        .frame(minWidth: 220, idealWidth: 240, maxWidth: 260)
 
     var header: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -592,16 +619,6 @@ struct ContentView: View {
             Button("Restart") { model.restart() }
             Spacer()
             Text("State: \(model.state.rawValue.capitalized)")
-        }
-    }
-
-    var demoPicker: some View {
-        HStack {
-            Text("Demo")
-            Picker(
-                of: P2PDemoViewModel.Demo.allCases,
-                selection: model.$selectedDemo
-            )
         }
     }
 
