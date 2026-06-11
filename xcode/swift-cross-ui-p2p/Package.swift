@@ -18,7 +18,6 @@ let package = Package(
         .package(path: "../swift-libp2p-noise"),
         .package(path: "../swift-libp2p-yamux"),
         .package(path: "../swift-libp2p-dcutr"),
-        .package(path: "../swift-libp2p-mdns"),
         .package(path: "../swift-libp2p-kad-dht"),
         .package(name: "GnostrGit", path: "../Git"),
     ],
@@ -32,8 +31,12 @@ let package = Package(
                 .product(name: "LibP2PNoise", package: "swift-libp2p-noise"),
                 .product(name: "LibP2PYAMUX", package: "swift-libp2p-yamux"),
                 .product(name: "LibP2PDCUtR", package: "swift-libp2p-dcutr"),
-                .product(name: "LibP2PMDNS", package: "swift-libp2p-mdns"),
                 .product(name: "LibP2PKadDHT", package: "swift-libp2p-kad-dht"),
+                .product(
+                    name: "LibP2PMDNS",
+                    package: "swift-libp2p-mdns",
+                    condition: .when(platforms: [.macOS, .iOS])
+                ),
                 .product(
                     name: "GnostrGit",
                     package: "GnostrGit",

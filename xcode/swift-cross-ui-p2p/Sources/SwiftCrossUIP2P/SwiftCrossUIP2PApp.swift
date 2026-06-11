@@ -4,10 +4,13 @@ import Foundation
 import LibP2P
 import LibP2PDCUtR
 import LibP2PKadDHT
-import LibP2PMDNS
 import LibP2PNoise
 import LibP2PYAMUX
 import SwiftCrossUI
+
+#if os(macOS) || os(iOS)
+    import LibP2PMDNS
+#endif
 
 #if os(iOS) && !targetEnvironment(macCatalyst)
     import GnostrGit
@@ -371,7 +374,9 @@ final class P2PDemoViewModel {
         app.security.use(.noise)
         app.muxers.use(.yamux)
         app.dcutr.use(.dcutr)
-        app.discovery.use(.mdns)
+        #if os(macOS) || os(iOS)
+            app.discovery.use(.mdns)
+        #endif
         app.discovery.use(.kadDHT)
         app.listen(.tcp(host: "0.0.0.0", port: listenPort))
         return app
