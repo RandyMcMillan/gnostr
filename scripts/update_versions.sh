@@ -361,6 +361,7 @@ done < <(managed_manifests)
 echo "Local path dependency versions synchronized."
 
 PUBLISH_CRATES=(
+    types
     invalidstring
     git2-hooks
     grammar
