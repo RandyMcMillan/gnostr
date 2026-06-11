@@ -360,33 +360,6 @@ done < <(managed_manifests)
 
 echo "Local path dependency versions synchronized."
 
-SORT_CRATES=(
-    git2-hooks
-    grammar
-    filetreelist
-    asyncgit/src/lib/filehash/core
-    scopetime
-    asyncgit
-    tui
-    crawler
-    git-helpers
-    invalidstring
-    legit
-    ngit
-    qr
-    relay
-    relay/extensions
-    js
-    p2p
-    chat
-    web
-    bins
-)
-
-for crate in "${SORT_CRATES[@]}"; do
-    sleep 1 && pushd "$crate" >/dev/null && cargo sort || true && popd >/dev/null
-done
-
 PUBLISH_CRATES=(
     invalidstring
     git2-hooks
@@ -407,7 +380,12 @@ PUBLISH_CRATES=(
     p2p
     chat
     web
+    bins
 )
+
+for crate in "${PUBLISH_CRATES[@]}"; do
+    sleep 1 && pushd "$crate" >/dev/null && cargo sort || true && popd >/dev/null
+done
 
 PUBLISH_NO_VERIFY_CRATES=(
     asyncgit
