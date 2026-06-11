@@ -598,6 +598,7 @@ struct ContentView: View {
         }
         .padding(16)
         .frame(minWidth: 220, idealWidth: 240, maxWidth: 260)
+    }
 
     var header: some View {
         VStack(alignment: .leading, spacing: 6) {
