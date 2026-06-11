@@ -562,8 +562,12 @@ struct ContentView: View {
     var body: some View {
         NavigationSplitView(
             sidebar: {
-                List(P2PDemoViewModel.Demo.allCases, id: \.self, selection: model.$selectedDemo) { demo in
-                    Text(demo.rawValue)
+                VStack(alignment: .leading, spacing: 0) {
+                    sidebarHeader
+
+                    List(P2PDemoViewModel.Demo.allCases, id: { $0 }, selection: model.$selectedDemo) { demo in
+                        Text(demo.rawValue)
+                    }
                 }
             },
             detail: {
@@ -578,6 +582,18 @@ struct ContentView: View {
                 }
             }
         )
+    }
+
+    var sidebarHeader: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Demos")
+                .font(.headline)
+            Text("Choose a libp2p scene")
+                .font(.caption)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
     }
 
     var header: some View {
