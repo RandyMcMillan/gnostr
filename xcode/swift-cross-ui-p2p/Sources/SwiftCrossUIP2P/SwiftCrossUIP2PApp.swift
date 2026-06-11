@@ -375,6 +375,7 @@ final class P2PDemoViewModel {
         app.muxers.use(.yamux)
         app.dcutr.use(.dcutr)
         #if os(macOS) || os(iOS)
+            // mDNS is local LAN discovery only; keep it on Apple platforms where dnssd exists.
             app.discovery.use(.mdns)
         #endif
         app.discovery.use(.kadDHT)
