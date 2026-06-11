@@ -58,7 +58,7 @@ let package = Package(
 #endif
 
                 return dependencies
-            }(),
+            }()
         ),
     ]
 )
