@@ -1,6 +1,6 @@
 [package]
 name = "rustylib"
-version = "0.1.0"
+version = "953249.1868.514080"
 edition = "2021"
 
 [lib]
@@ -12,9 +12,9 @@ name = "uniffi-bindgen"
 path = "uniffi-bindgen.rs"
 
 [dependencies]
-uniffi = { version = "0.28.0", features = [ "cli" ] }
+uniffi = { version = "0.28.0", features = ["cli"] }
 
 [build-dependencies]
-uniffi = { version = "0.28.0", features = [ "build" ] }
+uniffi = { version = "0.28.0", features = ["build"] }
 
 [workspace]

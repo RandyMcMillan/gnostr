@@ -1,6 +1,6 @@
 [package]
 name = "nostr-sdk-ffi"
-version = "0.1.0"
+version = "953249.1868.514080"
 edition = "2024"
 publish = false
 
@@ -14,20 +14,20 @@ path = "uniffi-bindgen.rs"
 
 [features]
 default = [
-    "nip04",
-    "nip06",
-    "nip44",
-    "nip46",
-    "nip47",
-    "nip49",
-    "nip57",
-    "nip59",
-    "pow-multi-thread",
-    "connect",
-    "nwc",
-    "lmdb",
-    "relay-builder",
-    "logger",
+  "nip04",
+  "nip06",
+  "nip44",
+  "nip46",
+  "nip47",
+  "nip49",
+  "nip57",
+  "nip59",
+  "pow-multi-thread",
+  "connect",
+  "nwc",
+  "lmdb",
+  "relay-builder",
+  "logger",
 ]
 nip04 = ["nostr/nip04"]
 nip06 = ["nostr/nip06"]
@@ -47,18 +47,23 @@ logger = ["dep:tracing", "dep:tracing-subscriber"]
 
 [dependencies]
 async-trait = "0.1.89"
-async-wsocket = {  git = "https://github.com/shadowylab/async-wsocket", rev = "0fed6c9c6aec7393ee0e9cf3933d76914ab427d3" }
+async-wsocket = { git = "https://github.com/shadowylab/async-wsocket", rev = "0fed6c9c6aec7393ee0e9cf3933d76914ab427d3" }
 futures-util = "0.3"
-nostr = { git = "https://github.com/rust-nostr/nostr", rev = "0a030e1c714b73102b0ea28201b11b430306a840", features = ["std"] }
+nostr = { git = "https://github.com/rust-nostr/nostr", rev = "0a030e1c714b73102b0ea28201b11b430306a840", features = [
+  "std",
+] }
 nostr-connect = { git = "https://github.com/rust-nostr/nostr", rev = "0a030e1c714b73102b0ea28201b11b430306a840", optional = true }
 nostr-gossip = { git = "https://github.com/rust-nostr/nostr", rev = "0a030e1c714b73102b0ea28201b11b430306a840" }
 nostr-gossip-memory = { git = "https://github.com/rust-nostr/nostr", rev = "0a030e1c714b73102b0ea28201b11b430306a840" }
-nostr-sdk  = { git = "https://github.com/rust-nostr/nostr", rev = "0a030e1c714b73102b0ea28201b11b430306a840", default-features = false }
+nostr-sdk = { git = "https://github.com/rust-nostr/nostr", rev = "0a030e1c714b73102b0ea28201b11b430306a840", default-features = false }
 nwc = { git = "https://github.com/rust-nostr/nostr", rev = "0a030e1c714b73102b0ea28201b11b430306a840", optional = true }
 tokio = { version = "1.49.0", features = ["sync"] }
 tracing = { version = "0.1.41", features = ["std"], optional = true }
 tracing-subscriber = { version = "0.3.20", optional = true }
-uniffi = { version = "=0.29.4", features = ["tokio", "cli"] } # cli feature required for the `uniffi-bindgen` binary
+uniffi = { version = "=0.29.4", features = [
+  "tokio",
+  "cli",
+] } # cli feature required for the `uniffi-bindgen` binary
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 nostr-lmdb = { git = "https://github.com/rust-nostr/nostr", rev = "0a030e1c714b73102b0ea28201b11b430306a840", optional = true }
@@ -67,7 +72,9 @@ nostr-relay-builder = { git = "https://github.com/rust-nostr/nostr", rev = "0a03
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom2 = { package = "getrandom", version = "=0.2.17", features = ["js"] }
-getrandom3 = { package = "getrandom", version = "=0.3.2", features = ["wasm_js"] }
+getrandom3 = { package = "getrandom", version = "=0.3.2", features = [
+  "wasm_js",
+] }
 universal-time = "0.3.0"
 web-time = "1.1.0"
 

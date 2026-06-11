@@ -1,19 +1,19 @@
 [package]
 name = "rust-libp2p-gossip"
-version = "0.1.0"
+version = "953249.1868.514080"
 edition = "2021"
 
 [dependencies]
 libp2p = { version = "0.55.0", features = [
-    "gossipsub",
-    "dns",
-    "tcp",
-    "tokio",
-    "noise",
-    "macros",
-    "websocket",
-    "identify",
-    "yamux",
+  "gossipsub",
+  "dns",
+  "tcp",
+  "tokio",
+  "noise",
+  "macros",
+  "websocket",
+  "identify",
+  "yamux",
 ] }
 tokio = { version = "1.33.0", features = ["full"] }
 futures = "0.3.28"

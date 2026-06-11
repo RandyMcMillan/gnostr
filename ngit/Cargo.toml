@@ -1,6 +1,6 @@
 [package]
 name = "gnostr-ngit"
-version = "949455.1873.486970"
+version = "953249.1868.514080"
 edition = "2021"
 description = "nostr plugin for git"
 authors = ["DanConwayDev <DanConwayDev@protonmail.com>"]
@@ -74,8 +74,8 @@ log = { workspace = true }
 mockall = "0.13.1"
 once_cell = "1.21.3"
 rstest = "0.23"
-serial_test = "3.2.0"
 secp256k1 = { workspace = true }
+serial_test = "3.2.0"
 tempfile = { workspace = true }
 test_utils = { path = "test_utils" }
 time = { workspace = true }

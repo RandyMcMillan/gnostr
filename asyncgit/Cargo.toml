@@ -1,6 +1,6 @@
 [package]
 name = "gnostr-asyncgit"
-version = "949455.1873.486970"
+version = "953249.1868.514080"
 authors = [
     "gnostr <admin@gnostr.org>",
     "extrawurst <mail@rusticorn.com>",
@@ -70,12 +70,12 @@ const-hex = "1.12"
 const_format = "0.2"
 constant_time_eq = { workspace = true }
 crossbeam-channel = "0.5"
- crossterm = { version = "0.28.1", optional = true }
+crossterm = { version = "0.28.1", optional = true }
 derive_more = { workspace = true }
 directories = { workspace = true }
 dirs = "5.0.1"
-    easy-cast = "0.5"
-    etcetera = "0.10.0"
+easy-cast = "0.5"
+etcetera = "0.10.0"
 figment = { version = "0.10.19", features = ["toml"] }
 flate2 = "1"
 futures = "0.3"
@@ -96,7 +96,7 @@ gix = { version = "0.66", default-features = false, features = [
 ##tree-sitter-language = "0.1" ##check version
 gnostr-grammar = { workspace = true }
 gnostr-types = { workspace = true }
-gnostr_filehash_core = { package = "gnostr_filehash_core", version = ">=949455.1873.486970", path = "src/lib/filehash/core" }
+gnostr_filehash_core = { package = "gnostr_filehash_core", version = ">=953249.1868.514080", path = "src/lib/filehash/core" }
 handlebars = { workspace = true }
 #anyhow = "1.0"
 hex = { workspace = true }
@@ -130,22 +130,26 @@ pbkdf2 = { workspace = true }
 pretty_env_logger = { workspace = true }
 rand = "0.8.5"
 rand_core = { workspace = true }
- ratatui = { version = "0.29", features = ["serde"], optional = true }
+ratatui = { version = "0.29", features = ["serde"], optional = true }
 rayon = "1.10"
 rayon-core = "1.12"
 regex = "1.11.1"
 rkyv = "0.8"
-rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
 
 rocksdb = { workspace = true, optional = true }
 rust-ini = "0.21.1"
+rustls = { version = "0.23", default-features = false, features = [
+  "ring",
+  "std",
+  "tls12",
+] }
 scopetime = { workspace = true }                             #{ package = "gnostr-scopetime", path = "../scopetime", version = "1878.945649.607219" }
 scrypt = { workspace = true }
 secp256k1 = { workspace = true }
 serde = { version = "1.0.203", features = ["derive", "rc"] }
 serde_json = "1.0.117"
-sha2 = { workspace = true }
 sha1 = { workspace = true }
+sha2 = { workspace = true }
 shellwords = "1.1.0"
 simdutf8 = "0.1.5"
 # serde = { version = "1.0.219", features = ["derive"] }
@@ -183,7 +187,7 @@ tracing-subscriber = { version = "0.3", default-features = false, features = [
 tree-sitter = "0.23.2" # check version
 tree-sitter-highlight = "0.23" ##check version
 tree-sitter-json = { workspace = true }
- tui-prompts = { version = "0.5.2", optional = true }
+tui-prompts = { version = "0.5.2", optional = true }
 
 unicode-normalization = { workspace = true }
 unicode-segmentation = { workspace = true }
