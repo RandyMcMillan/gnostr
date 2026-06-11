@@ -389,6 +389,7 @@ done
 
 PUBLISH_NO_VERIFY_CRATES=(
     asyncgit
+    types
 )
 
 should_skip_verify() {
