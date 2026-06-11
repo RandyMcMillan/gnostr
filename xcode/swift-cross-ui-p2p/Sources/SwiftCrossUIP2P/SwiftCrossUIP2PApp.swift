@@ -581,16 +581,8 @@ struct ContentView: View {
                 .font(.headline)
 
             ForEach(P2PDemoViewModel.Demo.allCases, id: \.self) { demo in
-                Button {
+                Button(demo.rawValue) {
                     model.selectedDemo = demo
-                } label: {
-                    HStack {
-                        Text(demo.rawValue)
-                        Spacer()
-                        if model.selectedDemo == demo {
-                            Text("•")
-                        }
-                    }
                 }
             }
 
