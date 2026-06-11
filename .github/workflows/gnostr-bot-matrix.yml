@@ -273,7 +273,7 @@ jobs:
         # if: ${{ steps.time_check_hour.outputs.is_even == 'true' }}
         shell: bash
         run: |
-          cargo install --path ./git-helpers --force
+          cargo install --manifest-path ./git-helpers --force
           git fetch --all
 
       - name: 🚀 gnostr query test
