@@ -375,6 +375,7 @@ final class P2PDemoViewModel {
         app.muxers.use(.yamux)
         app.dcutr.use(.dcutr)
         #if os(macOS) || os(iOS)
+            // TODO: Linux mDNS needs a Swift-facing Avahi backend or conditional wrapper; dnssd is Apple-only.
             // mDNS is local LAN discovery only; keep it on Apple platforms where dnssd exists.
             app.discovery.use(.mdns)
         #endif
