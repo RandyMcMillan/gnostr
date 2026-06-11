@@ -8,15 +8,14 @@ repository = "https://github.com/gnostr-org/gnostr.git"
 license = "MIT"
 readme = "../README.md"
 exclude.workspace = true
-
-[build-dependencies]
-anyhow = "1.0.100"
-sha2 = { workspace = true }
+[features]
+speedy = ["dep:speedy"]
+long_tests = []
 
 [dependencies]
+aes = "0.8"
 anyhow = "1.0.100"
 ascii = { workspace = true }
-aes = "0.8"
 base64 = { workspace = true }
 bech32 = { workspace = true }
 bip39 = { workspace = true }
@@ -139,9 +138,10 @@ webbrowser = { workspace = true }
 xxhash-rust = { version = "0.8.12", features = ["const_xxh3"] }
 yoke = { version = "0.7.1", features = ["derive"] }
 zeroize = { workspace = true }
-[features]
-speedy = ["dep:speedy"]
-long_tests = []
+
+[build-dependencies]
+anyhow = "1.0.100"
+sha2 = { workspace = true }
 
 [dev-dependencies]
 actix-test = { workspace = true }

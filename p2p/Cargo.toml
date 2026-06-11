@@ -60,12 +60,12 @@ data-encoding = { version = "2.6.0", optional = true }
 futures = "0.3.31"
 futures-util = "0.3.31"
 getrandom = { version = "0.1.16", features = ["dummy"] }
-gnostr-asyncgit = { path = "../asyncgit", package = "gnostr-asyncgit", version = ">=953263.1868.499801", default-features = false, features = [
+gnostr-asyncgit = { path = "../asyncgit", package = "gnostr-asyncgit", version = ">=953263.1868.500178", default-features = false, features = [
   "nostr",
   "vendor-openssl",
 ] }
-gnostr-crawler = { path = "../crawler", package = "gnostr-crawler", version = ">=953263.1868.499801" }
-gnostr-js = { path = "../js", package = "gnostr-js", version = ">=953263.1868.499801", optional = true }
+gnostr-crawler = { path = "../crawler", package = "gnostr-crawler", version = ">=953263.1868.500178" }
+gnostr-js = { path = "../js", package = "gnostr-js", version = ">=953263.1868.500178", optional = true }
 libp2p = { version = "0.54.1", features = [
   "full",
   "autonat",
