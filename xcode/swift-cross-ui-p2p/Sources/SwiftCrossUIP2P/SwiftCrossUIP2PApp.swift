@@ -560,36 +560,24 @@ struct ContentView: View {
     @SwiftCrossUI.Environment(P2PDemoViewModel.self) var model
 
     var body: some View {
-        HStack(spacing: 0) {
-            sidebar
-
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    header
-                    controls
-                    selectedDemo
-                    activityPanel
+        NavigationSplitView(
+            sidebar: {
+                List(P2PDemoViewModel.Demo.allCases, id: \.self, selection: model.$selectedDemo) { demo in
+                    Text(demo.rawValue)
                 }
-                .padding(16)
-            }
-        }
-    }
-
-    var sidebar: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Demos")
-                .font(.headline)
-
-            ForEach(P2PDemoViewModel.Demo.allCases, id: \.self) { demo in
-                Button(demo.rawValue) {
-                    model.selectedDemo = demo
+            },
+            detail: {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        header
+                        controls
+                        selectedDemo
+                        activityPanel
+                    }
+                    .padding(16)
                 }
             }
-
-            Spacer()
-        }
-        .padding(16)
-        .frame(minWidth: 220, idealWidth: 240, maxWidth: 260)
+        )
     }
 
     var header: some View {
