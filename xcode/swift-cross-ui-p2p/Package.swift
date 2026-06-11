@@ -7,7 +7,7 @@ let package = Package(
     name: "swift-cross-ui-p2p",
     platforms: [
         .macOS(.v11),
-        //.iOS(.v14),  // there is no config to run on iOS
+        .iOS(.v13),
     ],
     products: [
         .executable(name: "SwiftCrossUIP2P", targets: ["SwiftCrossUIP2P"]),
