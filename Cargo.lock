@@ -7121,7 +7121,6 @@ dependencies = [
  "nostr-lmdb",
  "nostr-relay",
  "nostr-relay-pool 0.44.0",
- "nostr-sdk 0.34.0",
  "nostr-sdk 0.37.0",
  "nostr-sdk 0.44.1",
  "nostr-signer",
@@ -11006,18 +11005,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "lnurl-pay"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "02c042191c2e3f27147decfad8182eea2c7dd1c6c1733562e25d3d401369669d"
-dependencies = [
- "bech32 0.10.0-beta",
- "reqwest 0.12.28",
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "local-channel"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -12369,26 +12356,6 @@ dependencies = [
 
 [[package]]
 name = "nostr-sdk"
-version = "0.34.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ca0c0c5f8ddbdfc064ea71883191ec53de6ed52b5dca10ab07f0810b99e91acc"
-dependencies = [
- "async-utility 0.2.0",
- "atomic-destructor 0.2.0",
- "lnurl-pay",
- "nostr 0.34.1",
- "nostr-database 0.34.0",
- "nostr-relay-pool 0.34.1",
- "nostr-signer",
- "nostr-zapper",
- "nwc",
- "thiserror 1.0.69",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "nostr-sdk"
 version = "0.37.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "491221fc89b1aa189a0de640127127d68b4e7c5c1d44371b04d9a6d10694b5af"
@@ -12430,17 +12397,6 @@ dependencies = [
  "thiserror 1.0.69",
  "tokio",
  "tracing",
-]
-
-[[package]]
-name = "nostr-zapper"
-version = "0.34.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dcf3ba30e807145e9cb924faf8fb0719e460f613088e99c753b67c2a9929c5b7"
-dependencies = [
- "async-trait",
- "nostr 0.34.1",
- "thiserror 1.0.69",
 ]
 
 [[package]]
@@ -12719,20 +12675,6 @@ name = "number_prefix"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "17b02fc0ff9a9e4b35b3342880f48e896ebf69f2967921fe8646bf5b7125956a"
-
-[[package]]
-name = "nwc"
-version = "0.34.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9a16ac06bc273fcd4ead47c0c5a58b6cc7db2247fc7a64dd9bc11cf18e3efeb4"
-dependencies = [
- "async-utility 0.2.0",
- "nostr 0.34.1",
- "nostr-relay-pool 0.34.1",
- "nostr-zapper",
- "thiserror 1.0.69",
- "tracing",
-]
 
 [[package]]
 name = "objc"
