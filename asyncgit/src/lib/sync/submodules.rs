@@ -153,7 +153,7 @@ mod tests {
             let mut s = r
                 .submodule(
                     //TODO: use local git
-                    "https://github.com/extrawurst/brewdump.git",
+                    "https://github.com/gnostr-org/git-test.git",
                     Path::new("foo/bar"),
                     false,
                 )
