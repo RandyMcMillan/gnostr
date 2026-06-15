@@ -7436,6 +7436,7 @@ dependencies = [
  "ratatui",
  "regex",
  "reqwest 0.12.28",
+ "rpassword",
  "rustls 0.23.39",
  "secp256k1 0.29.1",
  "serde",
@@ -17738,8 +17739,6 @@ dependencies = [
 [[package]]
 name = "time"
 version = "0.3.47"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "743bd48c283afc0388f9b8827b976905fb217ad9e647fae3a379a9283c4def2c"
 dependencies = [
  "deranged",
  "itoa",
