@@ -146,14 +146,32 @@ mod tests {
 
     #[test]
     fn test_smoke() {
+        // Commented out original remote git submodule test:
+        // let (dir, _r) = repo_init().unwrap();
+        // {
+        //     let r = Repository::open(dir.path()).unwrap();
+        //     let mut s = r
+        //         .submodule(
+        //             //TODO: use local git
+        //             "https://github.com/gnostr-org/git-test.git",
+        //             Path::new("foo/bar"),
+        //             false,
+        //         )
+        //         .unwrap();
+        //
+        //     let _sub_r = s.clone(None).unwrap();
+        //     s.add_finalize().unwrap();
+        // }
+
+        // New local git submodule test implementation:
+        let (sub_dir, _sub_r) = repo_init().unwrap();
         let (dir, _r) = repo_init().unwrap();
 
         {
             let r = Repository::open(dir.path()).unwrap();
             let mut s = r
                 .submodule(
-                    //TODO: use local git
-                    "https://github.com/gnostr-org/git-test.git",
+                    sub_dir.path().to_str().unwrap(),
                     Path::new("foo/bar"),
                     false,
                 )
