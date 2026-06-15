@@ -47,14 +47,14 @@ fn parse_args() -> DemoArgs {
     let mut recursive = None;
     let mut depth = 3usize;
     let mut depth_set = false;
-    let mut verbose = false;
+    let mut logging = false;
     let mut help = false;
 
     while let Some(arg) = args.next() {
         if arg == "--help" || arg == "-h" {
             help = true;
-        } else if arg == "--verbose" {
-            verbose = true;
+        } else if arg == "--logging" {
+            logging = true;
         } else if arg == "--recursive" {
             recursive = match args.peek() {
                 Some(next) if !next.starts_with('-') => args.next().map(PathBuf::from),
@@ -119,7 +119,7 @@ fn parse_args() -> DemoArgs {
         recursive,
         depth,
         depth_set,
-        verbose,
+        logging,
         help,
     }
 }
@@ -169,7 +169,7 @@ fn list_directory(
         if metadata.is_dir() {
             lines.push(format!("{indent}{}/", relative.display()));
             // Recursively visit all directories unconditionally:
-            list_directory(root, &path, depth, level + 1, verbose, lines, all_packets)?;
+            list_directory(root, &path, depth, level + 1, logging, lines, all_packets)?;
         } else if metadata.is_file() {
             let bytes = fs::read(&path)?;
             lines.push(format!(
@@ -180,14 +180,15 @@ fn list_directory(
             ));
             let batch = packetize(relative.to_string_lossy().into_owned(), bytes);
             all_packets.extend(batch.packets.clone());
-            if verbose {
+            if logging {
                 // Keep the direct prints requested:
-                println!("File: {}", relative.display());
-                println!("Batch size: {} packets", batch.total_packets);
+                info!("File: {}", relative.display());
+                info!("Batch size: {} packets", batch.total_packets);
 
                 // Ensure the summary is also added to `lines` so it appears in the tree walk output:
                 lines.push(format!("{indent}  perfect_ip packet batch: {} packets", batch.total_packets));
                 for line in summarize_packets(&batch.packets) {
+                    debug!("{line}");
                     lines.push(format!("{indent}  {line}"));
                 }
             }
@@ -199,10 +200,10 @@ fn list_directory(
     Ok(())
 }
 
-fn run_directory_walk(path: &Path, depth: usize, verbose: bool) -> io::Result<Vec<ProtocolSlice>> {
+fn run_directory_walk(path: &Path, depth: usize, logging: bool) -> io::Result<Vec<ProtocolSlice>> {
     let mut lines = Vec::new();
     let mut all_packets = Vec::new();
-    list_directory(path, path, depth, 0, verbose, &mut lines, &mut all_packets)?;
+    list_directory(path, path, depth, 0, logging, &mut lines, &mut all_packets)?;
     for line in lines {
         println!("{line}");
     }
@@ -217,9 +218,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         recursive,
         depth,
         depth_set,
-        verbose,
+        logging,
         help,
     } = parse_args();
+
+    if logging {
+        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
+    }
 
     if help {
         usage();
@@ -231,20 +236,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             return Err("--file and --recursive are mutually exclusive".into());
         }
 
-        // Commented out to allow --depth to be optional and use its default value of 3:
-        // if !depth_set {
-        //     return Err("--recursive requires --depth".into());
-        // }
-
         if !root.is_dir() {
             usage();
             return Ok(());
         }
 
-        println!("recursive walk root: {}", root.display());
-        println!("recursive depth: {}", depth);
-        println!("verbose flag is: {}", verbose);
-        let all_packets = run_directory_walk(root, depth, verbose)?;
+        info!("recursive walk root: {}", root.display());
+        info!("recursive depth: {}", depth);
+        info!("logging flag is: {}", logging);
+        let all_packets = run_directory_walk(root, depth, logging)?;
 
         if let Some(ref out_path) = out {
             let reconstructed = reconstruct_payload(&all_packets);
