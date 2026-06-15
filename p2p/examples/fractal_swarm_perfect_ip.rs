@@ -242,7 +242,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         println!("recursive walk root: {}", root.display());
         println!("recursive depth: {}", depth);
         println!("verbose flag is: {}", verbose);
-        run_directory_walk(root, depth, verbose)?;
+        let all_packets = run_directory_walk(root, depth, verbose)?;
+
+        if let Some(ref out_path) = out {
+            let reconstructed = reconstruct_payload(&all_packets);
+            fs::write(out_path, &reconstructed)?;
+            println!("recursively reconstructed {} bytes to {}", reconstructed.len(), out_path.display());
+            return Ok(());
+        }
         // Commented out to allow the P2P service to start when --recursive is used:
         // return Ok(());
     }
