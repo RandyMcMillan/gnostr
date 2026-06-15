@@ -103,6 +103,7 @@ exclude = [
 [workspace.dependencies]
 actix-http = { version = "3.9.0" }
 actix-test = "0.1.5"
+#num-bigint = { version = "0.4" }
 serial_test = "2.0.0"
 actix-web = { version = "4.9.0" }
 aes = "0.8"
@@ -140,7 +141,7 @@ console = { version = "0.16.0" }
 const_format = "0.2"
 constant_time_eq = "0.1"
 crossbeam-channel = "0.5.15"
-crossterm = "0.29"
+crossterm = { version = "0.29", features = ["event-stream"] }
 derive_more = "0.99"
 dialoguer = { version = "0.12.0" }
 directories = { version = "6.0.0" }
@@ -248,6 +249,8 @@ nostr-relay-pool = { version = "0.44.0" }
 nostr-sdk = { version = "0.44.1" }
 
 notify = "7.0.0"
+#num-bigint = "0.4"
+num-bigint = "0.4.6"
 num_cpus = "1.16.0"
 once_cell = "1.21.3"
 parking_lot = "0.12.3"
@@ -263,6 +266,7 @@ proc-macro2 = "1.0"
 pulldown-cmark = "0.13.0"
 qrcode = { version = "0.14.1", default-features = false }
 quote = "1.0"
+rand = "0.8"
 rand_core = { version = "0.6", features = ["getrandom"] }
 ratatui = { version = "0.29", default-features = false, features = ["macros"] }
 regex = "1.11"
@@ -302,6 +306,7 @@ sled = "0.34.7"
 speedy = { version = "0.8.7" }
 ssh-key = { version = "0.6.7", features = ["crypto", "encryption"] }
 strip-ansi-escapes = "0.2.1"
+structopt = "0.3.26"
 struct-patch = "0.4.1"
 syn = "2.0"
 syntect = { version = "5.3.0", default-features = false, features = [
@@ -725,7 +730,7 @@ nostr_0_37_0 = { package = "nostr", version = "0.37.0" }
 
 notify = "6.1.1"
 notify-debouncer-mini = "0.4"
-num-bigint = "0.4.6"
+num-bigint = { workspace = true }
 num_cpus = { workspace = true }
 
 #num_cpus = "1.16.0"
@@ -746,7 +751,7 @@ pretty_env_logger = { workspace = true, optional = true }
 proc-macro2 = { version = "1.0", optional = true }
 proctitle = "0.1.1"
 qrcode = { workspace = true }
-rand = "0.8"
+rand = { workspace = true }
 rand_core = { workspace = true }
 ##
 ratatui = { version = "0.29", default-features = false, features = [
@@ -958,7 +963,7 @@ reqwest = { workspace = true, features = ["json"] }
 serial_test = "2.0.0"
 signal-child = "1.0.6"
 strip-ansi-escapes = { workspace = true }
-structopt = "0.3.26"
+structopt = { workspace = true }
 temp-env = "0.3.6"
 tempfile = { workspace = true }
 thiserror = { workspace = true }
