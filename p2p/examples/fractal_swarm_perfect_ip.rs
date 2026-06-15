@@ -10,6 +10,7 @@ use gnostr_p2p::perfect_ip::{
     build_fractal_swarm, generate_manifest, packetize, summarize_packets, FractalBehaviourEvent,
     IntegrityManager, ProtocolSlice,
 };
+use gnostr_p2p::message::{EventBuilder, PrivateKey};
 use libp2p::{request_response, swarm::SwarmEvent};
 use sha2::{Digest, Sha256};
 
