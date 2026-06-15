@@ -319,6 +319,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     println!("repair swarm listener: {listener_id:?}");
     println!("press Ctrl-C to stop the demo");
 
+    // Construct and "broadcast" a mock PIP event
+    let private_key = PrivateKey::generate();
+    let event = EventBuilder::text_note(format!("fractal_swarm_perfect_ip: reconstructed {} bytes (sha256: {})", original_bytes.len(), original_sha256))
+        .to_event(&private_key)
+        .expect("failed to build event");
+    println!("Broadcasted Nostr PIP event: {:?}", event.id);
+
     loop {
         tokio::select! {
             _ = tokio::signal::ctrl_c() => {
