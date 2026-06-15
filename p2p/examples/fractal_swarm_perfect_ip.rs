@@ -319,17 +319,36 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     println!("repair swarm listener: {listener_id:?}");
     println!("press Ctrl-C to stop the demo");
 
-    // Construct and broadcast a real Nostr event
+    // Construct and broadcast PIP events
     let private_key = PrivateKey::generate();
-    let event = EventBuilder::text_note(format!("fractal_swarm_perfect_ip: reconstructed {} bytes (sha256: {})", original_bytes.len(), original_sha256))
-        .to_event(&private_key)
-        .expect("failed to build event");
-    
-    // Broadcast to crawler relays
     let config_dir = gnostr_p2p::p2p::relay_paths::get_config_dir_path();
-    match gnostr_p2p::p2p::crawler_broadcast::broadcast_event_to_crawler_relays(&config_dir, &event).await {
-        Ok(count) => println!("Broadcasted real Nostr event: {:?}. Published to {} relays.", event.id, count),
-        Err(e) => eprintln!("Failed to broadcast real Nostr event: {}", e),
+
+    // 1. Broadcast Manifest Event (Kind 39078)
+    let manifest_content = serde_json::to_string(&manifest).expect("serialize manifest");
+    let manifest_event = EventBuilder::new(EventKind::Other(39078), manifest_content)
+        .tag("d", "ROOT")
+        .tag("sha256", &original_sha256)
+        .to_event(&private_key)
+        .expect("build manifest event");
+    
+    if let Ok(count) = gnostr_p2p::p2p::crawler_broadcast::broadcast_event_to_crawler_relays(&config_dir, &manifest_event).await {
+        println!("Broadcasted PIP Manifest event: {:?}. Published to {} relays.", manifest_event.id, count);
+    }
+
+    // 2. Broadcast Slice Events (Kind 39079)
+    for slice in batch.packets {
+        let slice_content = serde_json::to_string(&slice).expect("serialize slice");
+        let slice_event = EventBuilder::new(EventKind::Other(39079), slice_content)
+            .tag("d", "ROOT")
+            .tag("e", &manifest_event.id.as_hex_string())
+            .tag("seq", &slice.header.seq_num.to_string())
+            .tag("path", &slice.id)
+            .to_event(&private_key)
+            .expect("build slice event");
+
+        if let Ok(count) = gnostr_p2p::p2p::crawler_broadcast::broadcast_event_to_crawler_relays(&config_dir, &slice_event).await {
+             println!("Broadcasted PIP Slice event: {:?}. Published to {} relays.", slice_event.id, count);
+        }
     }
 
     loop {
