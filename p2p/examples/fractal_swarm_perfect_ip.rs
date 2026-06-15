@@ -139,7 +139,7 @@ fn reconstruct_payload(packets: &[ProtocolSlice]) -> Vec<u8> {
         .collect()
 }
 
-fn list_directory(root: &Path, current: &Path, depth: usize, level: usize, lines: &mut Vec<String>) -> io::Result<()> {
+fn list_directory(root: &Path, current: &Path, depth: usize, level: usize, verbose: bool, lines: &mut Vec<String>) -> io::Result<()> {
     if level == 0 {
         lines.push(".".to_string());
     }
@@ -162,7 +162,7 @@ fn list_directory(root: &Path, current: &Path, depth: usize, level: usize, lines
         if metadata.is_dir() {
             lines.push(format!("{indent}{}/", relative.display()));
             if level < depth {
-                list_directory(root, &path, depth, level + 1, lines)?;
+                list_directory(root, &path, depth, level + 1, verbose, lines)?;
             }
         } else if metadata.is_file() {
             let bytes = fs::read(&path)?;
@@ -172,6 +172,12 @@ fn list_directory(root: &Path, current: &Path, depth: usize, level: usize, lines
                 bytes.len(),
                 sha256_hex(&bytes)
             ));
+            if verbose {
+                let batch = packetize(relative.to_string_lossy().into_owned(), bytes);
+                for line in summarize_packets(&batch.packets) {
+                    lines.push(format!("{indent}  {line}"));
+                }
+            }
         } else {
             lines.push(format!("{indent}{} [special]", relative.display()));
         }
@@ -180,9 +186,9 @@ fn list_directory(root: &Path, current: &Path, depth: usize, level: usize, lines
     Ok(())
 }
 
-fn print_directory_walk(path: &Path, depth: usize) -> io::Result<()> {
+fn print_directory_walk(path: &Path, depth: usize, verbose: bool) -> io::Result<()> {
     let mut lines = Vec::new();
-    list_directory(path, path, depth, 0, &mut lines)?;
+    list_directory(path, path, depth, 0, verbose, &mut lines)?;
     for line in lines {
         println!("{line}");
     }
