@@ -22,20 +22,20 @@ struct DemoArgs {
     recursive: Option<PathBuf>,
     depth: usize,
     depth_set: bool,
-    verbose: bool,
+    logging: bool,
     help: bool,
 }
 
 fn usage() {
     println!(
-        "Usage: fractal_swarm_perfect_ip [--file PATH] [--out PATH] [--recursive PATH] [--depth N] [--verbose] [--help]\n\
+        "Usage: fractal_swarm_perfect_ip [--file PATH] [--out PATH] [--recursive PATH] [--depth N] [--logging] [--help]\n\
          \n\
          Options:\n\
            --file PATH       Read a single file from PATH\n\
           --out PATH        Write reconstructed bytes to PATH [default: example.reconstructed.bin]\n\
           --recursive PATH   Walk PATH as a directory tree and preserve relative paths\n\
           --depth N         Limit recursive directory walking to N levels [default: 3]\n\
-          --verbose         Print packet info during file mode\n\
+          --logging         Enable verbose logging\n\
            --help            Show this help message\n"
     );
 }
