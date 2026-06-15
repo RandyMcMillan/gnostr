@@ -270,6 +270,7 @@ reqwest = { version = "0.12.22", features = ["json", "blocking"] }
 rkyv = "0.8.14"
 rocksdb = { version = "0.22", default-features = false, features = ["snappy"] }
 ron = "0.8.1"
+rpassword = "=7.4.0"
 russh = { version = "0.37.1", features = ["openssl"] }
 russh-keys = "0.37.1"
 rust-embed = { version = "8.6.0", features = [
