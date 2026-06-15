@@ -296,7 +296,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         }
     }
 
-    let mut integrity = IntegrityManager::new(manifest);
+    let mut integrity = IntegrityManager::new(manifest.clone());
     for slice in batch.packets.clone() {
         integrity.record_slice(slice);
     }
