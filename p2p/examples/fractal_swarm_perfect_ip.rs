@@ -110,9 +110,6 @@ fn parse_args() -> DemoArgs {
     if recursive.is_some() && file.is_some() {
         help = true;
     }
-    if recursive.is_some() && out.is_some() {
-        help = true;
-    }
 
     DemoArgs {
         file,
@@ -139,7 +136,15 @@ fn reconstruct_payload(packets: &[ProtocolSlice]) -> Vec<u8> {
         .collect()
 }
 
-fn list_directory(root: &Path, current: &Path, depth: usize, level: usize, verbose: bool, lines: &mut Vec<String>) -> io::Result<()> {
+fn list_directory(
+    root: &Path,
+    current: &Path,
+    depth: usize,
+    level: usize,
+    verbose: bool,
+    lines: &mut Vec<String>,
+    all_packets: &mut Vec<ProtocolSlice>,
+) -> io::Result<()> {
     if level == 0 {
         lines.push(".".to_string());
     }
@@ -162,7 +167,7 @@ fn list_directory(root: &Path, current: &Path, depth: usize, level: usize, verbo
         if metadata.is_dir() {
             lines.push(format!("{indent}{}/", relative.display()));
             // Recursively visit all directories unconditionally:
-            list_directory(root, &path, depth, level + 1, verbose, lines)?;
+            list_directory(root, &path, depth, level + 1, verbose, lines, all_packets)?;
         } else if metadata.is_file() {
             let bytes = fs::read(&path)?;
             lines.push(format!(
@@ -171,10 +176,11 @@ fn list_directory(root: &Path, current: &Path, depth: usize, level: usize, verbo
                 bytes.len(),
                 sha256_hex(&bytes)
             ));
+            let batch = packetize(relative.to_string_lossy().into_owned(), bytes);
+            all_packets.extend(batch.packets.clone());
             if verbose {
                 // Keep the direct prints requested:
                 println!("File: {}", relative.display());
-                let batch = packetize(relative.to_string_lossy().into_owned(), bytes);
                 println!("Batch size: {} packets", batch.total_packets);
 
                 // Ensure the summary is also added to `lines` so it appears in the tree walk output:
@@ -191,13 +197,14 @@ fn list_directory(root: &Path, current: &Path, depth: usize, level: usize, verbo
     Ok(())
 }
 
-fn print_directory_walk(path: &Path, depth: usize, verbose: bool) -> io::Result<()> {
+fn run_directory_walk(path: &Path, depth: usize, verbose: bool) -> io::Result<Vec<ProtocolSlice>> {
     let mut lines = Vec::new();
-    list_directory(path, path, depth, 0, verbose, &mut lines)?;
+    let mut all_packets = Vec::new();
+    list_directory(path, path, depth, 0, verbose, &mut lines, &mut all_packets)?;
     for line in lines {
         println!("{line}");
     }
-    Ok(())
+    Ok(all_packets)
 }
 
 #[tokio::main]
