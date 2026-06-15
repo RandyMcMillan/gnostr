@@ -161,9 +161,8 @@ fn list_directory(root: &Path, current: &Path, depth: usize, level: usize, verbo
 
         if metadata.is_dir() {
             lines.push(format!("{indent}{}/", relative.display()));
-            if level < depth {
-                list_directory(root, &path, depth, level + 1, verbose, lines)?;
-            }
+            // Recursively visit all directories unconditionally:
+            list_directory(root, &path, depth, level + 1, verbose, lines)?;
         } else if metadata.is_file() {
             let bytes = fs::read(&path)?;
             lines.push(format!(
@@ -173,9 +172,13 @@ fn list_directory(root: &Path, current: &Path, depth: usize, level: usize, verbo
                 sha256_hex(&bytes)
             ));
             if verbose {
-                println!("DEBUG: processing file: {}", relative.display());
+                // Keep the direct prints requested:
+                println!("File: {}", relative.display());
                 let batch = packetize(relative.to_string_lossy().into_owned(), bytes);
-                println!("DEBUG: batch size: {}", batch.total_packets);
+                println!("Batch size: {} packets", batch.total_packets);
+
+                // Ensure the summary is also added to `lines` so it appears in the tree walk output:
+                lines.push(format!("{indent}  perfect_ip packet batch: {} packets", batch.total_packets));
                 for line in summarize_packets(&batch.packets) {
                     lines.push(format!("{indent}  {line}"));
                 }
