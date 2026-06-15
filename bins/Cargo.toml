@@ -260,6 +260,7 @@ ratatui = { workspace = true, default-features = false, features = [
 ] }
 regex = { workspace = true }
 reqwest = { workspace = true }
+rpassword = { workspace = true }
 rustls = { version = "0.23", default-features = false, features = ["ring"] }
 secp256k1 = { workspace = true }
 serde = { workspace = true }
