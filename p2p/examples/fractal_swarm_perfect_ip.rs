@@ -173,7 +173,9 @@ fn list_directory(root: &Path, current: &Path, depth: usize, level: usize, verbo
                 sha256_hex(&bytes)
             ));
             if verbose {
+                println!("DEBUG: processing file: {}", relative.display());
                 let batch = packetize(relative.to_string_lossy().into_owned(), bytes);
+                println!("DEBUG: batch size: {}", batch.total_packets);
                 for line in summarize_packets(&batch.packets) {
                     lines.push(format!("{indent}  {line}"));
                 }
@@ -230,7 +232,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         println!("recursive walk root: {}", root.display());
         println!("recursive depth: {}", depth);
         println!("verbose flag is: {}", verbose);
-        print_directory_walk(root, depth)?;
+        print_directory_walk(root, depth, verbose)?;
         // Commented out to allow the P2P service to start when --recursive is used:
         // return Ok(());
     }
