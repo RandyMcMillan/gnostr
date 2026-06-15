@@ -11,7 +11,7 @@ use gnostr_p2p::perfect_ip::{
     build_fractal_swarm, generate_manifest, packetize, summarize_packets, FractalBehaviourEvent,
     IntegrityManager, ProtocolSlice,
 };
-use gnostr_p2p::message::{Event, EventBuilder, EventKind, PrivateKey, Tag};
+use gnostr_p2p::message::{EventBuilder, EventKind, PrivateKey, Tag};
 use libp2p::{request_response, swarm::SwarmEvent};
 use sha2::{Digest, Sha256};
 
@@ -22,7 +22,7 @@ struct DemoArgs {
     recursive: Option<PathBuf>,
     depth: usize,
     depth_set: bool,
-    logging: bool,
+    logging: Option<String>,
     help: bool,
 }
 
@@ -47,14 +47,17 @@ fn parse_args() -> DemoArgs {
     let mut recursive = None;
     let mut depth = 3usize;
     let mut depth_set = false;
-    let mut logging = false;
+    let mut logging: Option<String> = None;
     let mut help = false;
 
     while let Some(arg) = args.next() {
         if arg == "--help" || arg == "-h" {
             help = true;
         } else if arg == "--logging" {
-            logging = true;
+            logging = match args.peek() {
+                Some(next) if !next.starts_with('-') => args.next(),
+                _ => Some("info".to_string()),
+            };
         } else if arg == "--recursive" {
             recursive = match args.peek() {
                 Some(next) if !next.starts_with('-') => args.next().map(PathBuf::from),
@@ -143,7 +146,7 @@ fn list_directory(
     current: &Path,
     depth: usize,
     level: usize,
-    verbose: bool,
+    logging: bool,
     lines: &mut Vec<String>,
     all_packets: &mut Vec<ProtocolSlice>,
 ) -> io::Result<()> {
@@ -222,8 +225,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         help,
     } = parse_args();
 
-    if logging {
-        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
+    if let Some(ref level) = logging {
+        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or(level)).init();
     }
 
     if help {
@@ -243,9 +246,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
         info!("recursive walk root: {}", root.display());
         info!("recursive depth: {}", depth);
-        info!("logging flag is: {}", logging);
-        let all_packets = run_directory_walk(root, depth, logging)?;
-
+        info!("logging flag is: {:?}", logging);
+        let all_packets = run_directory_walk(root, depth, logging.is_some())?;
         if let Some(ref out_path) = out {
             let reconstructed = reconstruct_payload(&all_packets);
             fs::write(out_path, &reconstructed)?;
@@ -290,10 +292,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     println!("sender wrote {}", example_path.display());
     println!("sender sha256: {original_sha256}");
-    if verbose {
-        println!("perfect_ip packet batch: {} packets", batch.total_packets);
+    if logging.is_some() {
+        info!("perfect_ip packet batch: {} packets", batch.total_packets);
         for line in summarize_packets(&batch.packets) {
-            println!("{line}");
+            debug!("{line}");
         }
     }
 
@@ -335,7 +337,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         .expect("build manifest event");
     
     if let Ok(count) = gnostr_p2p::p2p::crawler_broadcast::broadcast_event_to_crawler_relays(&config_dir, &manifest_event).await {
-        println!("Broadcasted PIP Manifest event: {:?}. Published to {} relays.", manifest_event.id, count);
+        info!("Broadcasted PIP Manifest event: {:?}. Published to {} relays.", manifest_event.id, count);
     }
 
     // 2. Broadcast Slice Events (Kind 39079)
@@ -352,7 +354,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             .expect("build slice event");
 
         if let Ok(count) = gnostr_p2p::p2p::crawler_broadcast::broadcast_event_to_crawler_relays(&config_dir, &slice_event).await {
-             println!("Broadcasted PIP Slice event: {:?}. Published to {} relays.", slice_event.id, count);
+             info!("Broadcasted PIP Slice event: {:?}. Published to {} relays.", slice_event.id, count);
         }
     }
 
