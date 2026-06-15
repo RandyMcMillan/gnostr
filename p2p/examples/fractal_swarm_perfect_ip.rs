@@ -223,6 +223,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
         println!("recursive walk root: {}", root.display());
         println!("recursive depth: {}", depth);
+        println!("verbose flag is: {}", verbose);
         print_directory_walk(root, depth)?;
         // Commented out to allow the P2P service to start when --recursive is used:
         // return Ok(());
