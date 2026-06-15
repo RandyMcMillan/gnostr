@@ -319,12 +319,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     println!("repair swarm listener: {listener_id:?}");
     println!("press Ctrl-C to stop the demo");
 
-    // Construct and "broadcast" a mock PIP event
+    // Construct and broadcast a real Nostr event
     let private_key = PrivateKey::generate();
     let event = EventBuilder::text_note(format!("fractal_swarm_perfect_ip: reconstructed {} bytes (sha256: {})", original_bytes.len(), original_sha256))
         .to_event(&private_key)
         .expect("failed to build event");
-    println!("Broadcasted Nostr PIP event: {:?}", event.id);
+    
+    // Broadcast to crawler relays
+    let config_dir = Path::new("./p2p/.gnostr"); // Adjust path if necessary
+    match gnostr_p2p::p2p::crawler_broadcast::broadcast_event_to_crawler_relays(config_dir, &event).await {
+        Ok(count) => println!("Broadcasted real Nostr event: {:?}. Published to {} relays.", event.id, count),
+        Err(e) => eprintln!("Failed to broadcast real Nostr event: {}", e),
+    }
 
     loop {
         tokio::select! {
