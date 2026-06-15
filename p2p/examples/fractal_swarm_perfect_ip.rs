@@ -5,6 +5,7 @@ use std::{
 };
 
 use futures::StreamExt;
+use log::{debug, info};
 use gnostr_p2p::keypair_from_seed;
 use gnostr_p2p::perfect_ip::{
     build_fractal_swarm, generate_manifest, packetize, summarize_packets, FractalBehaviourEvent,
