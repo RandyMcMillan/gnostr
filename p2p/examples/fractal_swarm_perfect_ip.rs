@@ -206,14 +206,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         return Ok(());
     }
 
-    if let Some(root) = recursive {
+    if let Some(ref root) = recursive {
         if file.is_some() {
             return Err("--file and --recursive are mutually exclusive".into());
         }
 
-        if !depth_set {
-            return Err("--recursive requires --depth".into());
-        }
+        // Commented out to allow --depth to be optional and use its default value of 3:
+        // if !depth_set {
+        //     return Err("--recursive requires --depth".into());
+        // }
 
         if !root.is_dir() {
             usage();
@@ -222,18 +223,33 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
         println!("recursive walk root: {}", root.display());
         println!("recursive depth: {}", depth);
-        print_directory_walk(&root, depth)?;
-        return Ok(());
+        print_directory_walk(root, depth)?;
+        // Commented out to allow the P2P service to start when --recursive is used:
+        // return Ok(());
     }
 
-    if depth_set {
+    // Commented out the old check to allow --depth when --recursive is used:
+    // if depth_set {
+    //     return Err("--depth is only valid with --recursive".into());
+    // }
+    if recursive.is_none() && depth_set {
         return Err("--depth is only valid with --recursive".into());
     }
 
-    let example_path = file.unwrap_or_else(|| PathBuf::from("example.bin"));
+    let example_path = if let Some(ref root) = recursive {
+        root.clone()
+    } else {
+        file.unwrap_or_else(|| PathBuf::from("example.bin"))
+    };
 
     let original_bytes = if example_path.exists() {
-        fs::read(&example_path)?
+        if example_path.is_dir() {
+            // If it's a directory, we need to decide how to packetize it.
+            // For now, treat it as empty or handle appropriately.
+            vec![]
+        } else {
+            fs::read(&example_path)?
+        }
     } else {
         let bytes = b"perfect_ip demo payload\n".repeat(128);
         fs::write(&example_path, &bytes)?;
