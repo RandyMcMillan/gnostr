@@ -326,8 +326,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         .expect("failed to build event");
     
     // Broadcast to crawler relays
-    let config_dir = Path::new("./p2p/.gnostr"); // Adjust path if necessary
-    match gnostr_p2p::p2p::crawler_broadcast::broadcast_event_to_crawler_relays(config_dir, &event).await {
+    let config_dir = gnostr_p2p::p2p::relay_paths::get_config_dir_path();
+    match gnostr_p2p::p2p::crawler_broadcast::broadcast_event_to_crawler_relays(&config_dir, &event).await {
         Ok(count) => println!("Broadcasted real Nostr event: {:?}. Published to {} relays.", event.id, count),
         Err(e) => eprintln!("Failed to broadcast real Nostr event: {}", e),
     }
