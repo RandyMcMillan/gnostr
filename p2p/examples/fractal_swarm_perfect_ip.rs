@@ -325,9 +325,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     // 1. Broadcast Manifest Event (Kind 39078)
     let manifest_content = serde_json::to_string(&manifest).expect("serialize manifest");
-    let manifest_event = EventBuilder::new(EventKind::Other(39078), manifest_content)
-        .tag("d", "ROOT")
-        .tag("sha256", &original_sha256)
+    let manifest_tags = vec![
+        Tag::new_identifier("ROOT".to_string()),
+        Tag::new_tag("sha256", &original_sha256),
+    ];
+    let manifest_event = EventBuilder::new(EventKind::Other(39078), manifest_content, manifest_tags)
         .to_event(&private_key)
         .expect("build manifest event");
     
@@ -338,11 +340,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // 2. Broadcast Slice Events (Kind 39079)
     for slice in batch.packets {
         let slice_content = serde_json::to_string(&slice).expect("serialize slice");
-        let slice_event = EventBuilder::new(EventKind::Other(39079), slice_content)
-            .tag("d", "ROOT")
-            .tag("e", &manifest_event.id.as_hex_string())
-            .tag("seq", &slice.header.seq_num.to_string())
-            .tag("path", &slice.id)
+        let slice_tags = vec![
+            Tag::new_identifier("ROOT".to_string()),
+            Tag::new_event(manifest_event.id, None, Some("root".to_string())),
+            Tag::new_tag("seq", &slice.header.seq_num.to_string()),
+            Tag::new_tag("path", &slice.id),
+        ];
+        let slice_event = EventBuilder::new(EventKind::Other(39079), slice_content, slice_tags)
             .to_event(&private_key)
             .expect("build slice event");
 
