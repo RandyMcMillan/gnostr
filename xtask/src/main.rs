@@ -84,12 +84,13 @@ fn print_usage() {
 fn list_scripts() {
     println!("Available scripts in ./scripts:");
     if let Ok(entries) = std::fs::read_dir("scripts") {
-        for entry in entries {
-            if let Ok(entry) = entry {
-                if let Some(name) = entry.file_name().to_str() {
-                    println!("  {}", name);
-                }
-            }
+        let mut scripts: Vec<String> = entries
+            .filter_map(|entry| entry.ok())
+            .filter_map(|entry| entry.file_name().to_str().map(|s| s.to_string()))
+            .collect();
+        scripts.sort();
+        for name in scripts {
+            println!("  {}", name);
         }
     } else {
         eprintln!("Error: ./scripts directory not found.");
@@ -99,12 +100,13 @@ fn list_scripts() {
 fn list_xcode_scripts() {
     println!("Available scripts in ./xcode/scripts:");
     if let Ok(entries) = std::fs::read_dir("xcode/scripts") {
-        for entry in entries {
-            if let Ok(entry) = entry {
-                if let Some(name) = entry.file_name().to_str() {
-                    println!("  {}", name);
-                }
-            }
+        let mut scripts: Vec<String> = entries
+            .filter_map(|entry| entry.ok())
+            .filter_map(|entry| entry.file_name().to_str().map(|s| s.to_string()))
+            .collect();
+        scripts.sort();
+        for name in scripts {
+            println!("  {}", name);
         }
     } else {
         eprintln!("Error: ./xcode/scripts directory not found.");
