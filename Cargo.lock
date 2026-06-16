@@ -21251,6 +21251,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "xtask"
+version = "953267.1868.494774"
+
+[[package]]
 name = "xxhash-rust"
 version = "0.8.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
