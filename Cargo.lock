@@ -7764,6 +7764,7 @@ dependencies = [
  "chrono",
  "clap 4.6.1",
  "data-encoding",
+ "env_logger 0.11.10",
  "futures",
  "futures-util",
  "getrandom 0.1.16",
