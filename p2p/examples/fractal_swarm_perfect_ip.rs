@@ -336,6 +336,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         .to_event(&private_key)
         .expect("build manifest event");
     
+    info!("Broadcasting PIP Manifest event: {:?}", manifest_event);
     if let Ok(count) = gnostr_p2p::p2p::crawler_broadcast::broadcast_event_to_crawler_relays(&config_dir, &manifest_event).await {
         info!("Broadcasted PIP Manifest event: {:?}. Published to {} relays.", manifest_event.id, count);
     }
@@ -353,6 +354,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             .to_event(&private_key)
             .expect("build slice event");
 
+        info!("Broadcasting PIP Slice event: {:?}", slice_event);
         if let Ok(count) = gnostr_p2p::p2p::crawler_broadcast::broadcast_event_to_crawler_relays(&config_dir, &slice_event).await {
              info!("Broadcasted PIP Slice event: {:?}. Published to {} relays.", slice_event.id, count);
         }
