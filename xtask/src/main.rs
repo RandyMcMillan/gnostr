@@ -14,7 +14,7 @@ fn main() {
         }
         Some("run-script") => {
             let script_name = args.get(1).map(|s| s.as_str());
-            let script_args = &args[2..];
+            let script_args = if args.len() > 2 { &args[2..] } else { &[] };
             run_script(script_name, script_args);
         }
         Some("help") | Some("--help") | None => {
