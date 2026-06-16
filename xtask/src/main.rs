@@ -35,9 +35,8 @@ fn main() {
             run_script(script_name, script_args, verbosity);
         }
         Some("xcode") => {
-            let script_name = command_args.get(1).map(|s| s.as_str());
             let script_args = if command_args.len() > 1 { &command_args[1..] } else { &[] };
-            run_xcode_script(None, script_args, verbosity);
+            run_xcode_script(script_args, verbosity);
         }
         Some("help") | Some("--help") | None => {
             print_usage();
@@ -108,18 +107,18 @@ fn list_xcode_scripts() {
     }
 }
 
-fn run_xcode_script(script_name_opt: Option<&str>, script_args: &[String], verbosity: u8) {
-    let script_name = match script_name_opt {
-        Some("--help") | Some("help") => {
-            list_xcode_scripts();
-            exit(0);
-        }
-        Some(name) => name,
-        None => {
-            eprintln!("Error: Missing script name");
-            print_usage();
-            exit(1);
-        }
+fn run_xcode_script(script_args: &[String], verbosity: u8) {
+    if script_args.len() > 0 && (script_args[0] == "--help" || script_args[0] == "help") {
+        list_xcode_scripts();
+        exit(0);
+    }
+
+    let script_name = if script_args.len() > 0 {
+        &script_args[0]
+    } else {
+        eprintln!("Error: Missing script name");
+        print_usage();
+        exit(1);
     };
 
     let script_path = Path::new("xcode/scripts").join(script_name);
@@ -133,7 +132,7 @@ fn run_xcode_script(script_name_opt: Option<&str>, script_args: &[String], verbo
 
     let mut cmd = Command::new("bash");
     cmd.arg(&script_path);
-    cmd.args(script_args);
+    cmd.args(&script_args[1..]);
 
     let status = cmd.status().expect("Failed to execute script");
 
