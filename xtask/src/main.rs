@@ -48,9 +48,25 @@ fn print_usage() {
     println!("\nCommands:");
     println!("  build [target]           Builds the project (default: host target)");
     println!("  run-script <name> [args] Runs a script from the ./scripts directory");
+    println!("  run-script --help        Lists available scripts");
     println!("\nExample:");
     println!("  cargo xtask build");
     println!("  cargo xtask run-script cargo-check.sh");
+}
+
+fn list_scripts() {
+    println!("Available scripts in ./scripts:");
+    if let Ok(entries) = std::fs::read_dir("scripts") {
+        for entry in entries {
+            if let Ok(entry) = entry {
+                if let Some(name) = entry.file_name().to_str() {
+                    println!("  {}", name);
+                }
+            }
+        }
+    } else {
+        eprintln!("Error: ./scripts directory not found.");
+    }
 }
 
 fn run_build(target_opt: Option<&str>) {
@@ -95,6 +111,10 @@ fn run_build(target_opt: Option<&str>) {
 
 fn run_script(script_name_opt: Option<&str>, script_args: &[String]) {
     let script_name = match script_name_opt {
+        Some("--help") | Some("help") => {
+            list_scripts();
+            exit(0);
+        }
         Some(name) => name,
         None => {
             eprintln!("Error: Missing script name");
