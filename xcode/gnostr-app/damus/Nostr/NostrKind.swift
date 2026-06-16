@@ -58,4 +58,8 @@ enum NostrKind: Int {
     case calendar = 31924
     case starter_pack = 39089
     case multimedia_starter_pack = 39092
+
+    case pip_manifest = 39078
+    case pip_slice = 39079
+    case pip_repair = 39080
 }
