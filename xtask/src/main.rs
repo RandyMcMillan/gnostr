@@ -87,8 +87,9 @@ fn list_scripts() {
         let mut scripts: Vec<String> = entries
             .filter_map(|entry| entry.ok())
             .filter_map(|entry| entry.file_name().to_str().map(|s| s.to_string()))
+            .filter(|name| !name.starts_with('.'))
             .collect();
-        scripts.sort();
+        scripts.sort_by_key(|s| s.to_lowercase());
         for name in scripts {
             println!("  {}", name);
         }
@@ -103,8 +104,9 @@ fn list_xcode_scripts() {
         let mut scripts: Vec<String> = entries
             .filter_map(|entry| entry.ok())
             .filter_map(|entry| entry.file_name().to_str().map(|s| s.to_string()))
+            .filter(|name| !name.starts_with('.'))
             .collect();
-        scripts.sort();
+        scripts.sort_by_key(|s| s.to_lowercase());
         for name in scripts {
             println!("  {}", name);
         }
