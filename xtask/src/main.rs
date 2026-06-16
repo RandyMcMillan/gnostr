@@ -12,6 +12,11 @@ fn main() {
             let target = args.get(1).map(|s| s.as_str());
             run_build(target);
         }
+        Some("run-script") => {
+            let script_name = args.get(1).map(|s| s.as_str());
+            let script_args = &args[2..];
+            run_script(script_name, script_args);
+        }
         Some("help") | Some("--help") | None => {
             print_usage();
         }
@@ -41,10 +46,11 @@ fn get_host_target() -> String {
 fn print_usage() {
     println!("Usage: cargo xtask <command> [args]");
     println!("\nCommands:");
-    println!("  build [target]    Builds the project (default: host target)");
+    println!("  build [target]           Builds the project (default: host target)");
+    println!("  run-script <name> [args] Runs a script from the ./scripts directory");
     println!("\nExample:");
     println!("  cargo xtask build");
-    println!("  cargo xtask build aarch64-unknown-linux-gnu");
+    println!("  cargo xtask run-script cargo-check.sh");
 }
 
 fn run_build(target_opt: Option<&str>) {
@@ -84,5 +90,38 @@ fn run_build(target_opt: Option<&str>) {
         exit(1);
     } else {
         println!("--- Build successful! Artifacts located in: {} ---", target_dir);
+    }
+}
+
+fn run_script(script_name_opt: Option<&str>, script_args: &[String]) {
+    let script_name = match script_name_opt {
+        Some(name) => name,
+        None => {
+            eprintln!("Error: Missing script name");
+            print_usage();
+            exit(1);
+        }
+    };
+
+    let script_path = Path::new("scripts").join(script_name);
+
+    if !script_path.exists() {
+        eprintln!("Error: Script not found: {}", script_path.display());
+        exit(1);
+    }
+
+    println!("--- Running script: {} ---", script_path.display());
+
+    let mut cmd = Command::new("bash");
+    cmd.arg(&script_path);
+    cmd.args(script_args);
+
+    let status = cmd.status().expect("Failed to execute script");
+
+    if !status.success() {
+        eprintln!("Script failed: {}", script_path.display());
+        exit(1);
+    } else {
+        println!("--- Script executed successfully! ---");
     }
 }
