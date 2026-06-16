@@ -9,7 +9,7 @@ fn main() {
     let mut command_args = Vec::new();
     
     for arg in raw_args {
-        if arg.starts_with("-") {
+        if arg == "-v" || arg == "-vv" {
             flags.push(arg);
         } else {
             command_args.push(arg);
@@ -36,6 +36,10 @@ fn main() {
         }
         Some("xcode") => {
             let script_args = if command_args.len() > 1 { &command_args[1..] } else { &[] };
+            if script_args.len() == 0 {
+                print_usage();
+                exit(1);
+            }
             run_xcode_script(script_args, verbosity);
         }
         Some("help") | Some("--help") | None => {
