@@ -3,19 +3,36 @@ use std::path::Path;
 use std::process::{Command, exit};
 
 fn main() {
-    // Collect arguments excluding the binary name
-    let args: Vec<String> = env::args().skip(1).collect();
+    let raw_args: Vec<String> = env::args().skip(1).collect();
     
-    // Route commands
-    match args.get(0).map(|s| s.as_str()) {
+    let mut flags = Vec::new();
+    let mut command_args = Vec::new();
+    
+    for arg in raw_args {
+        if arg.starts_with("-") {
+            flags.push(arg);
+        } else {
+            command_args.push(arg);
+        }
+    }
+    
+    let verbosity = if flags.contains(&"-vv".to_string()) {
+        2
+    } else if flags.contains(&"-v".to_string()) {
+        1
+    } else {
+        0
+    };
+
+    match command_args.get(0).map(|s| s.as_str()) {
         Some("build") => {
-            let target = args.get(1).map(|s| s.as_str());
-            run_build(target);
+            let target = command_args.get(1).map(|s| s.as_str());
+            run_build(target, verbosity, &flags);
         }
         Some("run-script") => {
-            let script_name = args.get(1).map(|s| s.as_str());
-            let script_args = if args.len() > 2 { &args[2..] } else { &[] };
-            run_script(script_name, script_args);
+            let script_name = command_args.get(1).map(|s| s.as_str());
+            let script_args = if command_args.len() > 2 { &command_args[2..] } else { &[] };
+            run_script(script_name, script_args, verbosity);
         }
         Some("help") | Some("--help") | None => {
             print_usage();
@@ -44,7 +61,7 @@ fn get_host_target() -> String {
 }
 
 fn print_usage() {
-    println!("Usage: cargo xtask <command> [args]");
+    println!("Usage: cargo xtask [-v|-vv] <command> [args]");
     println!("\nCommands:");
     println!("  build [target]           Builds the project (default: host target)");
     println!("  run-script <name> [args] Runs a script from the ./scripts directory");
@@ -69,35 +86,34 @@ fn list_scripts() {
     }
 }
 
-fn run_build(target_opt: Option<&str>) {
+fn run_build(target_opt: Option<&str>, verbosity: u8, _flags: &[String]) {
     let final_target = target_opt.unwrap_or_else(|| {
         let host = get_host_target();
-        println!("--- No target specified: Defaulting to {} ---", host);
-        "" // Placeholder, logic below uses get_host_target()
+        if verbosity > 0 { println!("--- No target specified: Defaulting to {} ---", host); }
+        "" 
     });
 
     let target = if final_target.is_empty() { get_host_target() } else { final_target.to_string() };
 
-    // 1. Detect external drive
     let external_root = Path::new("/Volumes/DeepSpaceExtSDD");
     
-    // 2. Determine target directory path
     let target_dir = if external_root.exists() {
         let path = external_root.join("target").join(&target);
-        println!("--- External volume detected: Using {} ---", path.display());
+        if verbosity > 0 { println!("--- External volume detected: Using {} ---", path.display()); }
         path.to_string_lossy().into_owned()
     } else {
         format!("target/{}", target)
     };
     
-    println!("--- Building for: {} ---", target);
+    if verbosity > 0 { println!("--- Building for: {} ---", target); }
 
-    // 3. Execute the build command
     let mut cmd = Command::new("cargo");
     cmd.arg("build")
        .arg("--target")
        .arg(&target)
        .env("CARGO_TARGET_DIR", &target_dir);
+    
+    if verbosity > 0 { cmd.arg(if verbosity == 2 { "-vv" } else { "-v" }); }
 
     let status = cmd.status().expect("Failed to execute cargo build");
 
@@ -105,11 +121,11 @@ fn run_build(target_opt: Option<&str>) {
         eprintln!("Build failed for target: {}", target);
         exit(1);
     } else {
-        println!("--- Build successful! Artifacts located in: {} ---", target_dir);
+        if verbosity > 0 { println!("--- Build successful! Artifacts located in: {} ---", target_dir); }
     }
 }
 
-fn run_script(script_name_opt: Option<&str>, script_args: &[String]) {
+fn run_script(script_name_opt: Option<&str>, script_args: &[String], verbosity: u8) {
     let script_name = match script_name_opt {
         Some("--help") | Some("help") => {
             list_scripts();
@@ -142,6 +158,6 @@ fn run_script(script_name_opt: Option<&str>, script_args: &[String]) {
         eprintln!("Script failed: {}", script_path.display());
         exit(1);
     } else {
-        println!("--- Script executed successfully! ---");
+        if verbosity > 0 { println!("--- Script executed successfully! ---"); }
     }
 }
