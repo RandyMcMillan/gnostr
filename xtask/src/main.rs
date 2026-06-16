@@ -34,6 +34,11 @@ fn main() {
             let script_args = if command_args.len() > 2 { &command_args[2..] } else { &[] };
             run_script(script_name, script_args, verbosity);
         }
+        Some("xcode") => {
+            let script_name = command_args.get(1).map(|s| s.as_str());
+            let script_args = if command_args.len() > 1 { &command_args[1..] } else { &[] };
+            run_xcode_script(None, script_args, verbosity);
+        }
         Some("help") | Some("--help") | None => {
             print_usage();
         }
@@ -66,6 +71,8 @@ fn print_usage() {
     println!("  build [target]           Builds the project (default: host target)");
     println!("  run-script <name> [args] Runs a script from the ./scripts directory");
     println!("  run-script --help        Lists available scripts");
+    println!("  xcode <name> [args]      Runs a script from the ./xcode/scripts directory");
+    println!("  xcode --help             Lists available xcode scripts");
     println!("\nExample:");
     println!("  cargo xtask build");
     println!("  cargo xtask run-script cargo-check.sh");
@@ -85,6 +92,59 @@ fn list_scripts() {
         eprintln!("Error: ./scripts directory not found.");
     }
 }
+
+fn list_xcode_scripts() {
+    println!("Available scripts in ./xcode/scripts:");
+    if let Ok(entries) = std::fs::read_dir("xcode/scripts") {
+        for entry in entries {
+            if let Ok(entry) = entry {
+                if let Some(name) = entry.file_name().to_str() {
+                    println!("  {}", name);
+                }
+            }
+        }
+    } else {
+        eprintln!("Error: ./xcode/scripts directory not found.");
+    }
+}
+
+fn run_xcode_script(script_name_opt: Option<&str>, script_args: &[String], verbosity: u8) {
+    let script_name = match script_name_opt {
+        Some("--help") | Some("help") => {
+            list_xcode_scripts();
+            exit(0);
+        }
+        Some(name) => name,
+        None => {
+            eprintln!("Error: Missing script name");
+            print_usage();
+            exit(1);
+        }
+    };
+
+    let script_path = Path::new("xcode/scripts").join(script_name);
+
+    if !script_path.exists() {
+        eprintln!("Error: Script not found: {}", script_path.display());
+        exit(1);
+    }
+
+    if verbosity > 0 { println!("--- Running script: {} ---", script_path.display()); }
+
+    let mut cmd = Command::new("bash");
+    cmd.arg(&script_path);
+    cmd.args(script_args);
+
+    let status = cmd.status().expect("Failed to execute script");
+
+    if !status.success() {
+        eprintln!("Script failed: {}", script_path.display());
+        exit(1);
+    } else {
+        if verbosity > 0 { println!("--- Script executed successfully! ---"); }
+    }
+}
+
 
 fn run_build(target_opt: Option<&str>, verbosity: u8, _flags: &[String]) {
     let final_target = target_opt.unwrap_or_else(|| {
