@@ -1,18 +1,17 @@
 use std::{
-    fs,
-    io,
+    fs, io,
     path::{Path, PathBuf},
 };
 
 use futures::StreamExt;
-use log::{debug, info};
 use gnostr_p2p::keypair_from_seed;
+use gnostr_p2p::message::{EventBuilder, EventKind, PrivateKey, Tag};
 use gnostr_p2p::perfect_ip::{
     build_fractal_swarm, generate_manifest, packetize, summarize_packets, FractalBehaviourEvent,
     IntegrityManager, ProtocolSlice,
 };
-use gnostr_p2p::message::{EventBuilder, EventKind, PrivateKey, Tag};
 use libp2p::{request_response, swarm::SwarmEvent};
+use log::{debug, info};
 use sha2::{Digest, Sha256};
 
 #[derive(Debug)]
@@ -24,23 +23,55 @@ struct DemoArgs {
     depth_set: bool,
     logging: Option<String>,
     help: bool,
+    serve_network: bool,
+}
+
+#[derive(Debug)]
+struct DirectoryWalkResult {
+    lines: Vec<String>,
+    packets: Vec<ProtocolSlice>,
+}
+
+struct FileModeResult {
+    root_id: String,
+    original_sha256: String,
+    original_len: usize,
+    packets: Vec<ProtocolSlice>,
+    integrity: IntegrityManager,
 }
 
 fn usage() {
     println!(
-        "Usage: fractal_swarm_perfect_ip [--file PATH] [--out PATH] [--recursive PATH] [--depth N] [--logging] [--help]\n\
+        "Usage: fractal_swarm_perfect_ip [--file PATH] [--out PATH] [--recursive PATH] [--depth N] [--logging] [--serve-network] [--help]\n\
          \n\
          Options:\n\
-           --file PATH       Read a single file from PATH\n\
-          --out PATH        Write reconstructed bytes to PATH [default: example.reconstructed.bin]\n\
-          --recursive PATH   Walk PATH as a directory tree and preserve relative paths\n\
-          --depth N         Limit recursive directory walking to N levels [default: 3]\n\
-          --logging         Enable verbose logging\n\
-           --help            Show this help message\n"
+           --file PATH         Read a single file from PATH\n\
+           --out PATH          Write reconstructed bytes to PATH [default: example.reconstructed.bin]\n\
+           --recursive PATH    Walk PATH as a directory tree and preserve relative paths\n\
+           --depth N           Limit recursive directory walking to N levels [default: 3]\n\
+           --logging [LEVEL]   Enable verbose logging (default level: info)\n\
+           --serve-network     Broadcast PIP events and run libp2p repair loop\n\
+           --help              Show this help message\n"
     );
 }
 
-fn parse_args() -> DemoArgs {
+fn parse_usize(value: &str, flag: &str) -> Result<usize, String> {
+    value
+        .parse::<usize>()
+        .map_err(|_| format!("invalid value for {flag}: {value}"))
+}
+
+fn parse_required_path(
+    args: &mut std::iter::Peekable<impl Iterator<Item = String>>,
+    flag: &str,
+) -> Result<PathBuf, String> {
+    match args.peek() {
+        Some(next) if !next.starts_with('-') => Ok(PathBuf::from(args.next().unwrap_or_default())),
+        _ => Err(format!("missing value for {flag}")),
+    }
+}
+
+fn parse_args() -> Result<DemoArgs, String> {
     let mut args = std::env::args().skip(1).peekable();
     let mut file = None;
     let mut out = None;
@@ -49,74 +80,58 @@ fn parse_args() -> DemoArgs {
     let mut depth_set = false;
     let mut logging: Option<String> = None;
     let mut help = false;
+    let mut serve_network = false;
 
     while let Some(arg) = args.next() {
         if arg == "--help" || arg == "-h" {
             help = true;
+        } else if arg == "--serve-network" {
+            serve_network = true;
         } else if arg == "--logging" {
             logging = match args.peek() {
                 Some(next) if !next.starts_with('-') => args.next(),
                 _ => Some("info".to_string()),
             };
         } else if arg == "--recursive" {
-            recursive = match args.peek() {
-                Some(next) if !next.starts_with('-') => args.next().map(PathBuf::from),
-                _ => {
-                    help = true;
-                    None
-                }
-            };
+            recursive = Some(parse_required_path(&mut args, "--recursive")?);
         } else if let Some(path) = arg.strip_prefix("--recursive=") {
+            if path.is_empty() {
+                return Err("missing value for --recursive".to_string());
+            }
             recursive = Some(PathBuf::from(path));
-        } else if let Some(path) = arg.strip_prefix("--file=") {
-            file = Some(PathBuf::from(path));
-        } else if let Some(path) = arg.strip_prefix("--out=") {
-            out = Some(PathBuf::from(path));
-        } else if arg == "--out" {
-            out = match args.peek() {
-                Some(next) if !next.starts_with('-') => args.next().map(PathBuf::from),
-                _ => {
-                    help = true;
-                    None
-                }
-            };
         } else if arg == "--file" {
-            file = match args.peek() {
-                Some(next) if !next.starts_with('-') => args.next().map(PathBuf::from),
-                _ => {
-                    help = true;
-                    None
-                }
-            };
-        } else if let Some(value) = arg.strip_prefix("--depth=") {
-            depth = value.parse().unwrap_or(3);
-            depth_set = true;
+            file = Some(parse_required_path(&mut args, "--file")?);
+        } else if let Some(path) = arg.strip_prefix("--file=") {
+            if path.is_empty() {
+                return Err("missing value for --file".to_string());
+            }
+            file = Some(PathBuf::from(path));
+        } else if arg == "--out" {
+            out = Some(parse_required_path(&mut args, "--out")?);
+        } else if let Some(path) = arg.strip_prefix("--out=") {
+            if path.is_empty() {
+                return Err("missing value for --out".to_string());
+            }
+            out = Some(PathBuf::from(path));
         } else if arg == "--depth" {
-            depth = match args.peek() {
-                Some(next) if !next.starts_with('-') => args
-                    .next()
-                    .and_then(|value| value.parse().ok())
-                    .unwrap_or(3),
-                _ => {
-                    help = true;
-                    3
-                }
+            let raw = match args.peek() {
+                Some(next) if !next.starts_with('-') => args.next().unwrap_or_default(),
+                _ => return Err("missing value for --depth".to_string()),
             };
+            depth = parse_usize(&raw, "--depth")?;
+            depth_set = true;
+        } else if let Some(value) = arg.strip_prefix("--depth=") {
+            if value.is_empty() {
+                return Err("missing value for --depth".to_string());
+            }
+            depth = parse_usize(value, "--depth")?;
             depth_set = true;
         } else {
-            eprintln!("unrecognized argument: {arg}");
-            help = true;
+            return Err(format!("unrecognized argument: {arg}"));
         }
     }
 
-    if recursive.is_none() && depth_set {
-        help = true;
-    }
-    if recursive.is_some() && file.is_some() {
-        help = true;
-    }
-
-    DemoArgs {
+    Ok(DemoArgs {
         file,
         out,
         recursive,
@@ -124,7 +139,18 @@ fn parse_args() -> DemoArgs {
         depth_set,
         logging,
         help,
+        serve_network,
+    })
+}
+
+fn validate_args(args: &DemoArgs) -> Result<(), String> {
+    if args.file.is_some() && args.recursive.is_some() {
+        return Err("--file and --recursive are mutually exclusive".to_string());
     }
+    if args.depth_set && args.recursive.is_none() {
+        return Err("--depth is only valid with --recursive".to_string());
+    }
+    Ok(())
 }
 
 fn sha256_hex(bytes: &[u8]) -> String {
@@ -141,7 +167,7 @@ fn reconstruct_payload(packets: &[ProtocolSlice]) -> Vec<u8> {
         .collect()
 }
 
-fn list_directory(
+fn collect_directory_walk(
     root: &Path,
     current: &Path,
     depth: usize,
@@ -150,10 +176,6 @@ fn list_directory(
     lines: &mut Vec<String>,
     all_packets: &mut Vec<ProtocolSlice>,
 ) -> io::Result<()> {
-    if level == 0 {
-        lines.push(".".to_string());
-    }
-
     let mut entries = Vec::new();
     for entry in fs::read_dir(current)? {
         entries.push(entry?);
@@ -162,17 +184,15 @@ fn list_directory(
 
     for entry in entries {
         let path = entry.path();
-        let relative = path
-            .strip_prefix(root)
-            .unwrap_or(&path)
-            .to_path_buf();
+        let relative = path.strip_prefix(root).unwrap_or(&path).to_path_buf();
         let indent = "  ".repeat(level + 1);
         let metadata = entry.metadata()?;
 
         if metadata.is_dir() {
             lines.push(format!("{indent}{}/", relative.display()));
-            // Recursively visit all directories unconditionally:
-            list_directory(root, &path, depth, level + 1, logging, lines, all_packets)?;
+            if level + 1 < depth {
+                collect_directory_walk(root, &path, depth, level + 1, logging, lines, all_packets)?;
+            }
         } else if metadata.is_file() {
             let bytes = fs::read(&path)?;
             lines.push(format!(
@@ -184,12 +204,12 @@ fn list_directory(
             let batch = packetize(relative.to_string_lossy().into_owned(), bytes);
             all_packets.extend(batch.packets.clone());
             if logging {
-                // Keep the direct prints requested:
                 info!("File: {}", relative.display());
                 info!("Batch size: {} packets", batch.total_packets);
-
-                // Ensure the summary is also added to `lines` so it appears in the tree walk output:
-                lines.push(format!("{indent}  perfect_ip packet batch: {} packets", batch.total_packets));
+                lines.push(format!(
+                    "{indent}  perfect_ip packet batch: {} packets",
+                    batch.total_packets
+                ));
                 for line in summarize_packets(&batch.packets) {
                     debug!("{line}");
                     lines.push(format!("{indent}  {line}"));
@@ -203,83 +223,35 @@ fn list_directory(
     Ok(())
 }
 
-fn run_directory_walk(path: &Path, depth: usize, logging: bool) -> io::Result<Vec<ProtocolSlice>> {
-    let mut lines = Vec::new();
+fn run_directory_walk(path: &Path, depth: usize, logging: bool) -> io::Result<DirectoryWalkResult> {
+    let mut lines = vec![".".to_string()];
     let mut all_packets = Vec::new();
-    list_directory(path, path, depth, 0, logging, &mut lines, &mut all_packets)?;
-    for line in lines {
-        println!("{line}");
+
+    if depth > 0 {
+        collect_directory_walk(path, path, depth, 0, logging, &mut lines, &mut all_packets)?;
     }
-    Ok(all_packets)
+
+    Ok(DirectoryWalkResult {
+        lines,
+        packets: all_packets,
+    })
 }
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let DemoArgs {
-        file,
-        out,
-        recursive,
-        depth,
-        depth_set,
-        logging,
-        help,
-    } = parse_args();
-
-    if let Some(ref level) = logging {
-        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or(level)).init();
-    }
-
-    if help {
-        usage();
-        return Ok(());
-    }
-
-    if let Some(ref root) = recursive {
-        if file.is_some() {
-            return Err("--file and --recursive are mutually exclusive".into());
-        }
-
-        if !root.is_dir() {
-            usage();
-            return Ok(());
-        }
-
-        info!("recursive walk root: {}", root.display());
-        info!("recursive depth: {}", depth);
-        info!("logging flag is: {:?}", logging);
-        let all_packets = run_directory_walk(root, depth, logging.is_some())?;
-        if let Some(ref out_path) = out {
-            let reconstructed = reconstruct_payload(&all_packets);
-            fs::write(out_path, &reconstructed)?;
-            println!("recursively reconstructed {} bytes to {}", reconstructed.len(), out_path.display());
-            return Ok(());
-        }
-        // Commented out to allow the P2P service to start when --recursive is used:
-        // return Ok(());
-    }
-
-    // Commented out the old check to allow --depth when --recursive is used:
-    // if depth_set {
-    //     return Err("--depth is only valid with --recursive".into());
-    // }
-    if recursive.is_none() && depth_set {
-        return Err("--depth is only valid with --recursive".into());
-    }
-
-    let example_path = if let Some(ref root) = recursive {
-        root.clone()
-    } else {
-        file.unwrap_or_else(|| PathBuf::from("example.bin"))
-    };
+fn run_file_mode(
+    file: Option<PathBuf>,
+    out: Option<PathBuf>,
+    logging: bool,
+) -> io::Result<FileModeResult> {
+    let example_path = file.unwrap_or_else(|| PathBuf::from("example.bin"));
 
     let original_bytes = if example_path.exists() {
         if example_path.is_dir() {
-            // If it's a directory, we need to decide how to packetize it.
-            // For now, treat it as empty or handle appropriately.
-            vec![]
-        } else {
-            fs::read(&example_path)?
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                format!("--file path is a directory: {}", example_path.display()),
+            ));
         }
+        fs::read(&example_path)?
     } else {
         let bytes = b"perfect_ip demo payload\n".repeat(128);
         fs::write(&example_path, &bytes)?;
@@ -287,19 +259,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     };
 
     let original_sha256 = sha256_hex(&original_bytes);
-    let batch = packetize("ROOT".to_string(), original_bytes.clone());
-    let manifest = generate_manifest("ROOT".to_string(), original_bytes.len());
+    let root_id = "ROOT".to_string();
+    let batch = packetize(root_id.clone(), original_bytes.clone());
+    let manifest = generate_manifest(root_id.clone(), original_bytes.len());
 
     println!("sender wrote {}", example_path.display());
     println!("sender sha256: {original_sha256}");
-    if logging.is_some() {
+    if logging {
         info!("perfect_ip packet batch: {} packets", batch.total_packets);
         for line in summarize_packets(&batch.packets) {
             debug!("{line}");
         }
     }
 
-    let mut integrity = IntegrityManager::new(manifest.clone());
+    let mut integrity = IntegrityManager::new(manifest);
     for slice in batch.packets.clone() {
         integrity.record_slice(slice);
     }
@@ -315,37 +288,89 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     println!("peer sha256: {reconstructed_sha256}");
     println!("sha256 match: {}", reconstructed_sha256 == original_sha256);
 
-    let local_key = keypair_from_seed(None);
-    let mut swarm = build_fractal_swarm(local_key).await?;
-    let listen_address = "/ip4/127.0.0.1/udp/0/quic-v1".parse()?;
-    let listener_id = swarm.listen_on(listen_address)?;
-    println!("repair swarm listener: {listener_id:?}");
-    println!("press Ctrl-C to stop the demo");
+    Ok(FileModeResult {
+        root_id,
+        original_sha256,
+        original_len: original_bytes.len(),
+        packets: batch.packets,
+        integrity,
+    })
+}
 
-    // Construct and broadcast PIP events
-    let private_key = PrivateKey::generate();
-    let config_dir = gnostr_p2p::p2p::relay_paths::get_config_dir_path();
-
-    // 1. Broadcast Manifest Event (Kind 39078)
-    let manifest_content = serde_json::to_string(&manifest).expect("serialize manifest");
-    let manifest_tags = vec![
-        Tag::new_identifier("ROOT".to_string()),
-        Tag::new_tag("sha256", &original_sha256),
-    ];
-    let manifest_event = EventBuilder::new(EventKind::Other(39078), manifest_content, manifest_tags)
-        .to_event(&private_key)
-        .expect("build manifest event");
-    
-    info!("Broadcasting PIP Manifest event: {}", manifest_event.id.as_hex_string());
-    if let Ok(count) = gnostr_p2p::p2p::crawler_broadcast::broadcast_event_to_crawler_relays(&config_dir, &manifest_event).await {
-        info!("Broadcasted PIP Manifest event: {:?}. Published to {} relays.", manifest_event.id, count);
+fn run_recursive_mode(
+    root: &Path,
+    depth: usize,
+    logging: bool,
+    out: Option<&Path>,
+) -> io::Result<()> {
+    if !root.is_dir() {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!("--recursive path is not a directory: {}", root.display()),
+        ));
     }
 
-    // 2. Broadcast Slice Events (Kind 39079)
-    for slice in batch.packets {
-        let slice_content = serde_json::to_string(&slice).expect("serialize slice");
+    info!("recursive walk root: {}", root.display());
+    info!("recursive depth: {}", depth);
+
+    let walk = run_directory_walk(root, depth, logging)?;
+    for line in walk.lines {
+        println!("{line}");
+    }
+
+    if let Some(out_path) = out {
+        let reconstructed = reconstruct_payload(&walk.packets);
+        fs::write(out_path, &reconstructed)?;
+        println!(
+            "recursively reconstructed {} bytes to {}",
+            reconstructed.len(),
+            out_path.display()
+        );
+    }
+
+    Ok(())
+}
+
+async fn broadcast_pip_events(
+    root_id: &str,
+    original_sha256: &str,
+    original_len: usize,
+    packets: &[ProtocolSlice],
+) {
+    let private_key = PrivateKey::generate();
+    let config_dir = gnostr_p2p::p2p::relay_paths::get_config_dir_path();
+    let manifest = generate_manifest(root_id.to_string(), original_len);
+
+    let manifest_content = serde_json::to_string(&manifest).expect("serialize manifest");
+    let manifest_tags = vec![
+        Tag::new_identifier(root_id.to_string()),
+        Tag::new_tag("sha256", original_sha256),
+    ];
+    let manifest_event =
+        EventBuilder::new(EventKind::Other(39078), manifest_content, manifest_tags)
+            .to_event(&private_key)
+            .expect("build manifest event");
+
+    info!(
+        "Broadcasting PIP Manifest event: {}",
+        manifest_event.id.as_hex_string()
+    );
+    if let Ok(count) = gnostr_p2p::p2p::crawler_broadcast::broadcast_event_to_crawler_relays(
+        &config_dir,
+        &manifest_event,
+    )
+    .await
+    {
+        info!(
+            "Broadcasted PIP Manifest event: {:?}. Published to {} relays.",
+            manifest_event.id, count
+        );
+    }
+
+    for slice in packets {
+        let slice_content = serde_json::to_string(slice).expect("serialize slice");
         let slice_tags = vec![
-            Tag::new_identifier("ROOT".to_string()),
+            Tag::new_identifier(root_id.to_string()),
             Tag::new_event(manifest_event.id, None, Some("root".to_string())),
             Tag::new_tag("seq", &slice.header.seq_num.to_string()),
             Tag::new_tag("path", &slice.id),
@@ -354,11 +379,33 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             .to_event(&private_key)
             .expect("build slice event");
 
-        debug!("Broadcasting PIP Slice event: {}", serde_json::to_string_pretty(&slice_event).expect("serialize event"));
-        if let Ok(count) = gnostr_p2p::p2p::crawler_broadcast::broadcast_event_to_crawler_relays(&config_dir, &slice_event).await {
-             debug!("Broadcasted PIP Slice event: {:?}. Published to {} relays.", slice_event.id, count);
+        debug!(
+            "Broadcasting PIP Slice event: {}",
+            serde_json::to_string_pretty(&slice_event).expect("serialize event")
+        );
+        if let Ok(count) = gnostr_p2p::p2p::crawler_broadcast::broadcast_event_to_crawler_relays(
+            &config_dir,
+            &slice_event,
+        )
+        .await
+        {
+            debug!(
+                "Broadcasted PIP Slice event: {:?}. Published to {} relays.",
+                slice_event.id, count
+            );
         }
     }
+}
+
+async fn serve_repair_loop(
+    integrity: IntegrityManager,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let local_key = keypair_from_seed(None);
+    let mut swarm = build_fractal_swarm(local_key).await?;
+    let listen_address = "/ip4/127.0.0.1/udp/0/quic-v1".parse()?;
+    let listener_id = swarm.listen_on(listen_address)?;
+    println!("repair swarm listener: {listener_id:?}");
+    println!("press Ctrl-C to stop the demo");
 
     loop {
         tokio::select! {
@@ -386,6 +433,47 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 }
             }
         }
+    }
+
+    Ok(())
+}
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let args = parse_args().map_err(io::Error::other)?;
+
+    if args.help {
+        usage();
+        return Ok(());
+    }
+
+    validate_args(&args).map_err(io::Error::other)?;
+
+    if let Some(ref level) = args.logging {
+        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or(level)).init();
+    }
+
+    if let Some(ref root) = args.recursive {
+        run_recursive_mode(
+            root,
+            args.depth,
+            args.logging.is_some(),
+            args.out.as_deref(),
+        )?;
+        return Ok(());
+    }
+
+    let file_result = run_file_mode(args.file, args.out, args.logging.is_some())?;
+
+    if args.serve_network {
+        broadcast_pip_events(
+            &file_result.root_id,
+            &file_result.original_sha256,
+            file_result.original_len,
+            &file_result.packets,
+        )
+        .await;
+        serve_repair_loop(file_result.integrity).await?;
     }
 
     Ok(())
