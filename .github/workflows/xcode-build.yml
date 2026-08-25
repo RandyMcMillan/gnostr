@@ -2,10 +2,10 @@
 name: xcode-build
 
 on:
-  push:
-    branches:
-      - "**"
-  pull_request:
+  #push:
+  #  branches:
+  #    - "**"
+  %pull_request:
   workflow_dispatch:
     inputs:
       mode:
