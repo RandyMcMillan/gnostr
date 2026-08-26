@@ -1,4 +1,10 @@
-import CryptoKit
+#if canImport(CryptoKit)
+    import CryptoKit
+#elseif canImport(Crypto)
+    import Crypto
+#else
+    #error("Neither CryptoKit nor Crypto is available on this platform.")
+#endif
 import DefaultBackend
 import Foundation
 import LibP2P
