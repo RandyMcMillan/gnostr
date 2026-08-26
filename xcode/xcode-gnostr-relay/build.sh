@@ -50,9 +50,6 @@ targets=(
     "aarch64-apple-ios"
     "aarch64-apple-ios-sim"
     "x86_64-apple-ios"
-    "aarch64-apple-tvos"
-    "aarch64-apple-tvos-sim"
-    "x86_64-apple-tvos"
     "aarch64-apple-darwin"
 )
 
@@ -69,14 +66,6 @@ lipo -create \
     "${TARGETDIR}/aarch64-apple-ios-sim/${RELDIR}/${STATIC_LIB_NAME}" \
     "${TARGETDIR}/x86_64-apple-ios/${RELDIR}/${STATIC_LIB_NAME}" \
     -output "${SIM_LIB}"
-
-TVOS_SIM_DIR="${TARGETDIR}/tvos-simulator"
-TVOS_SIM_LIB="${TVOS_SIM_DIR}/${RELDIR}/${STATIC_LIB_NAME}"
-mkdir -p "${TVOS_SIM_DIR}/${RELDIR}"
-lipo -create \
-    "${TARGETDIR}/aarch64-apple-tvos-sim/${RELDIR}/${STATIC_LIB_NAME}" \
-    "${TARGETDIR}/x86_64-apple-tvos/${RELDIR}/${STATIC_LIB_NAME}" \
-    -output "${TVOS_SIM_LIB}"
 
 # step 2 - create xcframework
 mkdir -p "${NEW_HEADER_DIR}"
@@ -96,8 +85,6 @@ fi
 xcodebuild -create-xcframework \
     -library "${TARGETDIR}/aarch64-apple-ios/${RELDIR}/${STATIC_LIB_NAME}" -headers "${NEW_HEADER_DIR}" \
     -library "${SIM_LIB}" -headers "${NEW_HEADER_DIR}" \
-    -library "${TARGETDIR}/aarch64-apple-tvos/${RELDIR}/${STATIC_LIB_NAME}" -headers "${NEW_HEADER_DIR}" \
-    -library "${TVOS_SIM_LIB}" -headers "${NEW_HEADER_DIR}" \
     -library "${TARGETDIR}/aarch64-apple-darwin/${RELDIR}/${STATIC_LIB_NAME}" -headers "${NEW_HEADER_DIR}" \
     -output "${OUTDIR}/${MY_CRATE}_framework.xcframework"
 
