@@ -1,0 +1,23 @@
+[book]
+authors = ["Nick Mathewson"]
+language = "en"
+multilingual = false
+src = "src"
+title = "Advanced Rust macros with derive-deftly"
+
+# Link checking is done using a separate script, `maint/check-mdbook-links`,
+# which runs linklint over a combination of this book, and our rustdocs.
+
+[output.html]
+
+# The output directories chosen by mdbook depend on whether there
+# is only one `[output]`, or several (!)
+# This is not documented (!!)
+#
+# I discovered it here
+#    https://github.com/Michael-F-Bryan/mdbook-linkcheck/blob/bffff60e6de6f755fab9dfd6ecc3f6cf872c633d/README.md?plain=1#L56
+#
+# Add a dummy `[output]` entry so that if we change the number outputs,
+# things don't move about.
+[output.null]
+command = "wc"

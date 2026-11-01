@@ -1,0 +1,40 @@
+[package]
+name = "educe"
+version = "0.4.23"
+authors = ["Magic Len <len@magiclen.org>"]
+edition = "2021"
+rust-version = "1.56"
+repository = "https://github.com/magiclen/educe"
+homepage = "https://magiclen.org/educe"
+keywords = ["derive", "macro", "trait", "field", "procedural"]
+categories = ["no-std", "rust-patterns"]
+description = "This crate provides procedural macros to help you implement Rust-built-in traits quickly."
+license = "MIT"
+include = ["src/**/*", "Cargo.toml", "README.md", "LICENSE"]
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro2 = "1"
+syn = { version = "1", features = ["full"] }
+quote = "1"
+
+enum-ordinalize = "3.1"
+
+[dev-dependencies]
+assert-eq-float = "0.1"
+
+[features]
+default = ["Debug", "PartialEq", "Eq", "PartialOrd", "Ord", "Hash", "Default", "Clone", "Copy", "Deref", "DerefMut"]
+Debug = []
+PartialEq = []
+Eq = []
+PartialOrd = []
+Ord = []
+Hash = []
+Default = []
+Clone = []
+Copy = []
+Deref = []
+DerefMut = []

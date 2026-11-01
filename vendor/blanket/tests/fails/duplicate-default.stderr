@@ -1,0 +1,5 @@
+error: unexpected token
+ --> tests/fails/duplicate-default.rs:4:30
+  |
+4 | #[blanket(default = "default", default = "other")]
+  |                              ^

@@ -1,0 +1,53 @@
+.template:
+    script:
+        - export RUSTUP_HOME="$(pwd)/.rustup"
+        - export CARGO_HOME="$(pwd)/.cargo"
+        - export PATH="$CARGO_HOME/bin:$PATH"
+        - apt-get update >/dev/null
+        - apt-get -y install curl build-essential >/dev/null
+        - if rustup --version >/dev/null; then
+        -     rustup self update
+        - else
+        -     curl https://sh.rustup.rs/ -sSf | sh -s -- -y --default-toolchain=none
+        - fi
+        - rustup --version
+        - rustup update $channel
+        - rustup default $channel
+        - rustc --version
+        - cargo --version
+        - cargo test $feature_flags
+    variables:
+        feature_flags: --all-features
+
+image: debian
+
+cache:
+    key: $channel
+    paths:
+        - .rustup/
+        - .cargo/
+        - target/
+
+1.28.0:
+    extends: .template
+    variables:
+        channel: 1.28.0
+        feature_flags: --features=fused
+1.33.0:
+    extends: .template
+    variables:
+        channel: 1.33.0
+stable:
+    extends: .template
+    variables:
+        channel: stable
+beta:
+    extends: .template
+    allow_failure: true
+    variables:
+        channel: beta
+nightly:
+    extends: .template
+    allow_failure: true
+    variables:
+        channel: nightly

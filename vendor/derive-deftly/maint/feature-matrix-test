@@ -1,0 +1,71 @@
+#!/usr/bin/env python3
+#
+# Tests the toplevel crate with *every* combination of cargo features.
+# (But, not any sets that don't include any `minimal-*` feature.)
+#
+# This script, obviously, runs cargo a number of times which is
+# *exponential* in the number of cargo features.
+#
+# But, most of those builds don't do very much, because cargo caches
+# builds of a particular crate with particular features separately,
+# and can retain multiple versions.
+#
+# And the set of combinations that cargo needs to build for is also
+# reduced a bit because it's the *effective* feature set that counts.
+#
+# In practice a from scratch run of this script currently takes 65s
+# on my laptop.  That seems fine.  But this is why we're just running
+# `cargo check` and not actually running any of the tests.
+
+import argparse
+import subprocess
+import toml.decoder
+from typing import Iterable, Tuple, TypeVar
+from itertools import chain, combinations
+
+T = TypeVar('T')
+
+# Copied from https://docs.python.org/3/library/itertools.html
+# retrieved 2024-06-21.  Licence there is as follows:
+#  This page is licensed under
+#    the Python Software Foundation License Version 2.
+#   Examples, recipes, and other code in the documentation are
+#    additionally licensed under the Zero Clause BSD License. 
+def powerset(iterable: Iterable[T]) -> Iterable[Iterable[T]]:
+    "powerset([1,2,3]) → () (1,) (2,) (3,) (1,2) (1,3) (2,3) (1,2,3)"
+    s = list(iterable)
+    return chain.from_iterable(combinations(s, r) for r in range(len(s)+1))
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    args = parser.parse_args()
+
+    t = toml.decoder.load('Cargo.toml')
+    features = list(t['features'])
+    print(repr(features))
+    for f in features:
+        print('found feature %s' % f)
+    combs = []
+
+    for feats in powerset(features):
+        print("considering: %s" % ' '.join(feats))
+        if not(any([s.startswith('minimal-') for s in feats])):
+            print('no minimal-* feature enabled')
+            continue
+        combs.append(feats)
+
+    for i, feats in enumerate(combs):
+        print('==================== %d/%d ===================='
+              % (i, len(combs)),
+              flush=True)
+
+        scriptlet = '''
+${CARGO-cargo} check --no-default-features $1
+'''
+        cmd = ['sh','-xec', scriptlet, 'x', '--features=' + ','.join(feats)]
+        subprocess.run(cmd, check=True)
+
+    print('==================== %d complete, ok ====================' %
+          len(combs))
+
+main()

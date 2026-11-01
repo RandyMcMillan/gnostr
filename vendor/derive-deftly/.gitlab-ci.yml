@@ -1,0 +1,256 @@
+
+stages:
+  - test
+  - comprehensive
+  - deploy-book
+
+default:
+  before_script:
+    # Print version info for debugging
+    - rustc --version ||true
+    - cargo --version ||true
+    # See tests/stderr.rs
+    - export STDERRTEST_CARGO_OPTIONS=--locked
+
+image: "rust:bookworm"
+
+# Running tests without --workspace is useful because that way cargo
+# won't add features to our dependencies that we didn't actually enable
+# *in the derive-deftly or derive-deftly-macros crates*.
+cargo-check-deps:
+  stage: test
+  script:
+    - cargo check --locked --all-features
+
+cargo-check:
+  stage: test
+  script:
+    - cargo check --locked --workspace --all-features
+
+cargo-check-minfeatures:
+  stage: test
+  script:
+    - cargo check --locked --no-default-features --features=minimal-1
+
+cargo-fmt:
+  stage: test
+  script:
+    - rustup component add rustfmt
+    - maint/rustfmt --check
+
+maint-check-bizarre:
+  stage: test
+  script:
+    - maint/update-bizarre --check
+
+maint-check-test-deps:
+  stage: test
+  script:
+    - apt-get -y update
+    - apt-get -y install libtoml-perl git
+    - maint/check-test-deps
+
+# Check for FIXMEs.  This is in "comprehensive" so you can sabotage
+# the CI, but still get it all to run - useful for iterating through CI.
+maint-check-todos:
+  stage: comprehensive
+  dependencies: []
+  script:
+    - apt-get -y update
+    - apt-get -y install libtoml-perl git
+    - maint/check-blocking-todos
+
+cargo-clippy:
+  stage: test
+  image: "rust:1.79.0"
+  script:
+    - rustup component add clippy
+    - cargo clippy --locked --workspace --all-features --
+
+# Warning-only checks
+check-doc-tocs-xrefs-navbars:
+  stage: test
+  allow_failure: true
+  script:
+    - apt-get -y update
+    - apt-get -y install libjson-perl libtoml-perl
+    - maint/update-tocs --check
+    - maint/update-reference-xrefs --check
+    - maint/update-docs-navbars --check
+
+# Warning-only checks
+check-keywords-documented:
+  stage: test
+  allow_failure: true
+  script:
+    - apt-get -y update
+    - apt-get -y install libjson-perl
+    - maint/check-keywords-documented >&2
+
+# Actual tests
+#
+# We pin to a particular cargo-expand:
+#   https://github.com/dtolnay/cargo-expand/issues/179
+cargo-test:
+  stage: test
+  # See "Using the proper Nightly Rust" in tests/tests.rs
+  image: rustlang/rust@sha256:aaee57e8fa29c2809494ec71ffab6fcfa241b765c2a78d781e4de17fe38f060e
+  # ^ this is from tags.2024-06-06T13:08+00:00.gz (see HACKING.md)
+  script:
+    - ./maint/via-cargo-install-in-ci cargo-expand --version=1.0.88 --features=prettyplease
+    - maint/cargo-test-locked --workspace --all-features -- --skip directly::check_examples
+  cache:
+    when: 'always'
+    paths:
+      - cache/*
+
+# Warning only, since this approach may be fragile and also the 
+# testing machinery (particularly the thing that parses reference.md
+# is rather baroque and ad-hco).
+test-doc-examples:
+  stage: comprehensive
+  image: rustlang/rust@sha256:aaee57e8fa29c2809494ec71ffab6fcfa241b765c2a78d781e4de17fe38f060e
+  allow_failure: true
+  script:
+    - maint/cargo-test-locked -p derive-deftly-tests --all-features -- --nocapture directly::check_examples
+
+# Test every commit
+#
+# This may not work properly if we change the Nightly image version,
+# or the cargo expand version.  Workaround: I believe doing that as
+# the only commit in an MR will still work.
+every-commit:
+  stage: comprehensive
+  image: rustlang/rust@sha256:aaee57e8fa29c2809494ec71ffab6fcfa241b765c2a78d781e4de17fe38f060e
+  script:
+    - apt-get -y update
+    - apt-get -y install libtoml-perl git
+    - ./maint/via-cargo-install-in-ci cargo-expand --version=1.0.67 --features=prettyplease
+    - maint/for-every-commit maint/cargo-test-locked --workspace --all-features -- --skip directly::check_examples
+  cache:
+    when: 'always'
+    paths:
+      - cache/*
+
+python3-mypy:
+  stage: test
+  image: debian:bookworm-slim
+  script:
+    - apt-get update && apt-get install -y mypy python3-toml
+    - mypy --strict maint/build-docs-local
+    - mypy --strict maint/feature-matrix-test
+
+cargo-test-minfeatures:
+  stage: comprehensive
+  image: rustlang/rust@sha256:aaee57e8fa29c2809494ec71ffab6fcfa241b765c2a78d781e4de17fe38f060e
+  script:
+    - maint/cargo-test-locked  -p derive-deftly-tests --no-default-features --features=derive-deftly-tests/recent,derive-deftly-tests/ui -- --skip directly::check_examples
+
+# Test on Stable Rust
+#
+# We don't enable the ui and macrotest fatures in derive-deftly-tests, since
+# we think their output might reasonably vary (in detail) when the with
+# compiler changes.  But we do enable the "recent" feature to test even new
+# features.
+stable:
+  stage: comprehensive
+  script:
+    - maint/cargo-test-locked --workspace --features=derive-deftly-tests/recent,derive-deftly-tests/full
+
+stable-minfeatures:
+  stage: comprehensive
+  script:
+    - maint/cargo-test-locked  -p derive-deftly-tests --no-default-features --features=derive-deftly-tests/recent
+
+# Test that users who like clippy don't get spurious warnings.
+# (eg, that the #27 lint avoidance technique hasn't regressed).
+stable-user-clippy:
+  stage: comprehensive
+  script:
+    - rustup component add clippy
+    - cargo clippy --locked -p pub-a -p pub-b --no-deps --all-features -- -Dwarnings
+
+# Check that the docs build
+cargo-doc:
+  stage: comprehensive
+  script:
+    - cargo doc --locked --workspace --features=full
+
+# Check that the complete docs build without any warnings
+cargo-doc-all:
+  # We turn warnings into errors; pin to avoid getting new ones willy-nilly
+  image: "rust:1.79.0"
+  stage: comprehensive
+  script:
+    - apt-get update
+    - apt-get -y install jq
+    - maint/fudge-for-docs-test-build
+    - cargo doc --locked --workspace --features=full --document-private-items --message-format=json >rustdoc.json
+    - jq --raw-output '. | select(.message.level) | .message.rendered' <rustdoc.json |tee rustdoc.errors
+    - test ! -s rustdoc.errors
+
+# Check that our (locally-massaged) don't have broken links.
+# This also detects links brokne between rustdoc (on docs.rs)
+# and the guide (on pages.tpo).
+build-docs-local:
+  stage: comprehensive
+  script:
+    - ./maint/via-cargo-install-in-ci mdbook
+    - apt-get update
+    - apt-get -y install python3 python3-toml
+    - maint/build-docs-local --dev --no-linkcheck
+
+# Check that our (locally-massaged) docs don't have broken links.
+# This also detects links brokne between rustdoc (on docs.rs)
+# and the guide (on pages.tpo).
+check-doc-links:
+  stage: comprehensive
+  script:
+    - ./maint/via-cargo-install-in-ci mdbook
+    - apt-get update
+    - apt-get -y install python3 python3-toml linklint
+    - maint/build-docs-local
+    - maint/build-docs-local --dev
+
+# Test our MSRV and Cargo.toml minimal versions
+#
+# We don't enable any of the optional fatures in derive-deftly-tests.
+minimal-versions:
+  stage: comprehensive
+  image: "rust:1.56.0"
+  script:
+    - mv Cargo.lock.minimal Cargo.lock
+    - maint/cargo-test-locked +1.56.0 --workspace --no-default-features --features=derive-deftly-tests/full
+
+minimal-versions-minfeatures:
+  stage: comprehensive
+  image: "rust:1.56.0"
+  script:
+    - mv Cargo.lock.minimal Cargo.lock
+    - maint/cargo-test-locked +1.56.0 -p derive-deftly-tests --no-default-features
+
+feature-matrix:
+  stage: comprehensive
+  script:
+    - apt-get update && apt-get install -y python3-toml
+    - maint/feature-matrix-test
+
+cargo-test-dprint:
+  stage: comprehensive
+  script:
+    - RUSTFLAGS="--cfg derive_deftly_dprint" DERIVE_DEFTLY_DPRINT=1 maint/cargo-test-locked --workspace --all-features -- run_pass_expand 3>&2 2>&1 1>&3 3>&- | tee dprint-output
+    - grep -m1 'define_derive_deftly! input start' dprint-output
+
+pages:
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+  stage: deploy-book
+  script:
+    - ./maint/via-cargo-install-in-ci mdbook
+    - ./maint/build-mdbook
+    - mkdir -p public/latest
+    - mv book/book/html public/latest/guide
+  artifacts:
+    paths:
+      - public
+

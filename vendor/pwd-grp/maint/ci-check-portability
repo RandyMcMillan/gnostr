@@ -1,0 +1,11 @@
+#!/bin/bash
+set -e
+
+target="$1"; shift
+
+set -x
+
+rustup target add "$target"
+
+# Can't use --locked, since lockfiles are per platform
+cargo check --workspace --features=full --target "$target"

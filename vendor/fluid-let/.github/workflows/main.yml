@@ -1,0 +1,50 @@
+name: Tests
+
+on:
+  pull_request:
+    branches:
+    - master
+  push:
+    branches:
+    - master
+
+env:
+  # Treat warnings as errors
+  RUSTFLAGS: -D warnings
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+    - name: Set up Rust toolchain
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+    - name: Set up Rust components
+      run: |
+        rustup component add clippy
+        rustup component add rustfmt
+    - name: Check out code
+      uses: actions/checkout@v1
+    - name: Check code formatting
+      run: cargo fmt -- --check
+    - name: Run static analysis
+      run: |
+        cargo clippy
+        cargo clippy --features static-init
+    - name: Run normal build
+      run: |
+        cargo build
+        cargo build --features static-init
+    - name: Run static analysis on tests
+      run: |
+        cargo clippy --all-targets
+        cargo clippy --all-targets --features static-init
+    - name: Run unit-test suite
+      run: |
+        cargo test
+        cargo test --features static-init

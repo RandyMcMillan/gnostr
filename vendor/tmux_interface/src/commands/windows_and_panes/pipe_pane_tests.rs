@@ -1,0 +1,62 @@
+#[test]
+fn pipe_pane() {
+    use crate::{PipePane, TargetPane};
+    use std::borrow::Cow;
+
+    // Pipe output sent by the program in target-pane to a shell command or vice versa
+    //
+    // # Manual
+    //
+    // tmux ^2.7:
+    // ```text
+    // pipe-pane [-IOo] [-t target-pane] [shell-command]
+    // (alias: pipep)
+    // ```
+    //
+    // tmux ^1.2:
+    // ```text
+    // pipe-pane [-o] [-t target-pane] [shell-command]
+    // (alias: pipep)
+    // ```
+    //
+    // tmux ^1.1:
+    // ```text
+    // pipe-pane [-o] [-t target-pane] [command]
+    // (alias: pipep)
+    // ```
+    let target_pane = TargetPane::Raw("1").to_string();
+    let pipe_pane = PipePane::new();
+    #[cfg(feature = "tmux_2_7")]
+    let pipe_pane = pipe_pane.stdout();
+    #[cfg(feature = "tmux_2_7")]
+    let pipe_pane = pipe_pane.stdin();
+    #[cfg(feature = "tmux_1_1")]
+    let pipe_pane = pipe_pane.open();
+    #[cfg(feature = "tmux_1_1")]
+    let pipe_pane = pipe_pane.target_pane(&target_pane);
+    #[cfg(feature = "tmux_1_2")]
+    let pipe_pane = pipe_pane.shell_command("2");
+
+    #[cfg(not(feature = "cmd_alias"))]
+    let cmd = "pipe-pane";
+    #[cfg(feature = "cmd_alias")]
+    let cmd = "pipep";
+
+    let mut s = Vec::new();
+    s.push(cmd);
+    #[cfg(feature = "tmux_2_7")]
+    s.push("-I");
+    #[cfg(feature = "tmux_2_7")]
+    s.push("-O");
+    #[cfg(feature = "tmux_1_1")]
+    s.push("-o");
+    #[cfg(feature = "tmux_1_1")]
+    s.extend_from_slice(&["-t", "1"]);
+    #[cfg(feature = "tmux_1_2")]
+    s.push("2");
+    let s: Vec<Cow<str>> = s.into_iter().map(|a| a.into()).collect();
+
+    let pipe_pane = pipe_pane.build().to_vec();
+
+    assert_eq!(pipe_pane, s);
+}

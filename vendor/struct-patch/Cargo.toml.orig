@@ -1,0 +1,44 @@
+[package]
+name = "struct-patch"
+authors.workspace = true
+version.workspace = true
+edition.workspace = true
+categories.workspace = true
+keywords.workspace = true
+repository.workspace = true
+description.workspace = true
+license.workspace = true
+readme.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+struct-patch-derive = { version = "=0.10.5", path = "../derive" }
+
+[dev-dependencies]
+serde_json = "1.0"
+serde = { version = "1", features = ["derive"] }
+serde_with = "3.9.0"
+toml = "0.8.19"
+humantime-serde = "1.1.1"
+clap = { version = "4.4.7", features = ["derive"] }
+
+[features]
+default = ["status", "op"]
+status = [
+    "struct-patch-derive/status"
+]
+op = [
+    "struct-patch-derive/op"
+]
+merge = [
+    "struct-patch-derive/merge"
+]
+
+std = ["box", "option"]
+box = []
+option = []
+nesting = [
+    "struct-patch-derive/nesting"
+]
+none_as_default = ["option"]
+keep_none = ["option"]

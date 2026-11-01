@@ -1,0 +1,47 @@
+[package]
+name = "derive-adhoc"
+version = "0.7.3"
+edition = "2018"
+license="MIT"
+authors=["Ian Jackson <ijackson@chiark.greenend.org.uk>",
+         "and the contributors to Rust derive-adhoc"]
+description="An ergonomic way to write derive() macros"
+homepage = "https://gitlab.torproject.org/Diziet/rust-derive-adhoc"
+repository = "https://gitlab.torproject.org/Diziet/rust-derive-adhoc"
+rust-version = "1.54"
+
+autotests = false
+
+[workspace]
+members = [
+	"macros",
+	"tests",
+	"tests/pub-export/pub-a",
+	"tests/pub-export/pub-b",
+	"tests/compat/old-a",
+	"tests/compat/new-b",
+	"tests/compat/old-b",
+	"tests/stderr",
+]
+
+# After editing this file, you will probably need to run
+#   maint/update-bizarre
+# to update the "bizarre" testing versions in tests/pub-export/bizarre-*
+
+[features]
+default = ["full"]
+full = ["case", "expect", "minimal-1"]
+minimal-1 = []
+# The minimal-1 feature is mandatory.
+# This apporach will allow us to move things from "always enabled" to
+# "part of some feature that can be disabled" without a semver break:
+# Introduce "minimal-2" which excludes the newly-disablable code,
+# but retain it in "minimal-1".
+
+case = ["derive-adhoc-macros/case", "heck"]
+expect = ["derive-adhoc-macros/expect"]
+
+[dependencies]
+derive-adhoc-macros = { path = "macros", version = "=0.7.3", default_features = false }
+# This dependency is *here* only for the link to `heck` in the docs.
+heck = { version = "0.4", optional = true }

@@ -1,0 +1,59 @@
+#[test]
+fn kill_pane() {
+    use crate::{KillPane, TargetPane};
+    use std::borrow::Cow;
+
+    // Destroy the given pane
+    //
+    // # Manual
+    //
+    // tmux ^1.1:
+    // ```text
+    // kill-pane [-a] [-t target-pane]
+    // (alias: killp)
+    // ```
+    //
+    // tmux ^1.0:
+    // ```text
+    // kill-pane [-t target-pane]
+    // (alias: killp)
+    // ```
+    //
+    // tmux ^0.8:
+    // ```text
+    // kill-pane [-p pane-index] [-t target-window]
+    // (alias: killp)
+    // ```
+    let target_pane = TargetPane::Raw("1").to_string();
+
+    let kill_pane = KillPane::new();
+    #[cfg(feature = "tmux_1_1")]
+    let kill_pane = kill_pane.all();
+    #[cfg(feature = "tmux_1_0")]
+    let kill_pane = kill_pane.target_pane(&target_pane);
+    #[cfg(all(feature = "tmux_0_8", not(feature = "tmux_1_0")))]
+    let kill_pane = kill_pane.pane_index("2");
+    #[cfg(all(feature = "tmux_0_8", not(feature = "tmux_1_0")))]
+    let kill_pane = kill_pane.target_window("3");
+
+    #[cfg(not(feature = "cmd_alias"))]
+    let cmd = "kill-pane";
+    #[cfg(feature = "cmd_alias")]
+    let cmd = "killp";
+
+    let mut s = Vec::new();
+    s.push(cmd);
+    #[cfg(feature = "tmux_1_1")]
+    s.push("-a");
+    #[cfg(feature = "tmux_0_8")]
+    s.extend_from_slice(&["-t", "1"]);
+    #[cfg(all(feature = "tmux_0_8", not(feature = "tmux_1_0")))]
+    s.extend_from_slice(&["-p", "2"]);
+    #[cfg(all(feature = "tmux_0_8", not(feature = "tmux_1_0")))]
+    s.extend_from_slice(&["-t", "3"]);
+    let s: Vec<Cow<str>> = s.into_iter().map(|a| a.into()).collect();
+
+    let kill_pane = kill_pane.build().to_vec();
+
+    assert_eq!(kill_pane, s);
+}

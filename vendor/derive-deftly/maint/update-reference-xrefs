@@ -1,0 +1,169 @@
+#!/usr/bin/perl -w
+#
+# Updates the <div id=...> </div> that surround the headings
+# in reference.md, for the ids' x:* (expansions) and c:* (conditions).
+#
+# Also updates the keyword index.
+#
+# With --check, checks that they are all up to date.
+
+use strict;
+use JSON qw(from_json);
+
+our $install;
+
+if (@ARGV==0) {
+    $install = 1;
+} elsif (@ARGV==1 && $ARGV[0] eq '--check') {
+    $install = 0;
+} else {
+    die "bad usage\n";
+}
+
+our $input = "doc/reference.md";
+our $output = "doc/reference.md.new";
+our $handled = qr{^[xc]:};
+our $div_id = qr{^\<div id="([^"]+)"\>\s*$};
+
+our %targets; # $targets{$lno} = [ $id, ... ]
+
+#---------- Read reference.md ----------
+
+open F, $input or die $!;
+our @f = <F>;
+F->error and die $!;
+close F;
+unshift @f, "";
+
+#---------- read the JSON telling us where the ref headings are ----------
+
+open J, "maint/check-keywords-documented --json |" or die $!;
+our $json;
+{ local ($/) = undef; $json = <J>; }
+J->error and die $!;
+$json = from_json($json) or die $!;
+
+foreach my $id (sort keys %{ $json->{ref_lines} }) {
+    next unless $id =~ m{$handled};
+    my %lno = map { $_, 1 } @{ $json->{ref_lines}{$id} };
+    keys(%lno) == 1 or die "multiple for $id";
+    my ($i) = keys %lno;
+    push @{ $targets{$i} }, $id;
+}
+
+#---------- decide what divs need to go where, strip out old ones ----------
+
+our @instructions;
+
+foreach my $i (sort { $a <=> $b } keys %targets) {
+    eval {
+	die 'missing blank line before' if $f[$i-1] =~ m/\S/;
+	die 'missing blank line after' if $f[$i+1] =~ m/\S/;
+	my $delta = 2;
+	for (
+	    $delta = 2;
+	    $f[$i+$delta] =~ m{^\</div\>\s*$};
+	    $delta++
+	) {
+	    $f[$i-$delta] =~ m{$div_id}
+	      or die "invalid pre-div \@+$delta \`$_`";
+	    my $target = $1;
+	    if ($target =~ m{$handled}) {
+		$f[$i-$delta] = "";
+		$f[$i+$delta] = "";
+	    }
+	}
+	if ($delta > 2) {
+	    die 'missing blank line before divs' if $f[$i-$delta] =~ m/\S/;
+	    die 'missing blank line after divs' if $f[$i+$delta] =~ m/\S/;
+	}
+	push @instructions, [ $i, $delta ];
+    }
+      or die "$input:$i: error: $@";
+}
+
+#---------- check for misplaced divs (not deleted above) ----------
+
+foreach my $i (1..$#f) {
+    next unless $f[$i] =~ m{$div_id};
+    my $id = $1;
+    next unless $id =~ m{$handled};
+    die "$input:$i: misplaced div for id=\"$id\"\n";
+}
+
+#---------- (re)insert the keyword divs ----------
+
+foreach my $insn (@instructions) {
+    my ($i, $delta) = @$insn;
+    my $append_before = "";
+    my $insert_after = "";
+    if ($delta == 2) {
+	$append_before = "\n\n";
+	$insert_after = "\n\n";
+    }
+    foreach my $target (sort @{ $targets{$i} }) {
+	$append_before .= "<div id=\"$target\">\n";
+	$insert_after = "</div>\n" . $insert_after;
+    }
+    $f[$i-$delta] .= $append_before;
+    $f[$i+$delta] = $insert_after . $f[$i+$delta];
+    1;
+}
+
+#---------- make the indexes ----------
+
+sub mkindex ($$) {
+    my ($kind, $kformat) = @_;
+    my $i = 0;
+    for (;;) {
+	die "missing meta for index $kind" if $i > @f;
+	last if $f[$i] =~ m{^\<\!--\#\# index $kind \#\#--\>.*$};
+	$i++;
+    }
+    for (my $j = $i+1;
+	 $j < @f && $f[$j] =~ m{^\s};
+	 $j++) {
+	$f[$j] = "";
+    }
+    my $l = \ $f[$i];
+    $$l .= "\n";
+    my $ref_lines = $json->{ref_lines};
+    foreach my $az ('a'..'z') {
+	my @ids = grep { m{^$kind:$az} } sort keys %$ref_lines;
+	next unless @ids;
+	$$l .=
+	  " * **".(sprintf $kformat, $az)."**: ".
+	  (join ', ', map { s/^$kind://; "[`$_`](#$kind:$_)" } @ids).
+	  "\n";
+    }
+    $$l .= "\n";
+}
+
+mkindex('x', '$%s…');
+mkindex('c', '%s…');
+
+#---------- write and handle output ----------
+
+die unless shift(@f) eq '';
+
+open O, "> $output" or die "$output: $!";
+print O @f or die $!;
+close O or die $!;
+
+if ($install) {
+    rename "$output", "$input" or die $!;
+} else {
+    $?=$!=0;
+    system qw(diff -u), "$input", "$output";
+    if ($? == 0) {
+    } elsif ($? == 256) {
+	print STDERR <<END or die $!;
+
+Reference manual cross-reference divs mismatch.
+Check output, and rerun maint/update-reference-xrefs.
+END
+	exit 1;
+    } else {
+	die "diff failed: $? / $!" unless $? == 256;
+    }
+}

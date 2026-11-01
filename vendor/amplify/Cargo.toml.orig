@@ -1,0 +1,81 @@
+[package]
+name = "amplify"
+version = "4.9.0"
+description = "Amplifying Rust language capabilities: multiple generic trait implementations, type wrappers, derive macros"
+authors = [
+    "Dr. Maxim Orlovsky <orlovsky@ubideco.org>",
+    "Martin Habovstiak <martin.habovstiak@gmail.com>",
+]
+keywords = ["generics", "core", "wrap", "patterns"]
+categories = ["data-structures", "rust-patterns"]
+repository = "https://github.com/rust-amplify/rust-amplify"
+homepage = "https://github.com/rust-amplify"
+license = "MIT"
+readme = "README.md"
+edition = "2021"
+rust-version = "1.75.0" # Due to the use of `impl` in trait return types
+exclude = [
+    ".github",
+    "derive",
+    "syn",
+    "num",
+    "serde_str_helpers",
+    "stringly_conversions",
+]
+
+[dependencies]
+libc = { version = "0.2", optional = true }
+amplify_derive = { version = "4.0.1", optional = true }
+amplify_syn = { version = "2.0.1", optional = true }
+amplify_num = { version = "0.5.3" }
+amplify_apfloat = { version = "0.3.1", optional = true }
+ascii = "1.1.0"
+rand = { version = "0.9.1", optional = true }
+# This strange naming is a workaround for not being able to define required features for a dependency
+# See https://github.com/rust-lang/api-guidelines/issues/180 for the explanation and references.
+serde_crate = { package = "serde", version = "1.0", features = ["derive"], optional = true }
+stringly_conversions = { version = "0.1.1", optional = true, features = ["alloc"] }
+
+[dev-dependencies]
+serde_json = "1.0"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "0.2"
+rand = { version = "0.9.1", optional = true }
+getrandom = { version = "0.3", features = ["wasm_js"] }
+getrandom2 = { package = "getrandom", version = "0.2", features = ["js"] }
+
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
+wasm-bindgen-test = "0.3"
+
+[features]
+all = [
+    "serde",
+    "std",
+    "stringly_conversions",
+    "c_raw",
+    "proc_attr",
+    "derive",
+    "rand",
+    "apfloat",
+    "apfloat_std",
+]
+default = ["std", "derive", "hex"]
+std = ["amplify_num/std", "alloc"]
+apfloat_std = ["amplify_apfloat/std"]
+alloc = ["amplify_num/alloc"]
+apfloat_alloc = ["amplify_apfloat/alloc"]
+c_raw = ["libc", "std"]
+hex = ["amplify_num/hex"]
+apfloat = ["amplify_apfloat"]
+proc_attr = ["amplify_syn"]
+derive = ["amplify_derive"]
+serde = [
+    "serde_crate",
+    "std",
+    "amplify_num/serde",
+    "ascii/serde",
+    "stringly_conversions",
+    "stringly_conversions/alloc",
+    "stringly_conversions/serde_str_helpers",
+]

@@ -1,0 +1,3 @@
+#!/bin/bash
+set -e
+cargo +nightly test --locked --workspace --verbose --all-features

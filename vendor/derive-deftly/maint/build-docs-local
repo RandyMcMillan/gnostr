@@ -1,0 +1,247 @@
+#!/usr/bin/env python3
+#
+# nailing-cargo --- maint/build-docs-local
+# nailing-cargo --- maint/build-docs-local --dev
+
+import argparse
+import io
+import os
+import re
+import subprocess
+import sys
+import toml.decoder
+
+import typing
+from typing import Dict, List, Tuple, Callable, Any, TYPE_CHECKING
+
+#---------- type handling ----------
+
+if TYPE_CHECKING:
+    CompletedProcess = subprocess.CompletedProcess[Any]
+else:
+    CompletedProcess = subprocess.CompletedProcess
+
+#---------- settings that could perhaps become parameters ----------
+
+rustdoc_packages = [
+    'derive-deftly',
+    'derive-deftly-macros',
+    'derive-deftly-tests',
+]
+rustdoc_opts = ['--all-features']
+
+docsrs_url_pat = 'https://docs.rs/%s/%s/%s'
+
+mdbook_dir = 'book'
+mdbook_url = 'https://diziet.pages.torproject.net/rust-derive-deftly/latest/guide'
+mdbook_input_dir = mdbook_dir + '/book/html'
+mdbook_slug = 'guide'
+
+target_dir = 'target'
+out_unified = 'doc-unified' # lives in target/
+
+toml_data: Dict[str, Any]
+
+#---------- preparation and utilities ----------
+
+rustdoc_rustc_packages = list([
+    p.replace('-','_')
+    for p in rustdoc_packages
+])
+
+def raise_fn(e: Exception) -> None:
+    raise(e)
+
+def mdbook_leaf() -> str:
+    return 'mdbook-%s' % mdbook_slug
+
+if sys.version_info >= (3, 9): Pattern_str = re.Pattern[str]
+else: Pattern_str = typing.Any
+
+#---------- link massager ----------
+
+class Massager:
+    def __init__(self) -> None:
+        '''
+        Create a new massager, suitable for handling several files.
+
+        Initially, it doesn't actually change any of the files' contents.
+        '''
+        self._replacements: List[Tuple[Pattern_str, str]] = []
+    def add(self, url: str, path: str) -> None:
+        '''
+        Record that `url` should be replaced with links to subdir `path`
+
+        `path` is a directory path relative to `out_unified`
+        '''
+        url_re = re.escape(url)
+        i_re = r'(?<=")' + url_re + r'/*(?=["#])'
+        self._replacements.append((re.compile(i_re), path + '/index.html'))
+        m_re = r'(?<=")' + url_re + r'/+'
+        self._replacements.append((re.compile(m_re), path + '/'))
+
+    def process_tree(self, in_tree: str, out_leaf: str) -> None:
+        '''
+        Process all files under `in_tree`, writing to `out_leaf`
+
+        The previously `add`ed substitutions will be made
+        (using appropriately calculated relative paths in each case).
+
+        `in_tree` is relative to `.`, where `target` also lives.
+
+        `out_leaf` is a leaf directory within `out_unified`
+        '''
+        #print('in_tree=%s out_leaf=%s' % (in_tree, out_leaf), file=sys.stderr)
+        for dirpath, dirnames, filenames in os.walk(in_tree, onerror=raise_fn):
+            if not dirpath.startswith(in_tree):
+                raise
+            subdir_s = dirpath[len(in_tree):].lstrip('/')
+            if subdir_s == "": subdir = []
+            else: subdir = re.split(r'/+', subdir_s)
+            depth = len(subdir)
+            #print('depth==%d subdir=%s' % (depth, repr(subdir)), file=sys.stderr)
+            out_dir = '/'.join([target_dir, out_unified, out_leaf] + subdir)
+            up = '../' * (depth + 1)
+            os.makedirs(out_dir, exist_ok=True)
+            repls = [
+                (repl_re, up + repl_path)
+                for repl_re, repl_path in self._replacements
+            ]
+            for f in filenames:
+                out_file = '%s/%s' % (out_dir, f)
+                in_file = '%s/%s' % (dirpath, f)
+                try:
+                    self._process_file(repls, f, in_file, out_file)
+                except:
+                    print('Error generating %s' % out_file,
+                          file=sys.stderr)
+                    raise
+
+    def _process_file(self,
+                      repls: List[Tuple[Pattern_str, str]],
+                      f: str, in_file: str, out_file: str) -> None:
+        out_tmp = out_file + '.tmp'
+
+        if f.endswith('.html'):
+            data = open(in_file, 'r', encoding='utf-8').read()
+            for repl_re, repl_fn in repls:
+                data = repl_re.sub(repl_fn, data)
+            out = open(out_tmp, 'w', encoding='utf-8')
+            out.write(data)
+            out.flush()
+        else:
+            try: os.remove(out_tmp)
+            except FileNotFoundError: pass
+
+            os.link(in_file, out_tmp)
+
+        os.rename(out_tmp, out_file)
+
+#---------- pieces of the main program, and main itself ----------
+
+def build_rustdocs(cli_rustdoc_arg: List[str]) -> None:
+    shfrag = '''
+        : ${CARGO:=cargo}
+        set -x
+        $CARGO $NAILINGCARGO_CARGO_OPTIONS doc "$@"
+'''
+    cmd = ['sh','-ec', shfrag, 'x'] + rustdoc_opts + cli_rustdoc_arg
+    for p in rustdoc_packages:
+        cmd += ['-p', p]
+    subprocess.run(cmd, check=True)
+
+def build_massager() -> Massager:
+    massager = Massager();
+    massager.add(mdbook_url, mdbook_leaf())
+    # Quadratic in rustdoc_packages, but it will do
+    for p in rustdoc_packages:
+        for p_rustc in rustdoc_rustc_packages:
+            massager.add(docsrs_url_pat % (p, 'latest', p_rustc), p_rustc)
+
+    main_p_rustdoc = rustdoc_packages[0]
+    main_p_rustc = rustdoc_rustc_packages[0]
+    main_p_versioned_url = docsrs_url_pat % (
+        main_p_rustdoc, toml_data['package']['version'], main_p_rustc
+    )
+    massager.add(main_p_versioned_url, main_p_rustc)
+    return massager
+
+def massage_rustdocs() -> None:
+    massager = build_massager()
+
+    for d in rustdoc_rustc_packages:
+        massager.process_tree(
+            '%s/doc/%s' % (target_dir, d),
+            d,
+        )
+    # ^ that created the output toplevel directory as a side-effect
+
+    for d in os.listdir('%s/doc' % target_dir):
+        if d in rustdoc_rustc_packages:
+            continue
+
+        d_o = '/'.join([target_dir, out_unified, d])
+        # shutil.rmtree descends into this, if it's already a link
+        subprocess.run(['rm','-rf','--',d_o], check=True)
+        os.symlink('../doc/' + d, d_o)
+
+def build_mdbook(cli_mdbook_arg: List[str]) -> None:
+    cmd = ['maint/build-mdbook'] + cli_mdbook_arg
+    subprocess.run(['sh', '-xec', '"$@"', 'x'] + cmd, check=True)
+
+def massage_mdbook() -> None:
+    massager = build_massager()
+    massager.process_tree(
+        mdbook_input_dir,
+        mdbook_leaf(),
+    )
+
+def check_links_1() -> CompletedProcess:
+    return subprocess.run(['maint/check-doc-links'])
+
+def check_links_2(done: CompletedProcess) -> None:
+    if done.returncode == 1:
+        print('** link check failed - broken doc hyperlinks **\n',
+              file=sys.stderr)
+        sys.exit(1)
+    else:
+        done.check_returncode()
+
+def print_unified_urls() -> None:
+    print('''
+unified docs, links adjusted for local reading, available in:''')
+    cwd = os.getcwd()
+    for subdir in [rustdoc_rustc_packages[0], mdbook_leaf()]:
+        d = '/'.join([cwd, target_dir, out_unified, subdir, "index.html"])
+        print('  file://%s' % d)
+    print('')
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--dev', '-D',
+                        dest='rustdoc_arg', action='append_const',
+                        const='--document-private-items', default=[],
+ help='Document innards (pass --document-private-items to rustdoc)')
+    parser.add_argument('--rustdoc-arg', '-R', action='append', default=[],
+                        help='Pass an option through to cargo doc (rustdoc)')
+    parser.add_argument('--mdbook-arg', '-M', action='append', default=[],
+                        help='Pass an option through to mdbook')
+    parser.add_argument('--no-linkcheck',
+                        dest='linkcheck', action='store_false', default=True,
+                        help='Do not check internal hyperlinks')
+    args = parser.parse_args()
+    build_rustdocs(args.rustdoc_arg)
+    build_mdbook(args.mdbook_arg)
+    global toml_data
+    toml_data = toml.decoder.load('Cargo.toml')
+    massage_rustdocs()
+    massage_mdbook()
+    if args.linkcheck:
+        links_checked = check_links_1()
+    else:
+        links_checked = None
+    print_unified_urls()
+    if not(links_checked is None):
+        check_links_2(links_checked)
+
+main()
