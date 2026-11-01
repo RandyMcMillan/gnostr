@@ -1,0 +1,42 @@
+#!/bin/bash
+#
+# Check rustdoc HTML links and anchors
+#
+# This is an internal script, usually run by maint/build-docs-local
+
+set -e
+set -o pipefail
+
+# nailing-cargo --- maint/check-doc-links
+
+if [ "$#" != 0 ]; then echo >&2 "$0: bad usage"; exit 12; fi
+
+chk_dir=target/doc-unified.link-check
+
+rm -rf target/doc-unified.link-check
+cp -al target/doc-unified $chk_dir
+
+# Fix up https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=425632
+# And also href="#" links that rustdoc likes to put in for some reason
+
+find $chk_dir -name \*.html -print0 |
+xargs -0r -- perl -i~ -pe '
+	s{\bid=("[^"]+")[^<>]*\>}{$&<a name=$1>}g;
+	s{\bhref="#"}{}g;
+'
+
+linklint -out linklint.errors -error -root $chk_dir \
+	/derive_deftly/@ /mdbook-guide/@
+
+cat linklint.errors
+
+set +e
+grep ERROR linklint.errors
+rc=$?
+set -e
+
+case $rc in
+0) echo >&2 '** found linkcheck errors **'; exit 1;;
+1) ;;
+*) echo >&2 "linkcheck failed $rc"; exit 1;;
+esac

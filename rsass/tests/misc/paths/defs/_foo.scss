@@ -1,0 +1,9 @@
+$color: black !default;
+
+@function foo($v) {
+    @if $v > 0 {
+        @return $color;
+    } @else {
+        @return pink;
+    }
+}

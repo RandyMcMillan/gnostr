@@ -1,0 +1,56 @@
+#!/bin/bash
+#
+usage() {
+    cat >&2 <<'END'
+Usage:
+    maint/update-versions [VERSION]
+
+Updates versions to VERSION, if supplied, and then runs
+    cargo fetch --offline  # to update the lockfile
+    maint/update-bizarre
+to refresh lockfiles etc.
+
+It may be necessary to update macros/semver.rs too - see
+  template_export_semver_check_func_macro
+END
+}
+# We're not using cargo-edit or cargo-version because our
+# multi-version tests make things weird.
+
+# CARGO='nailing-cargo -Eu' maint/update-versions VERSION
+# CARGO='nailing-cargo -Eu' maint/update-versions
+
+set -e -o pipefail
+
+case "$#/$1" in
+    0/) ;;
+    1/0.*) ;;
+    *) usage; exit 12;;
+esac
+
+version=$1
+
+process () {
+    perl -i~ -wpe '
+        use strict;
+        my $eligible = qr{"([=^]?)(?!0\.0\.)\d+\.\d+\.\d+"};
+	my $new = "'"$version"'";
+        if (m{^version *= }) {
+            s{$eligible}{"$1$new"};
+        } elsif (m{^derive-deftly.*.*path = }) {
+            s{\bversion *= *$eligible}{version = "$1$new"}g;
+        }
+    ' "$1"
+}
+
+if [ "x$version" != x ]; then
+    process Cargo.toml
+    process macros/Cargo.toml
+    process tests/Cargo.toml
+    process tests/pub-export/pub-a/Cargo.toml
+    process tests/stderr/Cargo.toml
+fi
+
+${CARGO-cargo} fetch
+maint/update-minimal-versions
+maint/update-docs-navbars

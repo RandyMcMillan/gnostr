@@ -1,0 +1,93 @@
+[package]
+name = "tmux_interface"
+version = "0.3.2"
+authors = ["Anton Gepting <anton.gepting@gmail.com>"]
+edition = "2018"
+license = "MIT"
+description = "Rust language library for communication with TMUX via CLI"
+readme = "README.md"
+keywords = ["tmux", "cli", "interface"]
+categories = ["api-bindings", "command-line-utilities", "command-line-interface"]
+repository = "https://github.com/AntonGepting/tmux-interface-rs"
+include = ["/src/**/*", "/Cargo.toml", "/README.md", "/LICENSE.md"]
+
+[features]
+# INFO: Source for distributions releases and tmux versions
+#  [Packages for Linux and Unix](https://pkgs.org/download/tmux)
+#
+# define a list of nested tmux version variables for conditional compilation
+#
+# earlier versions currently are not supported
+# tmux 0.8 included in first package can be found in Debian repository
+tmux_0_8 = []
+tmux_0_9 = ["tmux_0_8"]
+tmux_1_0 = ["tmux_0_9"]
+tmux_1_1 = ["tmux_1_0"]
+tmux_1_2 = ["tmux_1_1"]
+tmux_1_3 = ["tmux_1_2"]
+tmux_1_4 = ["tmux_1_3"]
+tmux_1_5 = ["tmux_1_4"]
+# tmux 1.6 included in Ubuntu 12.04 LTS Precise Pangolin
+# tmux 1.6 included in CentOS 6
+tmux_1_6 = ["tmux_1_5"]
+tmux_1_7 = ["tmux_1_6"]
+# tmux 1.8 included in Ubuntu 14.04 LTS Trusty Tahr
+# tmux 1.8 included in CentOS 7
+tmux_1_8 = ["tmux_1_7"]
+# tmux 1.9 included in Debian Jessie
+tmux_1_9 = ["tmux_1_8"]
+tmux_1_9a = ["tmux_1_9"]
+tmux_2_0 = ["tmux_1_9a"]
+# tmux 2.1 included in Ubuntu 16.04 LTS Xenial Xerus
+tmux_2_1 = ["tmux_2_0"]
+tmux_2_2 = ["tmux_2_1"]
+# tmux 2.3 included in Debian Stretch
+tmux_2_3 = ["tmux_2_2"]
+tmux_2_4 = ["tmux_2_3"]
+tmux_2_5 = ["tmux_2_4"]
+# tmux 2.6 included in Ubuntu 18.04 LTS Bionic Beaver
+tmux_2_6 = ["tmux_2_5"]
+# tmux 2.7 included in CentOS 8
+tmux_2_7 = ["tmux_2_6"]
+# tmux 2.8 included in Debian Buster
+tmux_2_8 = ["tmux_2_7"]
+tmux_2_9 = ["tmux_2_8"]
+tmux_2_9a = ["tmux_2_9"]
+tmux_3_0 = ["tmux_2_9a"]
+# tmux 3.0a included in Ubuntu 20.04 LTS Focal Fossa
+tmux_3_0a = ["tmux_3_0"]
+tmux_3_1 = ["tmux_3_0a"]
+tmux_3_1a = ["tmux_3_1"]
+tmux_3_1b = ["tmux_3_1a"]
+# tmux 3.1c included in Debian Bullseye
+tmux_3_1c = ["tmux_3_1b"]
+tmux_3_2 = ["tmux_3_1c"]
+# tmux 3.2a included in CentOS 9
+# tmux 3.2a included in Ubuntu 22.04 LTS Jammy Jellyfish
+tmux_3_2a = ["tmux_3_2"]
+tmux_3_3 = ["tmux_3_2a"]
+# tmux 3.3a included in Ubuntu 23.04 LTS Lunar Lobster 
+# tmux 3.3a included in Debian Bookworm
+tmux_3_3a = ["tmux_3_3"]
+# tmux 3.4 included in Ubuntu 24.04 LTS Noble Numbat
+# tmux 3.4 included in Debian experimental
+tmux_3_4 = ["tmux_3_3a"]
+
+# tmux current version which is currently in development
+tmux_X_X = ["tmux_3_4"]
+# tmux latest synonymous version
+tmux_latest = ["tmux_3_4"]
+# tmux stable synonymous version
+tmux_stable = ["tmux_3_4"]
+
+
+# use alias instead of full tmux command name (e.g. `list-sessions` -> `ls`)
+cmd_alias = []
+
+# enable following default features for the library by default:
+#  * use latest tmux stable version
+#  * use command alias, instead of full command name
+default = ["tmux_stable", "cmd_alias"]
+
+
+[dependencies]

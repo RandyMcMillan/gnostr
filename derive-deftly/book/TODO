@@ -1,0 +1,38 @@
+
+Refactoring the book:
+
+ - Move constructor-debugging.md to new section.  It has nothing
+   to do with the constructor example.
+ - Transforming names and strings goes into a new example,
+   possibly about discriminants.
+ - Discussion of "expect items" is out-of-place and unmotivated.
+ - "Naming conventions" is not exactly an "advanced topic".
+
+Unmentioned keywords and conditions from the reference:
+ - $dbg_all_keywords
+ - $Xattrs
+ - $ignore
+ - $tgnames
+
+ - approx_eq
+ - dbg
+ - is_empty
+
+
+Mentioned but unused in examples:
+ - all, any
+ - $fvis
+ - vmeta
+ - tgens
+ - name and string manipulation
+
+Concepts to explain:
+ - Using the const _:()={...} trick.
+ - Namespace management.
+ - Using macro_rules!()
+ - Generating rustdoc documentation for your generated things.
+ - Debugging (more detail)
+ - Examples to stress-test your template.
+ - The complete syntax for expansions, conditions
+ - The complete template syntax
+ - Silly prelude tricks.

@@ -1,0 +1,34 @@
+[workspace]
+members = [".", "syn"]
+
+[package]
+name = "amplify_derive"
+version = "4.0.1"
+description = "Powerful derivation macros; part of the 'amplify' library"
+authors = [
+    "Dr. Maxim Orlovsky <orlovsky@ubideco.org>",
+    "Elichai Turkel <elichai.turkel@gmail.com>"
+]
+keywords = ["generics", "derive", "wrap", "patterns"]
+categories = ["data-structures", "rust-patterns", "development-tools"]
+repository = "https://github.com/rust-amplify/amplify-derive"
+homepage = "https://github.com/rust-amplify"
+rust-version = "1.66.0"
+edition = "2021"
+license = "Apache-2.0"
+readme = "README.md"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+quote = "1"
+syn = "1.0.103"
+proc-macro2 = "1"
+amplify_syn = { version = "2.0.1", path = "syn" }
+
+[dev-dependencies]
+amplify = { version = "4.0.0" }
+
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
+wasm-bindgen-test = "0.3"

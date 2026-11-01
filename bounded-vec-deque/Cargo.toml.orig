@@ -1,0 +1,20 @@
+[package]
+name = "bounded-vec-deque"
+version = "0.1.1"
+authors = ["Moongoodboy <moongoodboy@shadowbolts.org>"]
+license = "GPL-3.0+ OR BSD-3-Clause"
+repository = "https://gitlab.com/Moongoodboy/bounded-vec-deque"
+description = "A double-ended queue|ringbuffer with an upper bound on its length."
+categories = ["data-structures"]
+keywords = ["deque", "ring", "buffer"]
+
+[package.metadata.docs.rs]
+all-features = true
+
+[badges]
+gitlab = { repository = "Moongoodboy/bounded-vec-deque" }
+
+[features]
+default = ["fused"]
+fused = []
+resize_with = []

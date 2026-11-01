@@ -1,0 +1,12 @@
+#!/bin/sh
+#
+#
+# README.md has unbalanced HTML tags, because of our desire to
+# add an "internal" top-level heading.
+#
+# We have an `#[allow]` for this, but its scope is too wide.
+# So in CI delete (1) the unmatched div (2) the unwanted allow.
+
+set -e
+perl -i~ -pe 's{.* \@derive-deftly invalid-html-tags.*}{}' \
+    src/lib.rs

@@ -1,0 +1,5 @@
+#!/bin/bash
+set -e
+
+cargo +nightly miri test --locked --workspace --verbose --all-features \
+	with_lmock
