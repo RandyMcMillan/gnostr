@@ -133,3 +133,156 @@ impl RelayUsageSet {
         self.0 &= !(ru as u32)
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use std::convert::TryFrom;
+
+    const ALL_VARIANTS: [RelayUsage; 8] = [
+        RelayUsage::FallbackRead,
+        RelayUsage::Archive,
+        RelayUsage::Inbox,
+        RelayUsage::Outbox,
+        RelayUsage::Directory,
+        RelayUsage::Dm,
+        RelayUsage::Config,
+        RelayUsage::Search,
+    ];
+
+    #[test]
+    fn try_from_accepts_all_valid_values() {
+        // Arrange
+        let expected: [(u32, RelayUsage); 8] = [
+            (1, RelayUsage::FallbackRead),
+            (2, RelayUsage::Archive),
+            (8, RelayUsage::Inbox),
+            (16, RelayUsage::Outbox),
+            (32, RelayUsage::Directory),
+            (128, RelayUsage::Dm),
+            (256, RelayUsage::Config),
+            (512, RelayUsage::Search),
+        ];
+
+        // Act / Assert
+        for (bits, usage) in expected {
+            assert_eq!(RelayUsage::try_from(bits), Ok(usage));
+        }
+    }
+
+    #[test]
+    fn try_from_rejects_unknown_bits() {
+        // Arrange: 0, retired/reserved bits (4, 64), combos, and out-of-range
+        let invalid = [0_u32, 4, 64, 3, 1024, u32::MAX];
+
+        // Act / Assert
+        for bits in invalid {
+            assert!(
+                RelayUsage::try_from(bits).is_err(),
+                "bits {bits} must be rejected"
+            );
+        }
+    }
+
+    #[test]
+    fn variants_are_distinct_single_bits() {
+        // Arrange / Act / Assert
+        let mut seen = 0_u32;
+        for usage in ALL_VARIANTS {
+            let bits = usage as u32;
+            assert_eq!(bits.count_ones(), 1, "each usage must be a single bit");
+            assert_eq!(seen & bits, 0, "usage bits must not overlap");
+            seen |= bits;
+        }
+    }
+
+    #[test]
+    fn new_empty_and_new_all() {
+        // Arrange
+        let empty = RelayUsageSet::new_empty();
+        let all = RelayUsageSet::new_all();
+
+        // Act / Assert
+        assert!(empty.is_empty());
+        assert!(!empty.is_all());
+        assert!(!all.is_empty());
+        assert!(all.is_all());
+        assert_eq!(all.bits(), empty.bits() | all.bits());
+    }
+
+    #[test]
+    fn bits_roundtrip_through_from_bits() {
+        // Arrange
+        let bits = RelayUsage::Inbox as u32 | RelayUsage::Dm as u32;
+
+        // Act
+        let mut set = RelayUsageSet::from_bits(bits).unwrap();
+
+        // Assert
+        assert_eq!(set.bits(), bits);
+        assert!(set.has_usage(RelayUsage::Inbox));
+        assert!(set.has_usage(RelayUsage::Dm));
+        assert!(!set.has_usage(RelayUsage::Outbox));
+    }
+
+    #[test]
+    fn from_bits_rejects_unknown_bits() {
+        // Arrange
+        let bits_with_unknown = RelayUsage::Inbox as u32 | (1 << 2); // retired Advertise bit
+        let bits_with_reserved = RelayUsage::Inbox as u32 | (1 << 6); // reserved Spamsafe bit
+
+        // Act / Assert
+        assert!(RelayUsageSet::from_bits(bits_with_unknown).is_none());
+        assert!(RelayUsageSet::from_bits(bits_with_reserved).is_none());
+        assert!(RelayUsageSet::from_bits(1 << 30).is_none());
+    }
+
+    #[test]
+    fn from_bits_truncate_clears_unknown_bits() {
+        // Arrange
+        let bits = RelayUsage::Search as u32 | (1 << 6) | (1 << 30);
+
+        // Act
+        let mut set = RelayUsageSet::from_bits_truncate(bits);
+
+        // Assert
+        assert_eq!(set.bits(), RelayUsage::Search as u32);
+        assert!(set.has_usage(RelayUsage::Search));
+    }
+
+    #[test]
+    fn set_operations_intersects_and_contains() {
+        // Arrange
+        let mut inbox_outbox = RelayUsageSet::new_empty();
+        inbox_outbox.add_usage(RelayUsage::Inbox);
+        inbox_outbox.add_usage(RelayUsage::Outbox);
+        let mut outbox_only = RelayUsageSet::new_empty();
+        outbox_only.add_usage(RelayUsage::Outbox);
+
+        // Act / Assert
+        assert!(inbox_outbox.intersects(outbox_only));
+        assert!(inbox_outbox.contains(outbox_only));
+        assert!(!outbox_only.contains(inbox_outbox));
+        assert!(!outbox_only.intersects(RelayUsageSet::new_empty()));
+
+        // Act: remove
+        inbox_outbox.remove_usage(RelayUsage::Inbox);
+        assert!(!inbox_outbox.has_usage(RelayUsage::Inbox));
+        assert!(inbox_outbox.has_usage(RelayUsage::Outbox));
+        assert_eq!(inbox_outbox, outbox_only);
+    }
+
+    #[test]
+    fn add_usage_is_idempotent() {
+        // Arrange
+        let mut set = RelayUsageSet::new_empty();
+
+        // Act
+        set.add_usage(RelayUsage::Dm);
+        let once = set.bits();
+        set.add_usage(RelayUsage::Dm);
+
+        // Assert
+        assert_eq!(set.bits(), once);
+    }
+}
