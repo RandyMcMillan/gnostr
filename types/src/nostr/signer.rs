@@ -639,3 +639,72 @@ pub trait Signer: fmt::Debug {
         Ok(rumor)
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::nostr::PrivateKey;
+
+    #[test]
+    fn event_mining_prefix_accepts_valid_hex_and_normalizes_case() {
+        // Arrange / Act / Assert: lowercase preserved
+        match EventMining::prefix("abcdef0123").unwrap() {
+            EventMining::Prefix(p) => assert_eq!(p, "abcdef0123"),
+            _ => panic!("expected Prefix variant"),
+        }
+
+        // Arrange / Act / Assert: uppercase normalized to lowercase
+        match EventMining::prefix("ABCD").unwrap() {
+            EventMining::Prefix(p) => assert_eq!(p, "abcd"),
+            _ => panic!("expected Prefix variant"),
+        }
+
+        // Boundary lengths: 1 and 64 characters
+        assert!(EventMining::prefix("0").is_ok());
+        assert!(EventMining::prefix(&"f".repeat(64)).is_ok());
+    }
+
+    #[test]
+    fn event_mining_prefix_rejects_invalid_input() {
+        // Arrange / Act / Assert
+        assert!(EventMining::prefix("").is_err(), "empty prefix must fail");
+        assert!(
+            EventMining::prefix(&"f".repeat(65)).is_err(),
+            "65-char prefix must fail"
+        );
+        assert!(EventMining::prefix("xyz").is_err(), "non-hex must fail");
+        assert!(EventMining::prefix("deadbeef!").is_err());
+        assert!(EventMining::prefix("  ").is_err());
+    }
+
+    #[test]
+    fn event_mining_difficulty_zero_signs_normally() {
+        // Arrange
+        let signer = KeySigner::from_private_key(PrivateKey::mock(), "", 1).unwrap();
+        let pre = PreEvent {
+            pubkey: signer.public_key(),
+            created_at: Unixtime::mock(),
+            kind: EventKind::mock(),
+            tags: vec![Tag::mock()],
+            content: "unmined event".to_string(),
+        };
+
+        // Act: difficulty 0 must take the ordinary signing path
+        let event = EventMining::Difficulty(0).sign(&signer, pre).unwrap();
+
+        // Assert: event is signed and verifies
+        event.verify(None).unwrap();
+        assert_eq!(event.pubkey, signer.public_key());
+    }
+
+    #[test]
+    fn event_mining_variants_are_distinct() {
+        // Arrange / Act / Assert
+        assert_eq!(EventMining::Difficulty(8), EventMining::Difficulty(8));
+        assert_ne!(EventMining::Difficulty(8), EventMining::Difficulty(9));
+        assert_ne!(
+            EventMining::Prefix("ab".to_string()),
+            EventMining::Difficulty(8)
+        );
+    }
+}
