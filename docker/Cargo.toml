@@ -57,12 +57,12 @@ uuid = { version = "1.25", features = ["fast-rng", "v4"] }
 insta = "1.48"
 serde_json = { version = "1.0", features = ["preserve_order"] }
 
-[profile.release]
-lto = true
-codegen-units = 1
-panic = 'abort'
-strip = true
-debug = false
+#[profile.release]
+#lto = true
+#codegen-units = 1
+#panic = 'abort'
+#strip = true
+#debug = false
 
 
 [package.metadata.deb]
