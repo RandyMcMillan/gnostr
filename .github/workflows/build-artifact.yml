@@ -1,7 +1,7 @@
 name: build-artifact
 
 concurrency:
-  group: ${{ github.workflow }}-${{ inputs.ref || github.event.workflow_run.head_branch || github.ref }}-${{ inputs.os || 'all' }}-${{ inputs.toolchain || 'stable' }}
+  group: ${{ github.workflow }}-${{ inputs.ref || github.event.workflow_run.head_branch || github.ref }}-${{ inputs.targets || 'all' }}-${{ inputs.toolchain || 'stable' }}
   cancel-in-progress: true
 
 on:
@@ -19,20 +19,14 @@ on:
         required: false
         default: ''
         type: string
-      os:
-        description: "OS / target to build (select \"all\" to use the on/off toggles below)"
+      targets:
+        description: >-
+          Comma- or space-separated targets to build
+          (e.g. "linux-x64,windows-x64"); "all" or empty uses the
+          per-OS toggles below.
         required: false
         default: all
-        type: choice
-        options:
-          - all
-          - linux-x64
-          - linux-x64-musl
-          - linux-arm64
-          - linux-arm64-musl
-          - windows-x64
-          - macos-x64
-          - macos-arm64
+        type: string
       linux_x64:
         description: "Build linux-x64"
         required: false
@@ -91,7 +85,7 @@ jobs:
       - id: set-matrix
         shell: python3 {0}
         env:
-          SELECTED_OS: ${{ inputs.os || 'all' }}
+          SELECTED_TARGETS: ${{ inputs.targets || 'all' }}
           SELECTED_TOOLCHAIN: ${{ inputs.toolchain || 'stable' }}
           # workflow_dispatch booleans arrive as INPUT_<NAME>; empty (push /
           # schedule) means every toggle defaults to on.
@@ -116,10 +110,21 @@ jobs:
               {"build": "macos-arm64", "os": "macos-latest", "target": "aarch64-apple-darwin", "native": True, "features": ""},
           ]
 
-          selected = os.environ["SELECTED_OS"] or "all"
+          selected = (os.environ["SELECTED_TARGETS"] or "all").strip().lower()
           toolchain = os.environ["SELECTED_TOOLCHAIN"] or "stable"
-          if selected != "all":
-              targets = [target for target in all_targets if target["build"] == selected]
+          if selected not in ("", "all"):
+              # Comma/space-separated multi-select, e.g. "linux-x64,windows-x64".
+              # Keep all_targets order, dedupe, and reject unknown names.
+              requested = [t for t in selected.replace(",", " ").split() if t]
+              known = {t["build"] for t in all_targets}
+              unknown = sorted(set(requested) - known)
+              if unknown:
+                  raise SystemExit(
+                      f"unknown target(s): {', '.join(unknown)}; "
+                      f"valid targets: {', '.join(sorted(known))} (or 'all')"
+                  )
+              wanted = set(requested)
+              targets = [t for t in all_targets if t["build"] in wanted]
           else:
               # Note: on push/tag events the toggle env vars are set to the
               # EMPTY STRING (inputs.* is unset outside workflow_dispatch),
@@ -133,7 +138,7 @@ jobs:
               ]
 
           if not targets:
-              raise SystemExit("no targets selected: enable at least one os toggle or pick a single os")
+              raise SystemExit("no targets selected: enable at least one target toggle or list targets explicitly")
 
           matrix = {
               "build": [target["build"] for target in targets],
