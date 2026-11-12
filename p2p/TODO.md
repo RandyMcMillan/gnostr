@@ -1,138 +1,214 @@
 # TODO — p2p/fractal
 
 Findings from the review of `714634c8` (`feat(p2p/example): add --clone to
-fractal_swarm_perfect_ip`), in severity order. Each finding carries its
-gap-fill plan: the change, the file, and how it is verified.
+fractal_swarm_perfect_ip`), in severity order.
 
-## 1. Empty-placeholder slice is a correctness bug (ship-blocker)
+**Status: every gap-fill is implemented as a v2 stack, committed in
+`f7d77fcb8c` (types) and `56c261fde6` (p2p).** The v1 implementation is
+untouched; v2 lives beside it. This file records exactly what was built per
+finding.
+
+## 1. Empty-placeholder slice is a correctness bug — FIXED in v2
 
 `run_fractal_engine` answers a missing slice with
 `ProtocolSlice { data: Vec::new(), is_parity: false }`. `Header` carries no
 length field, so a receiver cannot distinguish "peer doesn't have it" from
 "a zero-length leaf" — a placeholder counted as received silently corrupts
-`reconstruct_payload`. Fix: respond with an explicit error/None, or add the
-payload length to `Header` and treat length-0 data as absent.
+`reconstruct_payload`.
 
-### Plan 1 — explicit absence (no wire ambiguity)
+### What v2 does (plan 1 — explicit absence)
 
-- Change the repair response type from `ProtocolSlice` to
-  `Result<ProtocolSlice, String>` in `FractalBehaviour`
-  (p2p/src/fractal/fractal_ip_core.rs): a missing id answers
-  `Err("not held: <id>")`. `run_fractal_engine`'s placeholder
-  disappears entirely.
-- Receiver side (`request_all_slices` in the tests /
-  `fractal_ip.rs`): an `Err` response counts as still-missing —
-  never inserted into `IntegrityManager`.
-- serde supports `Result` in the JSON codec, so no codec change is
-  needed for this step (binary codec is plan 3).
-- Verify: new test — request a missing id, assert `Err`; reconstruct
-  with one peer lacking a leaf, assert parity recovery still completes
-  the payload byte-exactly.
+- The v2 repair response type is `Result<ProtocolSliceV2, String>`
+  (`RepairResponseV2`, p2p/src/fractal/fractal_ip_core_v2.rs). A missing id
+  answers `Err("not held: <id>")`; there is no placeholder path at all.
+- `HeaderV2` (types/src/utils/protocol_slice_v2.rs) adds a `len` field, so a
+  packet is self-describing and header/data length consistency is checkable.
+- Receiver side (`request_slices_v2`, p2p/src/fractal/fractal_ip_core_v2.rs):
+  an `Err` response is collected into `RepairFetchV2.errors` and counted as
+  answered-with-absence — never inserted into `IntegrityManagerV2` or any
+  received map.
+- Verified: `fractal_v2_p2p_missing_slice_returns_err_and_parity_recovers`
+  (networked, `#[ignore]`) asserts the dropped id is absent from `received`,
+  present in `errors`, then parity recovery completes the payload
+  byte-exactly. `fractal_v2_p2p_sync_reconstructs_git_repo` asserts every
+  received slice has `header.len == data.len` (no placeholder shapes).
 
-## 2. Wire encoding: JSON → binary
+## 2. Wire encoding: JSON → binary — FIXED in v2
 
 `request_response::json::Behaviour` costs ~2×+ wire overhead plus parse
-cost on every ~730-byte slice. Keep JSON as a debug/inspection mode; make
-the production codec binary (or raw-leaf CID frames — see #3).
+cost on every ~730-byte slice.
 
-### Plan 2 — postcard codec beside JSON
+### What v2 does (plan 2 — postcard codec beside JSON)
 
-- Add `postcard` (serde, tiny, no_std-friendly) to `gnostr-p2p`.
-  Derive `Serialize`/`Deserialize` on `ProtocolSlice`/`Header` (they
-  are plain data structs already).
-- `FractalBehaviour` gains a second behaviour:
-  `repair_bin: request_response::cbor::Behaviour<...>` — or the
-  postcard equivalent — on protocol id `/fractal/repair/1.1.0/postcard`;
-  the JSON behaviour stays on `/fractal/repair/1.0.0/json` for
-  debugging. Default: binary; `--json` flag on the example selects the
-  text protocol.
-- Verify: round-trip encode/decode test on a real packet batch;
-  measure and record the size delta in the commit message (expect
-  ~50%+ smaller on the wire).
+- `PostcardCodec` (p2p/src/fractal/fractal_ip_core_v2.rs) implements
+  `request_response::Codec` with postcard. libp2p-request-response 0.27 ships
+  JSON and CBOR only, so the codec is ours — same size limits and
+  read-to-end/write-all shape as the upstream JSON codec. `postcard` 1.x
+  added to `gnostr-p2p` along with `async-trait` for the trait impl.
+- Both behaviours are mounted on every v2 swarm, newtyped
+  (`RepairBinV2`/`RepairJsonV2`) so the composite behaviour can tell their
+  events apart: postcard on `/fractal/repair/1.1.0/postcard`, JSON on
+  `/fractal/repair/1.0.0/json` (per this plan; see the caveat below).
+  `WireCodecV2` selects the outbound codec; default is binary.
+- Measured and pinned by `postcard_wire_size_beats_json_on_real_packet_batch`:
+  a real 4096-byte payload, 15 packets — JSON 36546B vs postcard 10517B,
+  **71.2% smaller** on the wire (test asserts >50%).
+- Round-trip verified by `postcard_codec_round_trips_requests_and_responses`
+  (request, `Ok` response, `Err` response).
+- Caveat: v2's JSON behaviour reuses v1's protocol string
+  (`/fractal/repair/1.0.0/json`) as the plan specified. A v1 and v2 node
+  negotiating that stream would fail requests on the response-type mismatch
+  (serde cannot parse `Result<ProtocolSliceV2, String>` into v1's
+  `ProtocolSlice`) — it fails, it does not corrupt. A distinct string
+  (e.g. `/fractal/repair/2.0.0/json`) is a one-line change if v1/v2 interop
+  on the debug codec ever matters.
 
-## 3. Per-slice authentication (makes repair trustless)
+## 3. Per-slice authentication — FIXED in v2
 
-Slices are trusted by manifest membership; `verify_integrity` only catches
-bad parities when siblings are present. `sha256_hex` already exists in the
-module — put per-slice hashes in the manifest so every slice is
-self-verifying. Better: make each slice a raw-leaf CID, so a serving peer
-proves content by address and any gateway can backfill a missing slice.
+Slices were trusted by manifest membership; `verify_integrity` only caught
+bad parities when siblings were present.
 
-### Plan 3 — manifest v2: {id, offset, len, sha256}
+### What v2 does (plan 3 — manifest v2: {id, offset, len, sha256})
 
-- `generate_manifest` (types/src/utils/protocol_slice.rs) v2: each
-  entry becomes `{ id, offset, len, sha256 }` — offset/len come from
-  the same tree walk that emits the ids (this also closes #5: ordering
-  no longer relies on `seq_num`).
-- `IntegrityManager::record_slice` verifies `sha256_hex(&slice.data)`
-  against the manifest entry and REJECTS mismatches (count them in a
-  `rejected` list — do not store).
-- `verify_integrity` keeps its parity check; add the per-slice hash
-  check so a manifest-less store still gets verified on load.
-- CID upgrade path (later, noted not built): slices as raw-leaf CIDs —
-  the sha256 in the manifest is already the multihash digest, so the
-  manifest entry can gain a `cid` field without a format break.
-- Verify: corrupted-slice rejection test; a manifest with a wrong hash
-  fails closed; `load_from_disk` rejects tampered persisted state.
+- `ManifestEntry { id, offset, len, sha256 }`
+  (types/src/utils/protocol_slice_v2.rs); offset/len come from the same tree
+  walk that emits the ids, so sha256 requires the payload — the manifest is
+  generated from data, not from length alone. `generate_manifest_v2` and
+  `packetize_v2` emit both batch and manifest from one walk.
+- `IntegrityManagerV2::record_slice` verifies in order: id must be in the
+  manifest, `header.len == data.len == entry.len`, then
+  `sha256_hex(&slice.data) == entry.sha256`. Any mismatch is pushed to the
+  `rejected: Vec<RejectedSlice>` list and the slice is NOT stored.
+- `verify_integrity` keeps the v1 parity check (XOR of children equals the
+  parity frame when both children are present) and adds the per-slice hash
+  re-check, so a store that was tampered with after recording still fails.
+- Reconstruction (`reconstruct_directory_v2`) routes every packet through
+  `record_slice` and aborts if anything was rejected — tampered input fails
+  closed before a byte is written.
+- CID upgrade path: still not built (unchanged). The manifest sha256 is the
+  raw-leaf multihash digest, so a `cid` field can be added later without a
+  format break.
+- Verified: `record_slice_rejects_bad_hash_unknown_id_and_bad_length`,
+  `verify_integrity_fails_when_slice_is_tampered_after_recording`,
+  `load_from_disk_rejects_tampered_persisted_state` (types),
+  `fractal_v2_reconstruct_rejects_tampered_packets` (p2p integration).
 
-## 4. One-loss-per-pair ceiling
+## 4. One-loss-per-pair ceiling — DOCUMENTED and PINNED in v2
 
 XOR-tree recovers exactly one missing sibling per pair; a pair losing
-children *and* parity is unrecoverable. Document the ceiling in the
-protocol docs, or evaluate a real erasure code (Reed-Solomon / RaptorQ)
-for lossy links. Fine as a repair-assist layer either way.
+children *and* parity is unrecoverable.
 
-### Plan 4 — document the ceiling, with a test that pins it
+### What v2 does (plan 4)
 
-- Module docs (types/src/utils/protocol_slice.rs header): state the
-  ceiling plainly — one loss per pair; two losses in a pair = subtree
-  unrecoverable; this is a repair-assist layer, not a primary transport.
-- Test that pins the behavior: drop two slices of one pair, assert
-  recovery reports unrecoverable (not silent garbage).
-- Defer Reed-Solomon/RaptorQ evaluation to a follow-up issue; the
-  manifest v2 (#3) is the seam a k-of-n scheme would plug into.
+- Module docs (types/src/utils/protocol_slice_v2.rs header) state the
+  ceiling plainly: one loss per pair; two losses in a pair = subtree
+  unrecoverable; repair-assist layer, not a primary transport.
+- `IntegrityManagerV2::recover_missing` walks every parity trio
+  `{base.0, base.1, base.P}`: exactly one missing member is rebuilt via XOR
+  and re-verified through `record_slice` (a rebuild that fails hash
+  verification counts as unrecoverable, never stored); two or three missing
+  members are reported in `RecoveryReport.unrecoverable`. Recovery never
+  fabricates silent garbage.
+- Subtlety found while implementing: a parity frame whose children are
+  internal nodes (e.g. `ROOT.P` at multi-level trees) has no slice trio —
+  internal children emit no slices. Recovery only attempts trios where all
+  three members exist in the manifest; such parities are still
+  hash-verified on record, just not used for pair repair.
+- Reed-Solomon/RaptorQ: still deferred, as the plan says — manifest v2's
+  `(offset, len)` keying is the seam a k-of-n scheme plugs into.
+- Verified: `recover_missing_rebuilds_single_loss_byte_exactly`,
+  `recover_missing_reports_unrecoverable_when_pair_loses_two` (drops a
+  sibling and its parity, asserts both land in `unrecoverable` and
+  reconstruction errors).
 
-## 5. `reconstruct_payload` invariant assertion
+## 5. `reconstruct_payload` invariant assertion — FIXED in v2 (subsumed by 3)
 
-It sorts by `seq_num` and concatenates, relying on "seq order == byte
-order across the recursive tree." True today, implicit forever — assert
-it (or key the manifest by (offset, len) instead of tree ids).
+v1 sorts by `seq_num` and concatenates, relying on "seq order == byte order
+across the recursive tree."
 
-### Plan 5 — subsumed by plan 3
+### What v2 does (plan 5)
 
-Manifest v2 keys slices by (offset, len), so `reconstruct_payload`
-orders by offset and asserts total length == sum(manifest lens). No
-`seq_num` reliance remains. If plan 3 slips, the fallback is a
-`debug_assert!(leaves.windows(2).all(|w| w[0].header.seq_num < w[1].header.seq_num))`
-in `reconstruct_payload`.
+- `IntegrityManagerV2::reconstruct_payload` orders data leaves by manifest
+  `offset` (tie-broken by id) and asserts the assembled length equals the
+  sum of the data-leaf lengths (`ReconstructErrorV2::LengthMismatch`); it
+  never reads `seq_num`. Missing leaves fail with
+  `ReconstructErrorV2::MissingSlices` instead of silently producing a short
+  payload.
+- Verified: `reconstruct_orders_by_offset_regardless_of_arrival_order`
+  (records packets in reverse emission order; offsets still win),
+  `reconstruct_fails_closed_with_missing_slices`,
+  `packetize_v2_manifest_matches_tree_and_offsets_are_ordered` (data leaves
+  are contiguous and sum to the payload length).
 
-## 6. `--clone` verification: add `git fsck --strict`
+## 6. `--clone` verification: add `git fsck --strict` — FIXED in v2
 
-The current check (clone → HEAD match → clean tree) proves the
-reconstruction is a valid repo. Add `git fsck --strict` on the
-reconstructed directory to also catch object-store corruption the clone
-might tolerate.
+The v1 check (clone → HEAD match → clean tree) proves the reconstruction is
+a valid repo but can tolerate object-store corruption.
 
-### Plan 6 — fsck before clone
+### What v2 does (plan 6)
 
-- In `clone_and_verify_reconstructed_repo`
-  (p2p/src/fractal/fractal_ip.rs): run `git fsck --strict` on the
-  reconstructed directory first; on failure, surface fsck's output and
-  stop. Then the existing clone → HEAD-match → clean-tree flow.
-- Verify: run the example against the `web/crlf.git` fixture with
-  `--clone` (the existing `#[ignore]` networked test path covers the
-  sync side; the fsck step is local and runs in the example's own
-  verification).
+- `git_fsck_strict` (p2p/src/fractal/fractal_ip_core_v2.rs) runs
+  `git fsck --strict` on the reconstructed directory and surfaces fsck's
+  stdout/stderr on failure.
+- `fsck_clone_and_verify_reconstructed_repo`
+  (p2p/src/fractal/fractal_ip_v2.rs) runs fsck first, then the existing
+  clone → HEAD-match → clean-tree flow.
+- Verified: `fractal_swarm_perfect_ip_v2_reconstructs_git_repo` (integration)
+  runs fsck on the reconstructed `web/crlf.git` fixture before cloning; the
+  networked sync test does the same on wire-received data. Example binary
+  verified end-to-end against the fixture.
 
-## Later / integration
+## 7. Persist format versioning — FIXED in v2
 
-- Repair-by-id is the natural loss path for a git transport: primary =
-  stream, repair = slice requests by id. Keep the protocol id stable.
-- `IntegrityManager::persist` format: version it before other tools
-  depend on it.
+`IntegrityManager::persist` format was unversioned.
 
-### Plan 7 — persist format versioning (small, do first among laters)
+### What v2 does (plan 7)
 
-- Add `"v": 1` to the persisted JSON in `IntegrityManager::persist`;
-  `load_from_disk` refuses (with a clear error) any version it doesn't
-  know. One-line change now, saves a migration later.
+- `IntegrityManagerV2::persist` writes JSON
+  `{"v": 1, "manifest": [...], "received_slices": {...}}` (v1 used bincode;
+  v2 uses JSON so the envelope is inspectable and the manifest travels with
+  the state).
+- `load_from_disk` refuses any `v` it doesn't know with a clear
+  `InvalidData` error naming both versions, and routes every loaded slice
+  back through `record_slice`, so tampered persisted state lands in
+  `rejected` instead of being trusted. Unlike v1, the manifest is embedded
+  in the file — loaders don't need it passed in.
+- Verified: `persist_round_trips_and_marks_version` (asserts `"v": 1` in the
+  file), `load_from_disk_refuses_unknown_version` (v: 99 rejected),
+  `load_from_disk_rejects_tampered_persisted_state`.
+
+## v2 stack map (for orientation)
+
+- Data plane: `types/src/utils/protocol_slice_v2.rs` —
+  `HeaderV2`, `ProtocolSliceV2`, `PacketBatchV2`, `ManifestEntry`,
+  `RejectedSlice`, `RecoveryReport`, `ReconstructErrorV2`,
+  `IntegrityManagerV2`, `generate_manifest_v2`, `packetize_v2`,
+  `DirectoryWalkV2`, `run_directory_walk_v2`, `reconstruct_directory_v2`.
+  Re-exported as `gnostr_types::perfect_ip_v2` and from the `gnostr-p2p`
+  crate root.
+- Wire plane: `p2p/src/fractal/fractal_ip_core_v2.rs` —
+  `PostcardCodec`, `RepairBinV2`, `RepairJsonV2`, `FractalBehaviourV2`,
+  `WireCodecV2`, `RepairResponseV2`, `build_fractal_swarm_v2`,
+  `run_fractal_engine_v2`, `request_slices_v2`, `git_fsck_strict`.
+- CLI/example: `p2p/src/fractal/fractal_ip_v2.rs` (`run_v2`) +
+  `p2p/examples/fractal_swarm_perfect_ip_v2.rs`. Flags: `--clone`,
+  `--recursive`, `--depth`, `--logging`, `--json` (text wire protocol),
+  `--fetch <MULTIADDR>` (repair-by-id demo: manifest from a local walk,
+  payload fetched slice-by-slice over the selected codec).
+- Tests: unit tests in both modules; integration in
+  `p2p/tests/fractal_clone_v2.rs`; networked `#[ignore]` tests in
+  `fractal_ip_core_v2.rs` (full sync + missing-slice/repair).
+
+## Still open / later
+
+- Slices as raw-leaf CIDs (trustless serving + gateway backfill): the
+  manifest sha256 is already the multihash digest; a `cid` field can be added
+  to `ManifestEntry` without a format break. Not built.
+- Reed-Solomon/RaptorQ evaluation for lossy links: deferred; manifest v2's
+  `(offset, len)` keying is the seam it plugs into.
+- v1↔v2 JSON protocol-id collision on `/fractal/repair/1.0.0/json`: fails
+  requests rather than corrupting; one-line change to a v2-specific id if
+  debug-codec interop is ever wanted.
+- `Repair-by-id as the git-transport loss path` (primary = stream, repair =
+  slice requests by id) is what `--fetch` demos; production integration
+  (manifest distribution to fetchers) is not built.
