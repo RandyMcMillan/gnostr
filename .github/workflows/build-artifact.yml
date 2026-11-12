@@ -231,6 +231,23 @@ jobs:
           # parsed by Cargo's shell-word splitter on Windows. The per-target
           # linker env var is sufficient and avoids argument-splitting errors.
 
+      - name: Diagnose msvcp140.lib location (temporary)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          # TEMPORARY diagnostic for the VS18 (VS 2026) image rollout: the
+          # release link fails with LNK1181 msvcp140.lib even though LIB
+          # lists the 14.51 toolset dir. Print where the lib actually is.
+          Write-Host "VCToolsInstallDir=$env:VCToolsInstallDir"
+          Write-Host "--- msvcp* under toolset lib\x64 ---"
+          Get-ChildItem "$( $env:VCToolsInstallDir )lib\x64" -Filter "msvcp*" -ErrorAction SilentlyContinue | ForEach-Object FullName
+          Write-Host "--- msvcp* anywhere under the VS root (bounded depth) ---"
+          $vsRoot = Split-Path (Split-Path (Split-Path $env:VCToolsInstallDir -Parent) -Parent) -Parent
+          Get-ChildItem $vsRoot -Recurse -Depth 5 -Filter "msvcp140.lib" -ErrorAction SilentlyContinue | ForEach-Object FullName
+          Write-Host "--- Shared redist dirs ---"
+          Get-ChildItem "C:\Program Files\Microsoft Visual Studio\Shared" -Recurse -Depth 5 -Filter "msvcp140.lib" -ErrorAction SilentlyContinue | ForEach-Object FullName
+          Get-ChildItem "C:\Program Files (x86)\Microsoft Visual Studio\Shared" -Recurse -Depth 5 -Filter "msvcp140.lib" -ErrorAction SilentlyContinue | ForEach-Object FullName
+
       - name: Install cross
         if: runner.os == 'Linux'
         uses: taiki-e/install-action@v2
