@@ -695,7 +695,7 @@ mod tests {
             .expect("locate web/crlf.git fixture");
         println!("fixture: {}", fixture.display());
 
-        let walk = gnostr_types::perfect_ip_v2::run_directory_walk_v2(&fixture, 3)
+        let walk = gnostr_types::perfect_ip_v2::run_directory_walk_v2(&fixture, 3, false)
             .expect("packetize fixture");
         let manifest = walk.manifest();
         let all_ids: Vec<String> = manifest.iter().map(|entry| entry.id.clone()).collect();

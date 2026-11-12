@@ -85,7 +85,7 @@ fn fractal_swarm_perfect_ip_v2_reconstructs_git_repo() {
     let reconstructed = temp.path().join("gnostr_web_crlf_v2");
     let clone = temp.path().join("gnostr_web_crlf_v2_repo");
 
-    let walk = run_directory_walk_v2(&fixture, 3).expect("packetize fixture");
+    let walk = run_directory_walk_v2(&fixture, 3, false).expect("packetize fixture");
     println!(
         "packetized {} files into {} slices ({} empty dirs)",
         walk.files.len(),
@@ -173,7 +173,7 @@ fn fractal_v2_reconstruct_rejects_tampered_packets() {
         .canonicalize()
         .expect("locate web/crlf.git fixture");
 
-    let walk = run_directory_walk_v2(&fixture, 3).expect("packetize fixture");
+    let walk = run_directory_walk_v2(&fixture, 3, false).expect("packetize fixture");
     let (rel_path, entry) = walk
         .files
         .iter()

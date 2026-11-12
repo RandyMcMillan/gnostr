@@ -280,7 +280,7 @@ pub async fn run_v2() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
         info!("recursive walk root: {}", input.display());
         info!("recursive depth: {depth}");
-        let walk = run_directory_walk_v2(input, depth)?;
+        let walk = run_directory_walk_v2(input, depth, cli.logging.is_some())?;
 
         if let Some(ref peer) = cli.fetch {
             let addr: libp2p::Multiaddr = peer
@@ -342,7 +342,7 @@ pub async fn run_v2() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             result.batch.total_packets
         );
     }
-    if log_enabled!(Level::Debug) {
+    if log_enabled!(Level::Debug) && !log_enabled!(Level::Trace) {
         debug!("manifest entries: {}", result.manifest.len());
     }
 

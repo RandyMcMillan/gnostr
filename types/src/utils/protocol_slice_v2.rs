@@ -41,6 +41,8 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
+use log::{debug, log_enabled, trace, Level};
+
 use super::protocol_slice::{MTU_PAYLOAD, calculate_parity, sha256_hex};
 
 /// v2 leaf ceiling, mirroring v1. v1's `MAX_LEAF_PAYLOAD` is private, so the
@@ -727,6 +729,23 @@ impl DirectoryWalkV2 {
     }
 }
 
+/// One-line-per-packet summary, mirroring v1's `summarize_packets`.
+pub fn summarize_packets_v2(packets: &[ProtocolSliceV2]) -> Vec<String> {
+    packets
+        .iter()
+        .map(|packet| {
+            format!(
+                "ID: {:<8} | Seq: {:>2}/{} | Type: {:<6} | Size: {}B",
+                packet.id,
+                packet.header.seq_num,
+                packet.header.total_packets,
+                if packet.is_parity { "PARITY" } else { "DATA" },
+                packet.data.len()
+            )
+        })
+        .collect()
+}
+
 /// Recursively list a directory tree and packetize every file found with the
 /// v2 data plane. Empty directories are recorded in `empty_dirs`.
 pub fn list_directory_v2(
@@ -734,9 +753,15 @@ pub fn list_directory_v2(
     current: &Path,
     depth: usize,
     level: usize,
+    logging: bool,
+    lines: &mut Vec<String>,
     all_files: &mut BTreeMap<String, FileEntryV2>,
     empty_dirs: &mut BTreeSet<String>,
 ) -> io::Result<bool> {
+    if level == 0 {
+        lines.push(".".to_string());
+    }
+
     let mut has_file_in_subtree = false;
     let mut entries = Vec::new();
     for entry in fs::read_dir(current)? {
@@ -747,17 +772,48 @@ pub fn list_directory_v2(
     for entry in entries {
         let path = entry.path();
         let relative = path.strip_prefix(root).unwrap_or(&path).to_path_buf();
+        let indent = "  ".repeat(level + 1);
         let metadata = entry.metadata()?;
 
         if metadata.is_dir() {
-            let child_has_file =
-                list_directory_v2(root, &path, depth, level + 1, all_files, empty_dirs)?;
+            lines.push(format!("{indent}{}/", relative.display()));
+            let child_has_file = list_directory_v2(
+                root,
+                &path,
+                depth,
+                level + 1,
+                logging,
+                lines,
+                all_files,
+                empty_dirs,
+            )?;
             has_file_in_subtree = has_file_in_subtree || child_has_file;
         } else if metadata.is_file() {
             has_file_in_subtree = true;
             let bytes = fs::read(&path)?;
+            lines.push(format!(
+                "{indent}{} ({}B sha256:{})",
+                relative.display(),
+                bytes.len(),
+                sha256_hex(&bytes)
+            ));
             let rel_path = relative.to_string_lossy().into_owned();
             let result = packetize_v2(rel_path.clone(), bytes);
+            if logging {
+                // trace suppresses debug: --logging trace must not emit
+                // debug records (same rule as v1's list_directory).
+                if log_enabled!(Level::Debug) && !log_enabled!(Level::Trace) {
+                    debug!("File: {}", relative.display());
+                    debug!("Batch size: {} packets", result.batch.total_packets);
+                    debug!(
+                        "{indent}  perfect_ip v2 packet batch: {} packets",
+                        result.batch.total_packets
+                    );
+                }
+                for line in summarize_packets_v2(&result.batch.packets) {
+                    trace!("\n{line}");
+                }
+            }
             all_files.insert(
                 rel_path,
                 FileEntryV2 {
@@ -765,6 +821,8 @@ pub fn list_directory_v2(
                     manifest: result.manifest,
                 },
             );
+        } else {
+            lines.push(format!("{indent}{} [special]", relative.display()));
         }
     }
 
@@ -781,10 +839,31 @@ pub fn list_directory_v2(
 }
 
 /// Walk a directory and return all v2 packetized file slices grouped by path.
-pub fn run_directory_walk_v2(path: &Path, depth: usize) -> io::Result<DirectoryWalkV2> {
+pub fn run_directory_walk_v2(
+    path: &Path,
+    depth: usize,
+    logging: bool,
+) -> io::Result<DirectoryWalkV2> {
+    let mut lines = Vec::new();
     let mut files = BTreeMap::new();
     let mut empty_dirs = BTreeSet::new();
-    list_directory_v2(path, path, depth, 0, &mut files, &mut empty_dirs)?;
+    list_directory_v2(
+        path,
+        path,
+        depth,
+        0,
+        logging,
+        &mut lines,
+        &mut files,
+        &mut empty_dirs,
+    )?;
+    for line in lines {
+        // trace suppresses debug: tree lines surface only at debug level,
+        // never at info — same adjusted rule as v1's run_directory_walk.
+        if log_enabled!(Level::Debug) && !log_enabled!(Level::Trace) {
+            debug!("{line}");
+        }
+    }
     Ok(DirectoryWalkV2 { files, empty_dirs })
 }
 
