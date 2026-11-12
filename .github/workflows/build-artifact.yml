@@ -15,7 +15,11 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        description: "Tag or branch to build (leave empty for the default branch)"
+        description: >-
+          Tag or branch to build, "auto" to resolve the numerically
+          greatest <blockheight>/<weeble>/<wobble> branch (per
+          $(gnostr --blockheight)/$(gnostr --weeble)/$(gnostr --wobble)
+          naming), or empty for the default branch.
         required: false
         default: ''
         type: string
@@ -80,7 +84,35 @@ jobs:
     permissions: {}
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
+      resolved-ref: ${{ steps.resolve-ref.outputs.resolved-ref }}
     steps:
+      - name: Resolve greatest blockheight branch
+        # Branch names encode the version triple:
+        #   $(gnostr --blockheight)/$(gnostr --weeble)/$(gnostr --wobble)/...
+        # "auto" picks the numerically greatest triple (blockheight first,
+        # then weeble, then wobble). git ls-remote needs no checkout.
+        if: inputs.ref == 'auto'
+        id: resolve-ref
+        shell: bash
+        env:
+          REPO: ${{ github.repository }}
+        run: |
+          best=$(git ls-remote --heads "https://github.com/$REPO.git" 'refs/heads/[0-9]*/*/*' \
+            | awk '{print $2}' \
+            | sed 's|^refs/heads/||' \
+            | awk -F/ 'NF>=3 && $1+0==$1 && $2+0==$2 && $3+0==$3 {
+                printf "%020d %020d %020d %s\n", $1, $2, $3, $0
+              }' \
+            | sort -r \
+            | head -n1 \
+            | cut -d' ' -f4-)
+          if [ -z "$best" ]; then
+            echo "ERROR: ref=auto but no <blockheight>/<weeble>/<wobble> branch was found" >&2
+            exit 1
+          fi
+          echo "resolved-ref=$best" >> "$GITHUB_OUTPUT"
+          echo "resolved ref: $best"
+
       - id: set-matrix
         shell: python3 {0}
         env:
@@ -164,7 +196,10 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 50
-          ref: ${{ inputs.ref || github.event.workflow_run.head_sha || github.sha }}
+          # resolved-ref is set when the dispatch asked for ref=auto
+          # (greatest blockheight/weeble/wobble branch); otherwise the
+          # explicit ref, then the triggering event's SHA.
+          ref: ${{ needs.setup.outputs.resolved-ref || inputs.ref || github.event.workflow_run.head_sha || github.sha }}
           submodules: recursive
 
       - name: Set build name
