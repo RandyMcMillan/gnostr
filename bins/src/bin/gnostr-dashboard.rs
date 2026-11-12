@@ -1,63 +1,112 @@
-use clap::Parser;
+//! Multi-panel layout controlled by independent animated transitions.
+//!
+//! Demonstrates the reusable [`MultiPanelApp`] from `gnostr_tui::multi_panel`.
+//!
+//! Run in a real terminal with: cargo run
 
-mod gnostr_tui {
-    include!("gnostr-tui.rs");
+use std::io::{self, Stdout, stdout};
+use std::path::PathBuf;
+use std::time::Instant;
+
+use crossterm::{
+    ExecutableCommand,
+    event::{self, Event, KeyEventKind},
+    terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
+};
+use gnostr_tui::{
+    mouse::{disable_mouse_capture, enable_mouse_capture},
+    multi_panel::{AppCommand, MultiPanelApp},
+};
+use ratatui::{Terminal, backend::CrosstermBackend};
+
+fn setup_terminal() -> io::Result<Terminal<CrosstermBackend<Stdout>>> {
+    stdout().execute(EnterAlternateScreen)?;
+    enable_raw_mode()?;
+    enable_mouse_capture()?;
+    Terminal::new(CrosstermBackend::new(stdout()))
 }
 
-pub async fn run() -> anyhow::Result<()> {
-    let raw_args: Vec<String> = std::env::args().collect();
-    let mut commands = Vec::new();
-    let mut filtered_args = vec![raw_args[0].clone()];
-
-    // Manually parse for --command to handle unquoted multi-word commands
-    // and remove them from args passed to clap.
-    let mut i = 1;
-    while i < raw_args.len() {
-        if raw_args[i] == "--command" {
-            i += 1;
-            let mut current_cmd_parts = Vec::new();
-            // Collect all following arguments until the next flag
-            while i < raw_args.len() && !raw_args[i].starts_with("--") {
-                current_cmd_parts.push(raw_args[i].clone());
-                i += 1;
-            }
-            if !current_cmd_parts.is_empty() {
-                commands.push(current_cmd_parts.join(" "));
-            }
-        } else {
-            filtered_args.push(raw_args[i].clone());
-            i += 1;
-        }
-    }
-
-    // Use clap for other potential global flags (like --info, --debug, etc)
-    let args = match gnostr::cli::GnostrCli::try_parse_from(filtered_args) {
-        Ok(a) => a,
-        Err(e) => {
-            if e.kind() == clap::error::ErrorKind::DisplayHelp
-                || e.kind() == clap::error::ErrorKind::DisplayVersion
-            {
-                e.exit();
-            }
-            // Fallback to default if parsing fails due to unrecognized dashboard-specific args
-            gnostr::cli::GnostrCli::default()
-        }
-    };
-
-    if args.command.is_some() {
-        return gnostr_tui::run_with_cli(args).await;
-    }
-
-    // Combine commands: prioritizes manual parsing, fallbacks to clap-parsed if any missed
-    let mut final_commands = commands;
-    if final_commands.is_empty() && !args.commands.is_empty() {
-        final_commands = args.commands;
-    }
-
-    gnostr::dashboard::run_dashboard(final_commands).await
+fn restore_terminal(terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> io::Result<()> {
+    disable_mouse_capture()?;
+    disable_raw_mode()?;
+    terminal.backend_mut().execute(LeaveAlternateScreen)?;
+    Ok(())
 }
 
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
-    run().await
+fn main() -> io::Result<()> {
+    let mut terminal = setup_terminal()?;
+    let mut app = MultiPanelApp::new();
+    // Make an initial write so the state file exists.
+    let _ = app.save();
+    let result = run_app(&mut terminal, &mut app);
+    // Persist the panel state on exit. Ignore save errors so the terminal is
+    // always restored cleanly.
+    let _ = app.save();
+    restore_terminal(&mut terminal)?;
+    result
+}
+
+fn run_app(
+    terminal: &mut Terminal<CrosstermBackend<Stdout>>,
+    app: &mut MultiPanelApp,
+) -> io::Result<()> {
+    let mut last_tick = Instant::now();
+    loop {
+        let now = Instant::now();
+        let dt = now - last_tick;
+        last_tick = now;
+
+        app.update(dt);
+        terminal.draw(|f| app.render(f))?;
+
+        if event::poll(std::time::Duration::from_millis(16))? {
+            match event::read()? {
+                Event::Key(key) if key.kind == KeyEventKind::Press => {
+                    if let Some(command) = app.handle_key_event(key) {
+                        match command {
+                            AppCommand::Exit => break,
+                            AppCommand::EditConfig => {
+                                if let Some(path) = MultiPanelApp::default_config_path() {
+                                    launch_editor(terminal, path)?;
+                                }
+                            }
+                            AppCommand::EditSelectedFile => {
+                                if let Some(path) = app.selected_file.clone() {
+                                    launch_editor(terminal, path.clone())?;
+                                    if let Ok(content) = std::fs::read_to_string(&path) {
+                                        app.file_preview = content;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    // Repaint immediately after a key press so state changes
+                    // are visible right away.
+                    terminal.draw(|f| app.render(f))?;
+                }
+                Event::Mouse(mouse) => {
+                    app.handle_mouse(mouse);
+                }
+                _ => {}
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Suspend the TUI, open `path` in `$EDITOR`, then resume.
+fn launch_editor(
+    terminal: &mut Terminal<CrosstermBackend<Stdout>>,
+    path: PathBuf,
+) -> io::Result<()> {
+    disable_mouse_capture()?;
+    disable_raw_mode()?;
+    terminal.backend_mut().execute(LeaveAlternateScreen)?;
+    let editor = std::env::var("EDITOR").unwrap_or_else(|_| "vi".to_string());
+    let _ = std::process::Command::new(&editor).arg(&path).status();
+    stdout().execute(EnterAlternateScreen)?;
+    enable_raw_mode()?;
+    enable_mouse_capture()?;
+    terminal.clear()?;
+    Ok(())
 }

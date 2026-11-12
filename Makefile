@@ -67,6 +67,11 @@ cargo-install: 	###         cargo install --path . $(FORCE)
 	@. $(HOME)/.cargo/env
 	@cargo install -j $(NPROC) --locked --path ./bins $(FORCE)
 	@cargo install -j $(NPROC) --locked --path . $(FORCE)
+cargo-install-update: 	###         ./scripts/update && cargo install --path . $(FORCE)
+	@. $(HOME)/.cargo/env
+	@./scripts/update
+	@cargo install -j $(NPROC) --locked --path ./bins $(FORCE)
+	@cargo install -j $(NPROC) --locked --path . $(FORCE)
 
 cargo-sort: 	cargo-sort
 	for cargo_toml in $(shell ls */Cargo.toml); do cargo sort -n $(cargo_toml);done
@@ -135,7 +140,7 @@ dep-graph: 	### 	dep-graph
 gnostr-chat: 	## 	gnostr-chat
 	/Users/git/.cargo/bin/gnostr chat --topic gnostr-dev --headless & 	cargo b -vv -j $(NPROC) --bin gnostr
 	cargo run --bin gnostr -- chat --topic gnostr-dev --name "$(shell gnostr --weeble)/$(shell gnostr --blockheight)/$(shell gnostr --wobble):$(USER)" --headless
-	cargo run --bin gnostr -- chat --topic gnostr-dev --oneshot "testing-1846/970370/91988" -n "75cc7328c04ad5dec3d926c00f6282d5057b3c594e4f8dd8a6a0a14910fa53b9"
+	cargo run --bin gnostr -- chat --topic gnostr-dev --oneshot "testing-1842/972829/836036" -n "3ab57220f1f10003766dcc4180152b17dfdd7cc9f4e5ccdecf5b48df25ae861c"
 	cargo run --bin gnostr -- chat --topic gnostr-dev --name "$(shell gnostr --weeble)/$(shell gnostr --blockheight)/$(shell gnostr --wobble):$(USER)"
 
 fetch-by-id: 	### 	fetch-by-id
@@ -204,3 +209,19 @@ act-gnostr-act: 	## 	act-gnostr-act
 
 # vim: set noexpandtab:
 # vim: set setfiletype make
+
+# Script entry points are discovered without executing the scripts.
+SCRIPT_FILES := $(sort $(wildcard scripts/*.sh) $(wildcard scripts/update scripts/release))
+SCRIPT_TARGETS := $(addprefix script-,$(basename $(notdir $(SCRIPT_FILES))))
+ARGS ?=
+
+.PHONY: script-list $(SCRIPT_TARGETS)
+script-list: ## List script targets; pass options with ARGS='...'
+	@printf '%s\n' "Usage: make script-NAME ARGS='--interactive'" $(SCRIPT_TARGETS)
+
+define script_target
+.PHONY: script-$(basename $(notdir $(1)))
+script-$(basename $(notdir $(1))):
+	bash "$(1)" $$(ARGS)
+endef
+$(foreach script,$(SCRIPT_FILES),$(eval $(call script_target,$(script))))

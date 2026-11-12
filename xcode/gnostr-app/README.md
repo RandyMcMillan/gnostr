@@ -6,6 +6,25 @@ A twitter-like [nostr][nostr] client for iPhone, iPad and MacOS.
 
 [nostr]: https://github.com/fiatjaf/nostr
 
+## Building from source
+
+Open `gnostr.xcodeproj` and build the `gnostr` scheme, or run `./build.sh`
+to build for My Mac. The `Configure damus-c` build phase runs
+`damus-c/configurator` before compilation to generate `damus-c-config.h`
+in the target's DerivedSources directory. `damus-c/config.h` includes that
+generated header.
+
+The configurator compiles feature probes with the selected compiler, SDK,
+deployment target, and architectures. It never executes target binaries,
+so it also works when cross-compiling. Unsupported optional features use
+the bundled CCAN fallbacks; compiler/setup failures stop the build.
+
+For standalone C builds, run `CC=clang sh damus-c/configurator
+build/damus-c/damus-c-config.h` and add `-Ibuild/damus-c` to compilation.
+Additional compiler flags can follow the output path. Xcode supplies
+`CC`, `SDKROOT`, `ARCHS`, and deployment settings automatically. Unaligned
+SHA-256 loads remain disabled for correctness.
+
 ## Spec Compliance
 
 damus implements the following [Nostr Implementation Possibilities][nips]
@@ -30,6 +49,47 @@ damus implements the following [Nostr Implementation Possibilities][nips]
 #### ⚙️ Settings (gear icon, top right)
 
 - Relays: You can add more relays to send your notes to by tapping the "+".
+  - Recommended Relays includes WebSocket relay URLs discovered in received
+    `r` tags, including NIP-65 kind-10002 relay lists from you and your follows.
+    Read/write markers are preserved when adding a suggestion. Duplicate and
+    already configured relays are hidden. Discovered suggestions last for the
+    current session.
+    Adding a relay hides its suggestion; removing a configured relay returns
+    it to recommendations. Toggle Ignore to hide a suggestion across launches,
+    and enable Show ignored to turn Ignore off again. Ignored relays remain
+    hidden when removed or rediscovered.
+  - Configured and recommended relays fetch NIP-11 metadata over HTTPS/HTTP
+    with `Accept: application/nostr+json`. The NIP-34 label reports whether
+    `supported_nips` advertises `34`; this is not a guarantee that every Git
+    event kind is accepted. Failed metadata requests show support as unknown.
+  - Auto-subscribe to NIP-34 relays is enabled by default. At connection time
+    and as relay tags arrive, relays advertising NIP-34 are added to the local
+    pool, connected, and receive the app's normal subscriptions without opening
+    Settings. This does not publish changes to your relay list. Remove leaves
+    a relay suggested but prevents automatic re-addition across launches;
+    Ignore also hides it and disconnects it. Add or turning Ignore off explicitly
+    allows the relay again. Disabling auto-subscribe stops new automatic additions,
+    without disconnecting existing relays.
+  - Passive `#gnostr` discovery runs asynchronously on every connected relay,
+    including automatically added relays. Relays advertising NIP-50 also get
+    a separate `search: "gnostr"` filter (OR, not AND, with the hashtag filter).
+    Searches stay subscribed for live events after the initial bounded history,
+    resume after reconnect, and merge matching posts/Git events into Home
+    without changing your current screen. Relays without NIP-50 still get
+    hashtag discovery; unrestricted full-text search is not assumed.
+  - Global Search and search-result timelines include a NIP-34 only toggle,
+    shared with Settings. Switching it resubscribes with Git-only kinds and
+    clears stale results; switching it off restores ordinary posts alongside
+    Git events. Explicit repository-kind searches keep their original scope.
+    With NIP-34 only enabled, circular on/off buttons let you independently
+    select each event kind by number and name. Selections are shared across
+    search screens and saved across launches. Turning every kind off stops
+    the search subscription rather than sending an unrestricted filter.
+    Hashtag search uses the relay's indexed `#t` filter, not a full-text scan.
+    Incoming search results are deduplicated and processed in batches of up to
+    64, with filtering and sorting on a background task and timeline updates
+    spaced at least 30 ms apart. Results appear before the relay finishes its
+    history; changing filters or leaving search cancels pending updates.
   - Find more relays to add: https://nostr.info/relays/
 - Public Key (pubkey): Your public, personal address and how people can find and tag you
 - Secret Key: Your _private_ key unique to you. Never share your private key publically and share with other clients at your own risk!
@@ -43,6 +103,16 @@ damus implements the following [Nostr Implementation Possibilities][nips]
 
 #### Notes (under 🏠 Personal Feed)
 
+- Long NIP-34 patches (kind 1617) show the first four commit-header lines,
+  with the remaining content collapsed under Show patch. Expand/collapse
+  preserves the full plain-text diff, whitespace, and complete commit hashes.
+  Short patches remain fully visible.
+- Git References is collapsed by default; tap its disclosure chevron to
+  expand the branch/tag references and select a complete commit hash.
+- Event tag chips fold only when they wrap beyond two rows. The first two
+  rows stay visible; Show all tags / Show fewer tags expands or folds the rest
+  without shortening tag values or commit hashes. The control stays above the
+  chips so it does not move down when the list expands.
 - Sending a Note is easy and it goes to both your 🏠 Personal and 🔍 Global Feeds
 - To tag a user you must grab their pubkey:
   1. Search their username in the search bar at the top of the 🔍 Global Feed and click their profile

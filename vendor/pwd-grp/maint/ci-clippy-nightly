@@ -1,0 +1,3 @@
+#!/bin/bash
+set -e
+cargo +nightly clippy --locked --workspace --all-features --all-targets

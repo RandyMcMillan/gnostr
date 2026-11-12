@@ -1,14 +1,25 @@
 {% import "macros/link.html" as link %}
 {% extends "../base.html" %}
 
-{% block title %}{{ repo.display() }}{% endblock %}
+{% block title %}{{ repo.title() }}{% endblock %}
 
 {%- block header -%}
-    <a href="/" class="no-style">{{ repo.display() }}</a>
+    <a href="/" class="no-style">gnostr.org</a>
+    {%- for segment in repo.path_segments() -%}
+        <span class="repo-nav-sep">/</span><a href="{{ segment.1 }}" class="no-style">{{ segment.0 }}</a>
+    {%- endfor -%}
 {%- endblock -%}
 
 {% block nav %}
 <nav>
+    <div class="repo-nav-path">
+        <a href="/" class="no-style repo-nav-root">gnostr.org</a>
+        {%- for segment in repo.path_segments() -%}
+            <span class="repo-nav-sep">/</span><a href="{{ segment.1 }}" class="no-style">{{ segment.0 }}</a>
+        {%- endfor -%}
+        {% block repo_nav_handler %}{% endblock %}
+        {% block repo_nav_path_extra %}{% endblock %}
+    </div>
     <div>
         <a href="{{ repo.href_base() }}about{% call link::maybe_branch(branch) %}" class="{% block about_nav_class %}{% endblock %}">about</a>
         <a href="{{ repo.href_base() }}" class="{% block summary_nav_class %}{% endblock %}">summary</a>

@@ -1,3 +1,4 @@
+use core::future::{ready, Ready};
 use std::{
     marker::PhantomData,
     net::SocketAddr,
@@ -5,7 +6,6 @@ use std::{
 };
 
 use actix_service::{Service, ServiceFactory as BaseServiceFactory};
-use actix_utils::future::{ready, Ready};
 use futures_core::future::LocalBoxFuture;
 use tracing::error;
 
@@ -78,7 +78,7 @@ where
                 Ok(())
             }
             Err(err) => {
-                error!("can not convert to an async TCP stream: {err}");
+                error!("Can not convert to an async TCP stream: {err}");
                 Err(())
             }
         })

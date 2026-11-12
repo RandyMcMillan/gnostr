@@ -1,0 +1,58 @@
+#!/bin/bash
+#
+# Build just our mdbook output
+#
+# This is an internal script, normally run by build-docs-local.
+#
+# nailing-cargo --- maint/build-mdbook
+
+set -e
+set -o pipefail
+
+function usage() {
+    cat <<EOF
+build-mdbook: Generate and check the derive-deftly mdbook documentation
+
+Usage:
+    build-mdbook [-h]
+
+Options:
+    -h: Print this message.
+
+Notes:
+   Must be run from the top level directory of derive-deftly.
+EOF
+}
+
+while getopts "h" opt; do
+    case $opt in
+	h) usage
+	   exit 0
+	   ;;
+	*) echo "Unknown option.  Use -h for help."
+           exit 1
+	   ;;
+    esac
+done
+
+if test $# != 0; then
+    echo "Unexpected argument.  Use -h for help."
+    exit 1
+fi
+
+if ! test -f ./book/book.toml; then
+    echo "ERROR: ./book/book.toml not found.  You need to run this from the toplevel directory."
+    exit 1
+fi
+
+: "${MDBOOK:=mdbook}"
+
+cd ./book
+$MDBOOK build
+
+cat <<END
+formatted mdbook book is here:
+  $PWD/html/index.html
+  file://$PWD/html/index.html
+
+END

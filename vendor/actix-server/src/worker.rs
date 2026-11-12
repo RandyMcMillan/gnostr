@@ -2,11 +2,11 @@ use std::{
     future::Future,
     io, mem,
     num::NonZeroUsize,
-    pin::Pin,
+    pin::{pin, Pin},
     rc::Rc,
     sync::{
         atomic::{AtomicUsize, Ordering},
-        Arc,
+        mpsc, Arc,
     },
     task::{Context, Poll},
     time::Duration,
@@ -18,9 +18,12 @@ use actix_rt::{
     Arbiter, ArbiterHandle, System,
 };
 use futures_core::{future::LocalBoxFuture, ready};
-use tokio::sync::{
-    mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender},
-    oneshot,
+use tokio::{
+    runtime::{Builder, LocalOptions},
+    sync::{
+        mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender},
+        oneshot,
+    },
 };
 use tracing::{error, info, trace};
 
@@ -29,6 +32,10 @@ use crate::{
     socket::MioStream,
     waker_queue::{WakerInterest, WakerQueue},
 };
+
+// Based on the default maximum blocking thread count of a Tokio runtime.
+const DEFAULT_BLOCKING_THREAD_BUDGET: usize = 512;
+const SHUTDOWN_POLL_INTERVAL: Duration = Duration::from_secs(1);
 
 /// Stop worker message. Returns `true` on successful graceful shutdown
 /// and `false` if some connections still alive when shutdown execute.
@@ -61,26 +68,45 @@ fn handle_pair(
     (accept, server)
 }
 
-/// counter: Arc<AtomicUsize> field is owned by `Accept` thread and `ServerWorker` thread.
+/// Shared connection counter for the accept thread and one server worker.
 ///
-/// `Accept` would increment the counter and `ServerWorker` would decrement it.
+/// The accept thread increments the counter after it sends a connection to the worker. The worker
+/// decrements the counter when the connection's guard is dropped.
 ///
-/// # Atomic Ordering:
+/// # Worker Availability From The Accept Thread's Perspective
 ///
-/// `Accept` always look into it's cached `Availability` field for `ServerWorker` state.
-/// It lazily increment counter after successful dispatching new work to `ServerWorker`.
-/// On reaching counter limit `Accept` update it's cached `Availability` and mark worker as
-/// unable to accept any work.
+/// The accept thread has access to each worker's counter through [`WorkerHandleAccept`], but uses
+/// its cached [`Availability`] flags to choose a worker. After it sends a connection, it increments
+/// that worker's counter. If the increment reaches the connection limit, it marks the worker
+/// unavailable and stops sending it connections until the worker reports that capacity is available.
 ///
-/// `ServerWorker` always decrement the counter when every work received from `Accept` is done.
-/// On reaching counter limit worker would use `mio::Waker` and `WakerQueue` to wake up `Accept`
-/// and notify it to update cached `Availability` again to mark worker as able to accept work again.
+/// # Counter Offset
 ///
-/// Hence, a wake up would only happen after `Accept` increment it to limit.
-/// And a decrement to limit always wake up `Accept`.
+/// The raw counter starts at one to prevent an underflow during the following (race) condition. An
+/// idle worker has a raw count of one. If it receives and finishes a connection before the accept
+/// thread increments the counter, dropping the connection's guard changes the raw count from one to
+/// zero. Another read can observe zero until the accept thread performs the pending increment,
+/// which restores the idle value of one.
+///
+/// # Restoring Worker Availability
+///
+/// When a decrement takes the connection count below the limit (signalled by the return value of
+/// [`dec`]), the worker queues a `WorkerAvailable` notification in `WakerQueue` and wakes the
+/// accept thread through `mio::Waker`. The accept thread updates its cached availability flag and
+/// resumes accepting connections unless the server is paused. Further decrements below the limit do
+/// not need to wake the accept thread.
+///
+/// [`Availability`]: crate::availability::Availability
+/// [`dec`]: Self::dec
 #[derive(Clone)]
 pub(crate) struct Counter {
+    /// Raw counter value.
+    ///
+    /// Always one higher than the actual connection count except in the rare race condition
+    /// described in the struct docs.
     counter: Arc<AtomicUsize>,
+
+    /// The connection limit.
     limit: usize,
 }
 
@@ -92,18 +118,27 @@ impl Counter {
         }
     }
 
-    /// Increment counter by 1 and return true when hitting limit
+    /// Increments the counter by one.
+    ///
+    /// Returns true if connection limit was reached with this increment.
     #[inline(always)]
     pub(crate) fn inc(&self) -> bool {
-        self.counter.fetch_add(1, Ordering::Relaxed) != self.limit
+        let prev = self.counter.fetch_add(1, Ordering::Relaxed);
+
+        prev != self.limit
     }
 
-    /// Decrement counter by 1 and return true if crossing limit.
+    /// Decrements the counter by one.
+    ///
+    /// Returns true when connection count drops below the limit.
     #[inline(always)]
     pub(crate) fn dec(&self) -> bool {
-        self.counter.fetch_sub(1, Ordering::Relaxed) == self.limit
+        let prev = self.counter.fetch_sub(1, Ordering::Relaxed);
+
+        Some(prev) == self.limit.checked_add(1)
     }
 
+    /// Returns number of connections currently being handled.
     pub(crate) fn total(&self) -> usize {
         self.counter.load(Ordering::SeqCst) - 1
     }
@@ -224,20 +259,15 @@ impl WorkerService {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 enum WorkerServiceStatus {
     Available,
+    #[default]
     Unavailable,
     Failed,
     Restarting,
     Stopping,
     Stopped,
-}
-
-impl Default for WorkerServiceStatus {
-    fn default() -> Self {
-        Self::Unavailable
-    }
 }
 
 /// Config for worker behavior passed down from server builder.
@@ -252,8 +282,7 @@ impl Default for ServerWorkerConfig {
     fn default() -> Self {
         let parallelism = std::thread::available_parallelism().map_or(2, NonZeroUsize::get);
 
-        // 512 is the default max blocking thread count of a Tokio runtime.
-        let max_blocking_threads = std::cmp::max(512 / parallelism, 1);
+        let max_blocking_threads = std::cmp::max(DEFAULT_BLOCKING_THREAD_BUDGET / parallelism, 1);
 
         Self {
             shutdown_timeout: Duration::from_secs(30),
@@ -278,16 +307,42 @@ impl ServerWorkerConfig {
 }
 
 impl ServerWorker {
+    /// Starts a worker and waits for its services to be created.
     pub(crate) fn start(
         idx: usize,
         factories: Vec<Box<dyn InternalServiceFactory>>,
         waker_queue: WakerQueue,
         config: ServerWorkerConfig,
     ) -> io::Result<(WorkerHandleAccept, WorkerHandleServer)> {
+        let (startup_tx, startup_rx) = mpsc::channel();
+        let handles = Self::spawn(idx, factories, waker_queue, config, startup_tx);
+
+        match startup_rx.recv() {
+            Ok((_, res)) => res.map(|()| handles),
+            // the worker exited without reporting, e.g. its thread panicked during startup
+            Err(_) => Err(io::Error::other(format!(
+                "Worker {idx} exited during startup"
+            ))),
+        }
+    }
+
+    /// Starts a worker without waiting for its services to be created, so several workers can
+    /// create their services in parallel.
+    ///
+    /// The worker reports its startup outcome on `startup_tx`, tagged with its index. A worker
+    /// that cannot deliver a success report stops and drops its services. A stop request received
+    /// before the services are created cancels the creation and stops the worker.
+    pub(crate) fn spawn(
+        idx: usize,
+        factories: Vec<Box<dyn InternalServiceFactory>>,
+        waker_queue: WakerQueue,
+        config: ServerWorkerConfig,
+        startup_tx: mpsc::Sender<(usize, io::Result<()>)>,
+    ) -> (WorkerHandleAccept, WorkerHandleServer) {
         trace!("starting server worker {}", idx);
 
         let (tx1, conn_rx) = unbounded_channel();
-        let (tx2, stop_rx) = unbounded_channel();
+        let (tx2, mut stop_rx) = unbounded_channel();
 
         let counter = Counter::new(config.max_concurrent_connections);
         let pair = handle_pair(idx, tx1, tx2, counter.clone());
@@ -298,22 +353,6 @@ impl ServerWorker {
         // get tokio runtime handle if it is set
         let tokio_handle = tokio::runtime::Handle::try_current().ok();
 
-        // service factories initialization channel
-        let (factory_tx, factory_rx) = std::sync::mpsc::sync_channel::<io::Result<()>>(1);
-
-        // outline of following code:
-        //
-        // if system exists
-        //   if uring enabled
-        //     start arbiter using uring method
-        //   else
-        //     start arbiter with regular tokio
-        // else
-        //   if uring enabled
-        //     start uring in spawned thread
-        //   else
-        //     start regular tokio in spawned thread
-
         // every worker runs in it's own thread and tokio runtime.
         // use a custom tokio runtime builder to change the settings of runtime.
 
@@ -323,45 +362,41 @@ impl ServerWorker {
             }
 
             // no actix system
-            (None, Some(rt_handle)) => {
+            (None, Some(_)) => {
                 std::thread::Builder::new()
-                    .name(format!("actix-server worker {}", idx))
+                    .name(format!("actix-server worker {idx}"))
                     .spawn(move || {
                         let (worker_stopped_tx, worker_stopped_rx) = oneshot::channel();
 
-                        // local set for running service init futures and worker services
-                        let ls = tokio::task::LocalSet::new();
+                        let rt = Builder::new_current_thread()
+                            .enable_all()
+                            .max_blocking_threads(config.max_blocking_threads)
+                            .build_local(LocalOptions::default())
+                            .unwrap();
 
-                        // init services using existing Tokio runtime (so probably on main thread)
-                        let services = rt_handle.block_on(ls.run_until(async {
-                            let mut services = Vec::new();
+                        // create services using the worker's local runtime
+                        let services = match rt.block_on(create_services(&factories, &mut stop_rx))
+                        {
+                            // a stop request cancelled startup
+                            None => return,
 
-                            for (idx, factory) in factories.iter().enumerate() {
-                                match factory.create().await {
-                                    Ok((token, svc)) => services.push((idx, token, svc)),
+                            Some(Ok(services)) => services,
 
-                                    Err(err) => {
-                                        error!("can not start worker: {err:?}");
-                                        return Err(io::Error::other(format!(
-                                            "can not start server service {idx}",
-                                        )));
-                                    }
-                                }
-                            }
-
-                            Ok(services)
-                        }));
-
-                        let services = match services {
-                            Ok(services) => {
-                                factory_tx.send(Ok(())).unwrap();
-                                services
-                            }
-                            Err(err) => {
-                                factory_tx.send(Err(err)).unwrap();
+                            Some(Err(err)) => {
+                                let _ = startup_tx.send((idx, Err(err)));
                                 return;
                             }
                         };
+
+                        // when the success report cannot be delivered, startup was abandoned;
+                        // exit and drop the services instead of serving
+                        if startup_tx.send((idx, Ok(()))).is_err() {
+                            return;
+                        }
+
+                        // release the report channel, so waiting on a worker that dies without
+                        // reporting is not extended by this worker's lifetime
+                        drop(startup_tx);
 
                         let worker_services = wrap_worker_services(services);
 
@@ -386,39 +421,13 @@ impl ServerWorker {
                             worker_stopped_rx.await.unwrap();
                         };
 
-                        #[cfg(all(target_os = "linux", feature = "io-uring"))]
-                        {
-                            // TODO: pass max blocking thread config when tokio-uring enable configuration
-                            // on building runtime.
-                            let _ = config.max_blocking_threads;
-                            tokio_uring::start(worker_fut);
-                        }
-
-                        #[cfg(not(all(target_os = "linux", feature = "io-uring")))]
-                        {
-                            let rt = tokio::runtime::Builder::new_current_thread()
-                                .enable_all()
-                                .max_blocking_threads(config.max_blocking_threads)
-                                .build()
-                                .unwrap();
-
-                            rt.block_on(ls.run_until(worker_fut));
-                        }
+                        rt.block_on(worker_fut);
                     })
-                    .expect("cannot spawn server worker thread");
+                    .expect("Cannot spawn server worker thread");
             }
 
             // with actix system
             (Some(_sys), _) => {
-                #[cfg(all(target_os = "linux", feature = "io-uring"))]
-                let arbiter = {
-                    // TODO: pass max blocking thread config when tokio-uring enable configuration
-                    // on building runtime.
-                    let _ = config.max_blocking_threads;
-                    Arbiter::new()
-                };
-
-                #[cfg(not(all(target_os = "linux", feature = "io-uring")))]
                 let arbiter = {
                     Arbiter::with_tokio_rt(move || {
                         tokio::runtime::Builder::new_current_thread()
@@ -432,26 +441,32 @@ impl ServerWorker {
                 arbiter.spawn(async move {
                     // spawn_local to run !Send future tasks.
                     spawn(async move {
-                        let mut services = Vec::new();
-
-                        for (idx, factory) in factories.iter().enumerate() {
-                            match factory.create().await {
-                                Ok((token, svc)) => services.push((idx, token, svc)),
-
-                                Err(err) => {
-                                    error!("can not start worker: {err:?}");
-                                    Arbiter::current().stop();
-                                    factory_tx
-                                        .send(Err(io::Error::other(format!(
-                                            "can not start server service {idx}",
-                                        ))))
-                                        .unwrap();
-                                    return;
-                                }
+                        let services = match create_services(&factories, &mut stop_rx).await {
+                            // a stop request cancelled startup
+                            None => {
+                                Arbiter::current().stop();
+                                return;
                             }
+
+                            Some(Ok(services)) => services,
+
+                            Some(Err(err)) => {
+                                Arbiter::current().stop();
+                                let _ = startup_tx.send((idx, Err(err)));
+                                return;
+                            }
+                        };
+
+                        // when the success report cannot be delivered, startup was abandoned;
+                        // exit and drop the services instead of serving
+                        if startup_tx.send((idx, Ok(()))).is_err() {
+                            Arbiter::current().stop();
+                            return;
                         }
 
-                        factory_tx.send(Ok(())).unwrap();
+                        // release the report channel, so waiting on a worker that dies without
+                        // reporting is not extended by this worker's lifetime
+                        drop(startup_tx);
 
                         let worker_services = wrap_worker_services(services);
 
@@ -470,15 +485,12 @@ impl ServerWorker {
             }
         };
 
-        // wait for service factories initialization
-        factory_rx.recv().unwrap()?;
-
-        Ok(pair)
+        pair
     }
 
     fn restart_service(&mut self, idx: usize, factory_id: usize) {
         let factory = &self.factories[factory_id];
-        trace!("service {:?} failed, restarting", factory.name(idx));
+        trace!("Service {:?} failed, restarting", factory.name(idx));
         self.services[idx].status = WorkerServiceStatus::Restarting;
         self.state = WorkerState::Restarting(Restart {
             factory_id,
@@ -529,7 +541,7 @@ impl ServerWorker {
                     }
                     Poll::Ready(Err(_)) => {
                         error!(
-                            "service {:?} readiness check returned error, restarting",
+                            "Service {:?} readiness check returned error, restarting",
                             self.factories[srv.factory_idx].name(idx)
                         );
                         srv.status = WorkerServiceStatus::Failed;
@@ -543,10 +555,20 @@ impl ServerWorker {
     }
 }
 
+#[derive(Default)]
 enum WorkerState {
-    Available,
+    /// At least one worker service is not ready. New connections are not dispatched.
+    #[default]
     Unavailable,
+
+    /// All worker services are ready and queued connections are dispatched to them.
+    Available,
+
+    /// A failed worker service is being recreated. New connections are not dispatched.
     Restarting(Restart),
+
+    /// The worker is gracefully shutting down. Queued connections are dropped while active
+    /// connections are given time to finish.
     Shutdown(Shutdown),
 }
 
@@ -566,12 +588,6 @@ struct Shutdown {
 
     /// Notify caller of the shutdown outcome (graceful/force).
     tx: oneshot::Sender<bool>,
-}
-
-impl Default for WorkerState {
-    fn default() -> Self {
-        Self::Unavailable
-    }
 }
 
 impl Drop for ServerWorker {
@@ -598,7 +614,7 @@ impl Future for ServerWorker {
                 this.shutdown(false);
 
                 this.state = WorkerState::Shutdown(Shutdown {
-                    timer: Box::pin(sleep(Duration::from_secs(1))),
+                    timer: Box::pin(sleep(SHUTDOWN_POLL_INTERVAL)),
                     start_from: Instant::now(),
                     tx,
                 });
@@ -658,7 +674,7 @@ impl Future for ServerWorker {
                     drop((conn, guard));
                 }
 
-                // wait for 1 second
+                // Wait until the next shutdown check.
                 ready!(shutdown.timer.as_mut().poll(cx));
 
                 if this.counter.total() == 0 {
@@ -676,8 +692,8 @@ impl Future for ServerWorker {
 
                     Poll::Ready(())
                 } else {
-                    // reset timer and wait for 1 second
-                    let time = Instant::now() + Duration::from_secs(1);
+                    // Schedule the next shutdown check.
+                    let time = Instant::now() + SHUTDOWN_POLL_INTERVAL;
                     shutdown.timer.as_mut().reset(time);
                     shutdown.timer.as_mut().poll(cx)
                 }
@@ -707,23 +723,89 @@ impl Future for ServerWorker {
                             .call((guard, msg.io))
                             .into_inner();
                     }
-                    None => return Poll::Ready(()),
+                    None => {
+                        // The accept channel can close before the server's stop command reaches
+                        // this worker. `stop_rx` was polled above and will wake this worker when
+                        // the command arrives.
+                        return Poll::Pending;
+                    }
                 };
             },
         }
     }
 }
 
+/// Creates every service of a starting worker.
+///
+/// Resolves to `None` when a stop request arrives before all services are created: the services
+/// created so far and the pending factory future are dropped, and the stop is confirmed.
+async fn create_services(
+    factories: &[Box<dyn InternalServiceFactory>],
+    stop_rx: &mut UnboundedReceiver<Stop>,
+) -> Option<io::Result<Vec<(usize, usize, BoxedServerService)>>> {
+    let mut create_fut = pin!(async {
+        let mut services = Vec::new();
+
+        for (idx, factory) in factories.iter().enumerate() {
+            match factory.create().await {
+                Ok((token, svc)) => services.push((idx, token, svc)),
+
+                Err(err) => {
+                    error!("Can not start worker: {err:?}");
+                    return Err(io::Error::other(format!(
+                        "Can not start server service {idx}",
+                    )));
+                }
+            }
+        }
+
+        Ok(services)
+    });
+
+    tokio::select! {
+        // A stop request cancels service creation; the stop channel is checked here because the
+        // worker starts polling it only after its services are created.
+        Some(Stop { tx, .. }) = stop_rx.recv() => {
+            let _ = tx.send(true);
+            None
+        }
+
+
+        // Service creation finished (either successfully or with an error).
+        created = create_fut.as_mut() => Some(created)
+    }
+}
+
 fn wrap_worker_services(services: Vec<(usize, usize, BoxedServerService)>) -> Vec<WorkerService> {
     services
         .into_iter()
-        .fold(Vec::new(), |mut services, (idx, token, service)| {
-            assert_eq!(token, services.len());
-            services.push(WorkerService {
+        .enumerate()
+        .map(|(position, (idx, token, service))| {
+            assert_eq!(
+                token, position,
+                "Token value should match its index in the list",
+            );
+
+            WorkerService {
                 factory_idx: idx,
                 service,
                 status: WorkerServiceStatus::Unavailable,
-            });
-            services
+            }
         })
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Counter;
+
+    #[test]
+    fn max_connection_limit_allows_connection_completion() {
+        let counter = Counter::new(usize::MAX);
+
+        assert!(counter.inc());
+        assert_eq!(counter.total(), 1);
+        assert!(!counter.dec());
+        assert_eq!(counter.total(), 0);
+    }
 }

@@ -48,7 +48,10 @@ pub fn weeble_millis_sync() -> Result<f64, ascii::AsciiChar> {
     }
     //gnostr-chat uses millis
     let weeble = now_millis as f64 / tmp_u64 as f64;
-    debug!("weeble_millis_sync: blockheight={}, weeble_millis={}", tmp_u64, weeble);
+    debug!(
+        "weeble_millis_sync: blockheight={}, weeble_millis={}",
+        tmp_u64, weeble
+    );
     unsafe { env::set_var("WEEBLE_MILLIS", weeble.clone().to_string()) };
     Ok(weeble.floor())
 }
@@ -92,7 +95,49 @@ pub async fn weeble_millis_async() -> Result<f64, ascii::AsciiChar> {
     }
     //gnostr-chat uses millis
     let weeble = now_millis as f64 / tmp_u64 as f64;
-    debug!("weeble_millis_async: blockheight={}, weeble_millis={}", tmp_u64, weeble);
+    debug!(
+        "weeble_millis_async: blockheight={}, weeble_millis={}",
+        tmp_u64, weeble
+    );
     unsafe { env::set_var("WEEBLE_MILLIS", weeble.to_string()) };
     Ok(weeble.floor())
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use serial_test::serial;
+
+    #[test]
+    #[ignore = "hits live block-height APIs over the network"]
+    #[serial]
+    fn weeble_sync_returns_floored_non_negative_value() {
+        // Arrange / Act
+        let weeble = weeble_sync().expect("weeble_sync");
+        let millis = weeble_millis_sync().expect("weeble_millis_sync");
+
+        // Assert: both are floored (integral) and non-negative
+        assert!(weeble >= 0.0, "weeble must be non-negative, got {weeble}");
+        assert_eq!(weeble, weeble.floor());
+        assert!(
+            millis >= 0.0,
+            "weeble_millis must be non-negative, got {millis}"
+        );
+        assert_eq!(millis, millis.floor());
+        // Assert: env side effects
+        let _ = env::var("WEEBLE").expect("WEEBLE env var must be set");
+        let _ = env::var("WEEBLE_MILLIS").expect("WEEBLE_MILLIS env var must be set");
+    }
+
+    #[ignore = "hits live block-height APIs over the network"]
+    #[serial]
+    #[tokio::test]
+    async fn weeble_async_matches_sync_shape() {
+        // Arrange / Act
+        let weeble = weeble_async().await.expect("weeble_async");
+
+        // Assert
+        assert!(weeble >= 0.0);
+        assert_eq!(weeble, weeble.floor());
+    }
 }

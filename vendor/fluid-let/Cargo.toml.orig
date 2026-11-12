@@ -1,0 +1,17 @@
+[package]
+name = "fluid-let"
+version = "1.0.0"
+authors = ["ilammy"]
+edition = "2018"
+description = "Dynamically scoped variables"
+repository = "https://github.com/ilammy/fluid-let"
+readme = "README.md"
+keywords = ["dynamic", "fluid", "scope", "variables"]
+categories = ["config"]
+license = "MIT"
+
+[features]
+static-init = []
+
+[package.metadata.docs.rs]
+features = [ "static-init" ]

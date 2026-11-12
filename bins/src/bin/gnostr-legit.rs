@@ -27,6 +27,19 @@ struct Args {
     #[arg(long, default_value = "000")]
     prefix: String,
 
+    /// NIP-13 event-ID difficulty in leading zero bits, independent of --prefix
+    #[arg(
+        long,
+        default_value_t = 0,
+        value_name = "BITS",
+        conflicts_with = "event_prefix"
+    )]
+    event_difficulty: u8,
+
+    /// Mine a hexadecimal event-ID prefix instead of NIP-13 leading zero bits
+    #[arg(long, value_name = "HEX", value_parser = gnostr_asyncgit::types::EventMining::prefix)]
+    event_prefix: Option<gnostr_asyncgit::types::EventMining>,
+
     /// Commit message
     #[arg(short, long)]
     message: Option<Vec<String>>,
@@ -70,5 +83,12 @@ async fn main() -> io::Result<()> {
         kind: None,
     };
 
-    command::run_legit_command(opts).await
+    command::run_legit_command_with_event_mining(
+        opts,
+        args.event_prefix
+            .unwrap_or(gnostr_asyncgit::types::EventMining::Difficulty(
+                args.event_difficulty,
+            )),
+    )
+    .await
 }

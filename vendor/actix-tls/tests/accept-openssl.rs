@@ -7,6 +7,7 @@
     feature = "openssl"
 ))]
 
+use core::future::ready;
 use std::{io::Write as _, sync::Arc};
 
 use actix_rt::net::TcpStream;
@@ -16,16 +17,15 @@ use actix_tls::{
     accept::openssl::{Acceptor, TlsStream},
     connect::rustls_0_23::reexports::ClientConfig,
 };
-use actix_utils::future::ok;
 use rustls_pki_types_1::ServerName;
 use tokio_rustls_026::rustls::RootCertStore;
 
 fn new_cert_and_key() -> (String, String) {
-    let rcgen::CertifiedKey { cert, key_pair } =
+    let rcgen::CertifiedKey { cert, signing_key } =
         rcgen::generate_simple_self_signed(vec!["127.0.0.1".to_owned(), "localhost".to_owned()])
             .unwrap();
 
-    let key = key_pair.serialize_pem();
+    let key = signing_key.serialize_pem();
     let cert = cert.pem();
 
     (cert, key)
@@ -127,7 +127,7 @@ async fn accepts_connections() {
 
             tls_acceptor
                 .map_err(|err| println!("OpenSSL error: {err:?}"))
-                .and_then(move |_stream: TlsStream<TcpStream>| ok(()))
+                .and_then(move |_stream: TlsStream<TcpStream>| ready(Ok(())))
         }
     });
 

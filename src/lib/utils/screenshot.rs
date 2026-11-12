@@ -294,9 +294,12 @@ pub fn make_screenshot(context: &str) -> io::Result<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serial_test::serial;
 
     #[test]
     #[ignore]
+    #[serial]
+    #[cfg(not(target_os = "windows"))]
     fn test_make_screenshot_cross_platform() {
         // This test now verifies that our new screenshot utility works correctly.
         let screenshot_path = make_screenshot_cross_platform("self_test")

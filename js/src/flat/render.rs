@@ -21,7 +21,7 @@ body.flat-app {
     grid-template-rows: auto minmax(0, 1fr) auto;
     --flat-sidebar-width: 320px;
     overflow: hidden;
-    font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-family: var(--ffDefault);
     background: var(--clrBg);
     color: var(--clrText);
 }
@@ -267,7 +267,7 @@ body.flat-resizing * {
 }
 .flat-binary {
     margin: 0;
-    color: #b91c1c;
+    color: var(--clrWarn);
     font-weight: 700;
 }
 .flat-llm textarea {
@@ -365,13 +365,13 @@ fn highlight_code(code: &str) -> String {
 
     let first_pass = re_kw.replace_all(
         &escaped,
-        r#"<span style=\"color: #d73a49; font-weight: bold;\">$1</span>"#,
+        r#"<span style=\"color: #dc322f; font-weight: bold;\">$1</span>"#,
     );
     let second_pass =
-        re_str.replace_all(&first_pass, r#"<span style=\"color: #032f62;\">$1</span>"#);
+        re_str.replace_all(&first_pass, r#"<span style=\"color: #268bd2;\">$1</span>"#);
     let third_pass = re_comment.replace_all(
         &second_pass,
-        r#"<span style=\"color: #6a737d; font-style: italic;\">$1</span>"#,
+        r#"<span style=\"color: #586e75; font-style: italic;\">$1</span>"#,
     );
 
     third_pass.to_string()
@@ -431,7 +431,9 @@ fn render_tree_node(name: &str, node: &TreeNode, path: &str, out: &mut String) {
         return;
     }
 
-    out.push_str(&format!("<li class='flat-tree-dir'><details data-tree-path='{current_path}'><summary>"));
+    out.push_str(&format!(
+        "<li class='flat-tree-dir'><details data-tree-path='{current_path}'><summary>"
+    ));
     out.push_str(name);
     out.push_str("</summary><ul>");
     for (child_name, child) in &node.children {
@@ -465,7 +467,10 @@ pub(crate) fn build_html(url: &str, files: &[FileInfo], export_stem: &str) -> St
                     highlight_code(c)
                 )
             }
-            None => format!("<p class=\"flat-binary\">Skipped binary or large file ({})</p>", f.size),
+            None => format!(
+                "<p class=\"flat-binary\">Skipped binary or large file ({})</p>",
+                f.size
+            ),
         };
 
         sections.push_str(&format!(

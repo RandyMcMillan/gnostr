@@ -1,7 +1,7 @@
 use std::env;
 
-use log::debug;
 use crate::nostr::ureq_async;
+use log::debug;
 
 const BLOCKHASH_URLS: [&str; 4] = [
     "https://bitcoin.gob.sv/api/blocks/tip/hash",
@@ -41,7 +41,9 @@ pub fn blockhash() -> Result<String, ascii::AsciiChar> {
 }
 
 pub async fn blockhash_async() -> String {
-    let blockhash = fetch_blockhash_async().await.unwrap_or_else(|| "0".to_string());
+    let blockhash = fetch_blockhash_async()
+        .await
+        .unwrap_or_else(|| "0".to_string());
     debug!("blockhash_async: {}", blockhash);
     unsafe { env::set_var("BLOCKHASH", blockhash.clone()) };
     blockhash
@@ -50,4 +52,37 @@ pub fn blockhash_sync() -> String {
     let blockhash = fetch_blockhash_sync().unwrap_or_else(|| "0".to_string());
     debug!("blockhash_sync: {}", blockhash);
     blockhash
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use serial_test::serial;
+
+    #[test]
+    #[ignore = "hits live block-hash APIs over the network"]
+    #[serial]
+    fn blockhash_sync_returns_non_empty_hash() {
+        // Arrange / Act
+        let hash = blockhash_sync();
+
+        // Assert: fallback is "0"; a real hash is 64 hex chars
+        assert!(!hash.is_empty());
+        assert!(
+            hash == "0" || (hash.len() == 64 && hash.bytes().all(|b| b.is_ascii_hexdigit())),
+            "unexpected blockhash value: {hash}"
+        );
+    }
+
+    #[test]
+    #[ignore = "hits live block-hash APIs over the network"]
+    #[serial]
+    fn blockhash_sets_env_var() {
+        // Arrange / Act
+        let _ = blockhash();
+
+        // Assert
+        let env_hash = env::var("BLOCKHASH").expect("BLOCKHASH env var must be set");
+        assert!(!env_hash.is_empty());
+    }
 }

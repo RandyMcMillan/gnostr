@@ -1,0 +1,63 @@
+[package]
+name = "axum-template"
+version = "0.3.0"
+edition = "2021"
+license = "MIT"
+description = "Layers, extractors and template engine wrappers for axum based Web MVC applications"
+homepage = "https://github.com/Altair-Bueno/axum-template"
+repository = "https://github.com/Altair-Bueno/axum-template"
+readme = "README.md"
+keywords = ["axum", "minijinja", "tera", "handlebars", "mvc"]
+categories = ["template-engine", "web-programming"]
+
+[package.metadata.docs.rs]
+all-features = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+serde = "1"
+thiserror = "1"
+
+tower-layer = "0.3.1"
+tower-http = { version = "0.3.4", features = ["add-extension"] }
+axum = { version = "0.5.13", features=["matched-path"], default-features = false }
+
+# Supported template engines
+tera = { version = "1.16.0", optional = true, default-features = false }
+handlebars = { version = "4.3.3", optional = true, default-features = false }
+minijinja = { version = "0.18.0", optional = true, default-features = false, features=["sync"] }
+
+[dev-dependencies]
+tokio = { version = "1.20.1", features = ["full"] }
+serde = { version = "1", features= ["derive"] }
+tower-http = { version = "0.3.4", features = ["full"] }
+tower = { version = "0.4.13", features = ["full"] }
+axum = "0.5.13"
+rstest = "0.15.0"
+speculoos = "0.9.0"
+anyhow = "1.0.61"
+hyper = "0.14.20"
+
+[[example]]
+name = "tera"
+required-features=["tera"]
+
+[[example]]
+name = "handlebars"
+required-features = ["handlebars"]
+
+[[example]]
+name = "minijinja"
+required-features = ["minijinja"]
+
+[[example]]
+name = "custom_key"
+required-features = ["tera"]
+
+[[example]]
+name = "custom_engine"
+
+[[example]]
+name = "nested"
+required-features = ["handlebars"]

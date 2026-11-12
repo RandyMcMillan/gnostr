@@ -18,12 +18,15 @@ struct ConfigView: View {
     @State var privkey_copied: Bool = false
     @State var pubkey_copied: Bool = false
     @State var relays: [RelayDescriptor]
+    @State private var show_ignored_relays: Bool = false
+    @ObservedObject var pool: RelayPool
     @EnvironmentObject var user_settings: UserSettingsStore
     
     let generator = UIImpactFeedbackGenerator(style: .light)
     
     init(state: DamusState) {
         self.state = state
+        self.pool = state.pool
         _privkey = State(initialValue: self.state.keypair.privkey_bech32 ?? "")
         _relays = State(initialValue: state.pool.descriptors)
     }
@@ -42,27 +45,40 @@ struct ConfigView: View {
     }
     
     var recommended: [RelayDescriptor] {
-        let rs: [RelayDescriptor] = []
-        return BOOTSTRAP_RELAYS.reduce(into: rs) { (xs, x) in
-            if let _ = state.pool.get_relay(x) {
-            } else {
-                xs.append(RelayDescriptor(url: URL(string: x)!, info: .rw))
-            }
-        }
+        return pool.available_recommendations(show_ignored: show_ignored_relays)
     }
     
     var body: some View {
         ZStack(alignment: .leading) {
             Form {
+                Section("Git (NIP-34)") {
+                    Toggle("Show NIP-34 kinds only", isOn: $user_settings.nip34_only).toggleStyle(.switch)
+                }
+                // make list fold - default closed
                 Section("Relays") {
+                    Toggle("Auto-subscribe to NIP-34 relays", isOn: $pool.auto_subscribe_nip34)
                     List(state.pool.relays) { relay in
-                        RelayView(state: state, relay: relay)
+                        VStack(alignment: .leading) {
+                            RelayView(state: state, relay: relay)
+                            Toggle("Ignore", isOn: Binding(
+                                get: { pool.is_relay_ignored(relay.descriptor.url) },
+                                set: { pool.set_relay_ignored(relay.descriptor, ignored: $0) }
+                            ))
+                        }
                     }
                 }
-                
+                // make list fold - default closed
                 Section("Recommended Relays") {
+                    Toggle("Show ignored", isOn: $show_ignored_relays)
                     List(recommended, id: \.url) { r in
-                        RecommendedRelayView(damus: state, relay: r.url.absoluteString)
+                        VStack(alignment: .leading) {
+                            RecommendedRelayView(damus: state, relay: r.url.absoluteString,
+                                                 info: r.info, add_button: !pool.is_relay_ignored(r.url))
+                            Toggle("Ignore", isOn: Binding(
+                                get: { pool.is_relay_ignored(r.url) },
+                                set: { pool.set_relay_ignored(r, ignored: $0) }
+                            ))
+                        }
                     }
                 }
                 
@@ -103,7 +119,7 @@ struct ConfigView: View {
                         }
                     }
                 }
-                
+                                
                 Section("Reset") {
                     Button("Logout") {
                         confirm_logout = true
@@ -156,6 +172,7 @@ struct ConfigView: View {
                 }
                 
                 let info = RelayInfo.rw
+                state.pool.allow_relay(url)
                 
                 guard (try? state.pool.add_relay(url, info: info)) != nil else {
                     return

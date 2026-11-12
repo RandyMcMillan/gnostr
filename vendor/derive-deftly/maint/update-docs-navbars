@@ -1,0 +1,302 @@
+#!/usr/bin/perl -w
+#
+# Idempotently updates the following files:
+#
+#   **.md
+#   **.rs
+#      looks for <!-- @navbar --> (manualal
+#   book/**.md
+#      unconditionally ensures a navbar at the top of every file
+#
+# The manually maintainer marker instructions
+#     <!-- @dd-navbar IDENT RELATIVE -->
+# IDENT identifies this navbar instance and ends up being compared with
+# IDENTs from maint/navbar.  It need not be unique, here.
+# RELATIVE is . or .. or something, to go back to the rustdoc toplevel.
+# In the book, RELATIVE is absent and the book's own URL is used.
+#
+# RELATIVE can also be an absolute URL containing `@version@` which will be
+# replaced with the toplevel crate's actual version number.  (This allows the
+# navbar at the top of our README.md, which is formatted in forges, crates.io,
+# etc., to refer to the correctg version, so the user doesn't get willy-nilly
+# teleported to a different version.  (That still happens if they visit the
+# guide, which isn't version.ed)   Some background:
+#    https://github.com/rust-lang/crates.io/issues/10541
+#
+# The file maint/navbar contains the contents of the navbar.
+#     divider =          raw HTML output between entries
+#     book-to-rustdoc =  URL for the rustdocs, from the book
+#     text =             raw HTML
+#     |                  ends the entry and prepares to start a new one
+#     url IDENT = URL    starts an entry
+#                        generally produces <a href="...">
+#                        in an IDENT navbar itself, <strong>
+#                        the closing tag is done by |
+#                        If URL has no scheme, it is rel to rustdoc toplevel
+#                        IDENT in url should be unique.
+#     subanchor IDENT = text
+#                        in a navbar instance IDENT itself, <strong>
+#                        IDENT should be different to any IDENTs in url
+#     $$                 indicates end of the entries
+#                        so that `text` is for the trailer
+#                        actually the instruction $ (see below)
+# Must be a single space around ` = `, since we want to be able to
+# control spaces.
+# Lines ending `$` have the `$` stripped off; the `$` protects trailing ws.
+#
+# Additionally, markdown defined anchors which look like this
+#   [navbar-versioned-url-ANCHOR]: SOME-URL
+# have the URL replaced.  The URL is computed from the first
+# URL in an @dd-navbar directive that contains @version@,
+# with /index.html#ANCHOR appended.  This is used to provide a versioned
+# link to the overall TOC in running text in the README.md.
+
+use strict;
+
+use Carp;
+use Getopt::Long;
+use TOML;
+
+our $check;
+our $debug;
+our $found_differences = 0;
+
+our $toml;
+our $navbar_file = "maint/navbar";
+
+GetOptions(
+	   "check" => \$check,
+	   "debug|D" => \$debug,
+	  )
+  or die("$0: bad usage\n");
+
+our $file;
+
+our $html_comment_start_re = qr{^\Q<!-- };
+
+# Ideally we would use an XML Processing Instruction, like this
+#     <? dd-navbar ... ?>
+# but pandoc renders those as if it were literal text!
+our $any_our_pi_re = qr{^\<!--\s*\@dd-navbar};
+
+sub command_read ($) {
+  my ($cmd) = @_;
+  $!=0; $?=0;
+  my $output = qx{$cmd};
+  confess "$cmd: ?=$? !=$!" if $! or $?;
+  chomp $output or die "$cmd: no final newline (no files matched?)";
+  split /\n/, $output;
+}
+
+sub process_file ($$) {
+    my ($call);
+    ($file, $call) = @_;
+    print STDERR "processing $file\n" if $debug;
+    open I, "<", $file or confess "input: $file: $!";
+    open O, ">", "$file.new" or confess "$file.new: $!";
+    $. = 0;
+    $call->();
+    I->error and confess $!; 
+    O->error and confess $!;
+    close O or confess $!;
+    my @cmd = $check ? qw(diff -u) : qw(cmp --quiet);
+    push @cmd, qw(--), "$file", "$file.new";
+    my $r = system @cmd;
+    $r == 0 || $r == 256 || confess '@cmd: failed';
+    if (!$r) {
+	unlink "$file.new" or confess $!;
+    } elsif ($check) {
+	$found_differences ||= 1;
+    } else {
+	print "installed new $file\n";
+	rename "$file.new", "$file" or confess $!;
+    }
+    $file = undef;
+}
+
+sub make_navbar ($) {
+    my ($d) = @_;
+    local ($_, $.);
+
+    my $o = '';
+    $o .= "<!-- this line automatically maintained by update-navbars -->";
+    $o .= '';
+    my $e;
+    my $divider;
+    my $book_to_rustdoc;
+
+    open N, '<', $navbar_file or confess $!;
+    while (<N>) {
+	next if m{^\#};
+	next unless m{\S};
+	chomp;
+	s{\s*$}{};
+	s{\$$}{};
+	if (m{^url (\S+) = (\S+)$}) {
+	    confess if defined $e;
+	    if ($d->{This} eq $1) {
+		$o .= "<strong>";
+		$e = "</strong>";
+	    } else {
+		my $up = $d->{UpInRustdoc} // $book_to_rustdoc;
+		my $url = $2;
+		$url = $up . $2 unless $url =~ m{^\w+:};
+		$o .= sprintf '<a href="%s">', $url;
+		$e = "</a>";
+	    }
+	} elsif (s{^text = }{}) {
+	    $o .= $_;
+	} elsif (s{^divider = }{}) {
+	    $divider .= $_;
+	} elsif (s{^book-to-rustdoc = }{}) {
+	    $book_to_rustdoc = $_;
+	} elsif (s{^subanchor (\S+) = }{}) {
+	    if ($d->{This} eq $1) {
+		$o .= "<strong>$_</strong>";
+	    } else {
+		$o .= $_;
+	    }
+	} elsif (m{^[|\$]$}) {
+	    $o .= $e;
+	    $e = undef;
+	    $o .= $divider if $_ =~ m/\|/;
+	} else {
+	    die "$navbar_file:$.: bad instruction in navbar\n";
+	}
+    }
+    N->error and confess $!;
+
+    $o .= $e if defined $e;
+    $e = undef;
+    $o .= "\n";
+    return $o;
+}
+
+sub filter_rustdoc () {
+    my $navbar_details;
+    my $versioned_base;
+
+    while (<I>) {
+	my $orig_line = $_;
+	my $line_prefix_bare = '';
+	my $line_prefix_spc = '';
+
+	if ($file =~ m{\.rs$}) {
+	    if (s{^(//[/!]) ?}{}) {
+		$line_prefix_bare = "$1";
+		$line_prefix_spc = "$1 ";
+	    } else {
+		die "$file:$.: navbar instruction at end of rustdoc\n"
+		  if $navbar_details;
+		print O;
+		next;
+	    }
+	}
+	if ($navbar_details) {
+	    my $navbar = $line_prefix_spc.make_navbar($navbar_details);
+	    if (m{$html_comment_start_re}) {
+		$_ = $navbar;
+	    } elsif (!m/\S/ && m/\n/) {
+		$_ = $navbar.$line_prefix_bare."\n";
+	    } else {
+		die "$file:$.: unexpected content after navbar instruction,".
+		  " wanted blank line or <!--...\n";
+	    }
+	    print O;
+	    $navbar_details = undef;
+	    next;
+	}
+	$navbar_details = undef;
+
+	if (m{^\[navbar-versioned-url-([^:]+)\]:}) {
+	    print O $line_prefix_spc, $&, " ",
+	            ($versioned_base //
+		     die "$file:$.: no versioned URL previously?\n"),
+		    "/index.html#$1\n";
+	    next;
+	}
+
+	print O $orig_line;
+
+	if (m{$any_our_pi_re}) {
+	    print STDERR "    line $.: processing navbar\n" if $debug;
+	    m{^\<!-- \@dd-navbar (\S+) (\S+) --\>\s*$}
+	      or die "$file:$.: bad navbar instruction";
+	    my $up = $2;
+	    if ($up eq '.') {
+		$up = '';
+	    } else {
+		$versioned_base //= $up if
+		  $up =~ s{\@version\@}{ $toml->{package}{version} }ge;
+		$up .= '/';
+	    }
+	    $navbar_details = {
+		This => $1,
+		UpInRustdoc => $up,
+            };
+	}
+    }
+}
+
+sub filter_mdbook () {
+    $_ = <I> // confess "$file eof? $!";
+
+    my $make_navbar = sub {
+	my ($ident) = @_;
+	make_navbar {
+	    This => $ident,
+        }
+    };
+
+    if (!m{$any_our_pi_re}) {
+	print O "<!-- \@dd-navbar -->\n", $make_navbar->('book-chapter'), "\n", $_;
+    } else {
+	m{^\<!-- \@dd-navbar(?: (\S+))? --\>\s*$}
+	  or die "$file:$.: bad book navbar instruction";
+	my $ident = $1 // 'book-chapter';
+	print O;
+	$_ = <I> // confess "$file eof? $!";
+	if (m{$html_comment_start_re}) {
+	    print O $make_navbar->($ident);
+	} elsif (!m{\S}) {
+	    print O $make_navbar->($ident), $_;
+	} else {
+	    die "$file:$.:".
+	      " unexpected content after navbar instruction in book\n";
+	  }
+    }
+    while (<I>) {
+	print O;
+    }
+}
+
+sub read_toml () {
+    local $/ = undef;
+    open TOML, 'Cargo.toml' or die $!;
+    $toml = from_toml(<TOML>);
+    die $! if TOML->error;
+}
+
+sub process_rustdocs () {
+    foreach my $doc (command_read q{
+        git grep -l '@dd-navbar' ':*.rs' ':*.md' :!book/
+    }) {
+      process_file $doc, \&filter_rustdoc;
+  }
+}
+
+sub process_book () {
+    foreach my $doc (command_read q{
+        git ls-files ':book/*.md' ':!book/src/SUMMARY.md'
+    }) {
+      process_file $doc, \&filter_mdbook;
+  }
+}
+
+read_toml();
+process_rustdocs();
+process_book();
+
+if ($found_differences) {
+    die "$0: --check, found differences.  Rerun $0 and commit.";
+}

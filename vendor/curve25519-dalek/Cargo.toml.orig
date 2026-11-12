@@ -3,8 +3,7 @@ name = "curve25519-dalek"
 # Before incrementing:
 # - update CHANGELOG
 # - update README if required by semver
-# - if README was updated, also update module documentation in src/lib.rs
-version = "5.0.0-pre.1"
+version = "5.0.0"
 edition = "2024"
 rust-version = "1.85.0"
 authors = [
@@ -28,22 +27,15 @@ rustdoc-args = [
     "--cfg",
     "docsrs",
 ]
-features = [
-    "serde",
-    "rand_core",
-    "digest",
-    "legacy_compatibility",
-    "group-bits",
-]
+all-features = true
 
 [dev-dependencies]
-sha2 = { version = "0.11.0-rc.2", default-features = false }
-bincode = "1"
+postcard = { version = "1", features = ["alloc"] }
 criterion = { version = "0.5", features = ["html_reports"] }
+getrandom = { version = "0.4", features = ["sys_rng"] }
 hex = "0.4.2"
 proptest = "1"
-rand = "0.9"
-rand_core = { version = "0.9", default-features = false, features = ["os_rng"] }
+sha2 = { version = "0.11", default-features = false }
 
 [build-dependencies]
 rustc_version = "0.4.0"
@@ -55,12 +47,10 @@ required-features = ["alloc", "rand_core"]
 
 [dependencies]
 cfg-if = "1"
-ff = { version = "=0.14.0-pre.0", default-features = false, optional = true }
-group = { version = "=0.14.0-pre.0", default-features = false, optional = true }
-rand_core = { version = "0.9", default-features = false, optional = true }
-digest = { version = "0.11.0-rc.1", default-features = false, optional = true, features = [
-    "block-api",
-] }
+ff = { version = "0.14", default-features = false, optional = true }
+group = { version = "0.14", default-features = false, optional = true }
+rand_core = { version = "0.10", default-features = false, optional = true }
+digest = { version = "0.11", default-features = false, optional = true, features = ["block-api"] }
 subtle = { version = "2.6.0", default-features = false, features = [
     "const-generics",
 ] }
@@ -70,7 +60,7 @@ serde = { version = "1.0", default-features = false, optional = true, features =
 zeroize = { version = "1", default-features = false, optional = true }
 
 [target.'cfg(target_arch = "x86_64")'.dependencies]
-cpufeatures = "0.2.17"
+cpufeatures = "0.3"
 
 [target.'cfg(curve25519_dalek_backend = "fiat")'.dependencies]
 fiat-crypto = { version = "0.3.0", default-features = false }
@@ -81,8 +71,9 @@ alloc = ["zeroize?/alloc"]
 precomputed-tables = []
 legacy_compatibility = []
 group = ["dep:group", "rand_core"]
-group-bits = ["group", "ff/bits"]
 digest = ["dep:digest"]
+lizard = ["digest"]
+rand_core = ["dep:rand_core", "digest/rand_core"]
 
 [target.'cfg(all(not(curve25519_dalek_backend = "fiat"), not(curve25519_dalek_backend = "serial"), target_arch = "x86_64"))'.dependencies]
 curve25519-dalek-derive = "0.1"
@@ -91,7 +82,7 @@ curve25519-dalek-derive = "0.1"
 level = "warn"
 check-cfg = [
     'cfg(allow_unused_unsafe)',
-    'cfg(curve25519_dalek_backend, values("fiat", "serial", "simd", "unstable_avx512"))',
+    'cfg(curve25519_dalek_backend, values("fiat", "serial", "simd", "avx512"))',
     'cfg(curve25519_dalek_diagnostics, values("build"))',
     'cfg(curve25519_dalek_bits, values("32", "64"))',
     'cfg(nightly)',

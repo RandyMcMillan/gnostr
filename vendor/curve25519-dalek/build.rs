@@ -3,59 +3,13 @@
 #![deny(clippy::unwrap_used, dead_code)]
 
 #[allow(non_camel_case_types)]
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone, Copy)]
 enum DalekBits {
     Dalek32,
     Dalek64,
 }
 
-use chrono::TimeZone;
 use std::fmt::Formatter;
-use std::process::Command;
-
-fn report_build_name() {
-    let now = match std::env::var("SOURCE_DATE_EPOCH") {
-        Ok(val) => chrono::Local
-            .timestamp_opt(val.parse::<i64>().unwrap(), 0)
-            .unwrap(),
-        Err(_) => chrono::Local::now(),
-    };
-    let build_date = now.date_naive();
-    let build_name = if std::env::var("GITUI_RELEASE").is_ok() {
-        format!("{}@{}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"))
-    } else {
-        format!(
-            "{}@{} {} ({})",
-            env!("CARGO_PKG_NAME"),
-            env!("CARGO_PKG_VERSION"),
-            build_date,
-            get_git_hash()
-        )
-    };
-
-    println!("cargo:warning=buildname '{build_name}'");
-    println!("cargo:rustc-env=GITUI_BUILD_NAME={build_name}");
-}
-
-fn get_git_hash() -> String {
-    if let Ok(commit) = std::env::var("BUILD_GIT_COMMIT_ID") {
-        return commit[..7].to_string();
-    }
-
-    let commit = Command::new("git")
-        .arg("rev-parse")
-        .arg("--short=7")
-        .arg("--verify")
-        .arg("HEAD")
-        .output();
-
-    if let Ok(commit_output) = commit {
-        let commit_string = String::from_utf8_lossy(&commit_output.stdout);
-        return commit_string.lines().next().unwrap_or("").into();
-    }
-
-    panic!("Can not get git commit: {}", commit.unwrap_err());
-}
 
 impl std::fmt::Display for DalekBits {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
@@ -63,12 +17,17 @@ impl std::fmt::Display for DalekBits {
             DalekBits::Dalek32 => "32",
             DalekBits::Dalek64 => "64",
         };
-        write!(f, "{}", w_bits)
+        write!(f, "{w_bits}")
     }
 }
 
+fn target_has_feature(feature: &str) -> bool {
+    std::env::var("CARGO_CFG_TARGET_FEATURE")
+        .map(|features| features.split(',').any(|f| f == feature))
+        .unwrap_or(false)
+}
+
 fn main() {
-    report_build_name();
     let target_arch = match std::env::var("CARGO_CFG_TARGET_ARCH") {
         Ok(arch) => arch,
         _ => "".to_string(),
@@ -82,17 +41,6 @@ fn main() {
 
     println!("cargo:rustc-cfg=curve25519_dalek_bits=\"{curve25519_dalek_bits}\"");
 
-    let nightly = if rustc_version::version_meta()
-        .expect("failed to detect rustc version")
-        .channel
-        == rustc_version::Channel::Nightly
-    {
-        println!("cargo:rustc-cfg=nightly");
-        true
-    } else {
-        false
-    };
-
     let rustc_version = rustc_version::version().expect("failed to detect rustc version");
     if rustc_version.major == 1 && rustc_version.minor <= 64 {
         // Old versions of Rust complain when you have an `unsafe fn` and you use `unsafe {}` inside,
@@ -101,52 +49,69 @@ fn main() {
     }
 
     // Backend overrides / defaults
-    let curve25519_dalek_backend = match std::env::var("CARGO_CFG_CURVE25519_DALEK_BACKEND")
-        .as_deref()
-    {
-        Ok("fiat") => "fiat",
-        Ok("serial") => "serial",
-        Ok("simd") => {
-            // simd can only be enabled on x86_64 & 64bit target_pointer_width
-            match is_capable_simd(&target_arch, curve25519_dalek_bits) {
-                true => "simd",
-                // If override is not possible this must result to compile error
-                // See: issues/532
-                false => panic!("Could not override curve25519_dalek_backend to simd"),
-            }
-        }
-        Ok("unstable_avx512") if nightly => {
-            // simd can only be enabled on x86_64 & 64bit target_pointer_width
-            match is_capable_simd(&target_arch, curve25519_dalek_bits) {
-                true => {
-                    // In addition enable Avx2 fallback through simd stable backend
-                    // NOTE: Compiler permits duplicate / multi value on the same key
-                    println!("cargo:rustc-cfg=curve25519_dalek_backend=\"simd\"");
-
-                    "unstable_avx512"
+    let curve25519_dalek_backend =
+        match std::env::var("CARGO_CFG_CURVE25519_DALEK_BACKEND").as_deref() {
+            Ok("fiat") => "fiat",
+            Ok("serial") => "serial",
+            Ok("simd") => {
+                // simd can only be enabled on x86_64 & 64bit target_pointer_width
+                match is_capable_simd(&target_arch, curve25519_dalek_bits) {
+                    true => "simd",
+                    // If override is not possible this must result to compile error
+                    // See: issues/532
+                    false => panic!("Could not override curve25519_dalek_backend to simd"),
                 }
-                // If override is not possible this must result to compile error
-                // See: issues/532
-                false => panic!("Could not override curve25519_dalek_backend to unstable_avx512"),
             }
-        }
-        Ok("unstable_avx512") if !nightly => {
-            panic!(
-                "Could not override curve25519_dalek_backend to unstable_avx512, as this is nightly only"
-            );
-        }
-        // default between serial / simd (if potentially capable)
-        _ => match is_capable_simd(&target_arch, curve25519_dalek_bits) {
-            true => "simd",
-            false => "serial",
-        },
-    };
+            Ok("avx512") => {
+                // AVX-512 can only be enabled on x86_64 & 64bit target_pointer_width
+                match is_capable_simd(&target_arch, curve25519_dalek_bits) {
+                    true => {
+                        // Enable SIMD as fallback through stable backend
+                        // NOTE: Compiler permits duplicate / multi value on the same key
+                        println!("cargo:rustc-cfg=curve25519_dalek_backend=\"simd\"");
+                        "avx512"
+                    }
+                    // If override is not possible this must result to compile error
+                    // See: issues/532
+                    false => panic!("Could not override curve25519_dalek_backend to avx512"),
+                }
+            }
+            // default between serial / simd / avx512 (if potentially capable)
+            _ => match is_capable_avx512(&target_arch, curve25519_dalek_bits, rustc_version) {
+                true => {
+                    println!("cargo:rustc-cfg=curve25519_dalek_backend=\"simd\"");
+                    "avx512"
+                }
+                false => match is_capable_simd(&target_arch, curve25519_dalek_bits) {
+                    true => "simd",
+                    false => "serial",
+                },
+            },
+        };
     println!("cargo:rustc-cfg=curve25519_dalek_backend=\"{curve25519_dalek_backend}\"");
 }
 
 // Is the target arch & curve25519_dalek_bits potentially simd capable ?
 fn is_capable_simd(arch: &str, bits: DalekBits) -> bool {
     arch == "x86_64" && bits == DalekBits::Dalek64
+}
+
+// Is the target arch & curve25519_dalek_bits potentially AVX-512 capable ?
+fn is_capable_avx512(arch: &str, bits: DalekBits, rustc_version: rustc_version::Version) -> bool {
+    // AVX-512 requires rustc >=1.89 or nightly
+    if rustc_version.major == 1 && rustc_version.minor < 89 {
+        let channel = rustc_version::version_meta()
+            .expect("failed to detect rustc version")
+            .channel;
+
+        if channel != rustc_version::Channel::Nightly {
+            return false;
+        }
+    }
+
+    is_capable_simd(arch, bits)
+        && target_has_feature("avx512ifma")
+        && target_has_feature("avx512vl")
 }
 
 // Deterministic cfg(curve25519_dalek_bits) when this is not explicitly set.

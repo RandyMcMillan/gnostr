@@ -1,0 +1,35 @@
+[package]
+name = "fslock-arti-fork"
+version = "0.2.0"
+authors = ["brunoczim <brunoczim@gmail.com>", "Nick Mathewson <nickm@torproject.org>"]
+edition = "2018"
+description = "A library to use files as locks, forked for use in Arti."
+repository = "https://github.com/nmathewson/fslock/"
+readme = "README.md"
+keywords = ["file", "lock", "lockfile", "filelock", "lock-file"]
+categories = ["filesystem", "no-std", "concurrency"]
+license = "MIT"
+
+
+[target.'cfg(unix)'.dependencies.libc]
+version = "^0.2.66"
+default-features = false
+
+[target.'cfg(windows)'.dependencies.winapi]
+version = "^0.3.8"
+features = [
+    "minwindef", 
+    "minwinbase",
+    "winbase",
+    "errhandlingapi",
+    "winerror",
+    "winnt",
+    "synchapi",
+    "handleapi",
+    "fileapi",
+    "processthreadsapi"
+]
+
+[features]
+default = ["std"]
+std = []

@@ -162,7 +162,8 @@ pub fn get_branches_info(
 			let upstream_branch =
 				upstream.ok().and_then(|upstream| {
 					let reference =
-						bytes2string(upstream.get().name_bytes()).ok()?;
+						bytes2string(upstream.get().name_bytes())
+							.ok()?;
 					Some(UpstreamBranch { reference })
 				});
 
@@ -176,7 +177,7 @@ pub fn get_branches_info(
 			} else {
 				BranchDetails::Remote(RemoteBranch {
 					has_tracking: remotes_with_tracking
-						.contains(name_bytes),
+						.contains(branch.get().name_bytes()),
 				})
 			};
 
@@ -235,8 +236,9 @@ pub fn get_branch_remote(
 	let branch = repo.find_branch(branch, BranchType::Local)?;
 	let reference = bytes2string(branch.get().name_bytes())?;
 	let remote_name = repo.branch_upstream_remote(&reference).ok();
-	Ok(remote_name
-		.and_then(|remote_name| remote_name.as_str().ok().map(str::to_owned)))
+	Ok(remote_name.and_then(|remote_name| {
+		remote_name.as_str().ok().map(str::to_owned)
+	}))
 }
 
 /// Retrieve the upstream merge of a local `branch`,
@@ -251,8 +253,9 @@ pub fn get_branch_upstream_merge(
 	let branch = repo.find_branch(branch, BranchType::Local)?;
 	let reference = bytes2string(branch.get().name_bytes())?;
 	let remote_name = repo.branch_upstream_merge(&reference).ok();
-	Ok(remote_name
-		.and_then(|remote_name| remote_name.as_str().ok().map(str::to_owned)))
+	Ok(remote_name.and_then(|remote_name| {
+		remote_name.as_str().ok().map(str::to_owned)
+	}))
 }
 
 /// returns whether the pull merge strategy is set to rebase
@@ -261,7 +264,8 @@ pub fn config_is_pull_rebase(repo_path: &RepoPath) -> Result<bool> {
 	let config = repo.config()?;
 
 	if let Ok(rebase) = config.get_entry("pull.rebase") {
-		let value = rebase.value().map(String::from).unwrap_or_default();
+		let value =
+			rebase.value().map(String::from).unwrap_or_default();
 		return Ok(value == "true");
 	}
 
@@ -1099,25 +1103,32 @@ mod test_remote_branches {
 		let branches_1 =
 			get_branches_info(&clone1_dir.into(), false).unwrap();
 
-		assert!(branches_1[0].remote_details().unwrap().has_tracking);
-		assert!(branches_1[1].remote_details().unwrap().has_tracking);
+		let find = |branches: &[BranchInfo], name: &str| {
+			branches
+				.iter()
+				.find(|b| b.name == name)
+				.unwrap()
+				.remote_details()
+				.unwrap()
+				.has_tracking
+		};
 
-		// clone2
+		assert!(find(&branches_1, "origin/master"));
+		assert!(find(&branches_1, "origin/foo"));
 
-		let (clone2_dir, _clone2) =
-			repo_clone(r1_dir.path().to_str().unwrap()).unwrap();
+		// Remove tracking for the local `foo` branch and verify the
+		// corresponding remote branch is no longer considered tracked.
+		let repo = Repository::open(clone1_dir).unwrap();
+		let mut branch =
+			repo.find_branch("foo", BranchType::Local).unwrap();
+		branch.set_upstream(None).unwrap();
+		drop(branch);
+		drop(repo);
 
-		let clone2_dir = clone2_dir.path().to_str().unwrap();
+		let branches_1 =
+			get_branches_info(&clone1_dir.into(), false).unwrap();
 
-		let branches_2 =
-			get_branches_info(&clone2_dir.into(), false).unwrap();
-
-		assert!(
-			!branches_2[0].remote_details().unwrap().has_tracking
-		);
-		assert!(
-			!branches_2[1].remote_details().unwrap().has_tracking
-		);
-		assert!(branches_2[2].remote_details().unwrap().has_tracking);
+		assert!(find(&branches_1, "origin/master"));
+		assert!(!find(&branches_1, "origin/foo"));
 	}
 }

@@ -76,11 +76,7 @@ regex = "1"
 tempfile = "3"
 thiserror = "1.0.34"
 
-[dependencies.which]
-version = "5.0"
-optional = true
-
-[target.'cfg(not(windows))'.dependencies.nix]
+[dependencies.nix]
 version = "0.27"
 features = [
     "fs",
@@ -88,3 +84,7 @@ features = [
     "signal",
     "term",
 ]
+
+[dependencies.which]
+version = "5.0"
+optional = true

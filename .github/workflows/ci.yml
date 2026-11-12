@@ -1,5 +1,9 @@
 name: CI
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches: [master]
@@ -16,6 +20,12 @@ jobs:
     runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
+      - uses: ./.github/actions/cargo-cache
+        with:
+          lock-hash: ${{ hashFiles('Cargo.lock') }}
+          # ci builds with cargo's default (debug) profile; restore the
+          # debug factory target cache, not the release one.
+          profile: debug
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
@@ -32,6 +42,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: ./.github/actions/cargo-cache
+        with:
+          lock-hash: ${{ hashFiles('Cargo.lock') }}
+          # ci builds with cargo's default (debug) profile; restore the
+          # debug factory target cache, not the release one.
+          profile: debug
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy

@@ -14,10 +14,10 @@ use std::{
 };
 
 use gnostr_asyncgit::{
-    filehash::{get_relay_urls, publish_patch_event},
     sync::{commit::commit, stage_add_file, RepoPath},
     types::Keys,
 };
+use gnostr_types::nostr::patch::{get_relay_urls, publish_patch_event};
 use portable_pty::{native_pty_system, CommandBuilder, PtySize};
 
 fn repo_path(repo_dir: &Path) -> Result<RepoPath, Box<dyn Error>> {
@@ -33,18 +33,12 @@ pub fn launch_editor(file_path: &Path) -> Result<(), Box<dyn Error>> {
     let program = parts.next().unwrap_or("vi");
     let args: Vec<&str> = parts.collect();
 
-    let status = Command::new(program)
-        .args(args)
-        .arg(file_path)
-        .status()?;
+    let status = Command::new(program).args(args).arg(file_path).status()?;
 
     if status.success() {
         Ok(())
     } else {
-        Err(std::io::Error::other(format!(
-            "editor exited with status {status}"
-        ))
-        .into())
+        Err(std::io::Error::other(format!("editor exited with status {status}")).into())
     }
 }
 
@@ -155,7 +149,10 @@ pub fn launch_git_tui(repo_dir: &Path) -> Result<(), Box<dyn Error>> {
                     let bytes = match key.code {
                         crossterm::event::KeyCode::Char(c) => {
                             let mut out = Vec::new();
-                            if key.modifiers.contains(crossterm::event::KeyModifiers::CONTROL) {
+                            if key
+                                .modifiers
+                                .contains(crossterm::event::KeyModifiers::CONTROL)
+                            {
                                 if let Some(ctrl) = c.to_ascii_lowercase().to_digit(36) {
                                     out.push((ctrl as u8).saturating_sub(9));
                                 }
@@ -181,7 +178,9 @@ pub fn launch_git_tui(repo_dir: &Path) -> Result<(), Box<dyn Error>> {
                     };
 
                     if !bytes.is_empty() {
-                        let mut guard = writer.lock().map_err(|_| io::Error::other("pty writer lock poisoned"))?;
+                        let mut guard = writer
+                            .lock()
+                            .map_err(|_| io::Error::other("pty writer lock poisoned"))?;
                         guard.write_all(&bytes)?;
                         guard.flush()?;
                     }
@@ -278,7 +277,7 @@ where
     ));
     let runtime = tokio::runtime::Runtime::new()?;
     runtime.block_on(async {
-        publish_patch_event(&keys, &relay_urls, &repo_name, &commit_hash, &patch, None).await
+        publish_patch_event(&keys, &relay_urls, &repo_name, &commit_hash, &patch, None, None).await
     })?;
 
     log(format!("proposal published {commit_hash}"));

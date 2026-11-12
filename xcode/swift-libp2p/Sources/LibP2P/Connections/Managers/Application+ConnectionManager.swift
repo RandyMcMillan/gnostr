@@ -25,6 +25,10 @@ extension Application {
     public var connections: ConnectionManager {
         let manager = self.connectionManager.storage.manager.withLockedValue { $0 }
         guard let manager else {
+            if self.didShutdown {
+                self.logger.warning("Accessing connections after Application shutdown; returning empty ConnectionManager")
+                return BasicInMemoryConnectionManager(application: self)
+            }
             fatalError("No ConnectionManager configured. Configure with app.connectionManager.use(...)")
         }
         return manager
@@ -84,6 +88,11 @@ extension Application {
         let application: Application
 
         var storage: Storage {
+            if let storage = self.application.storage[Key.self] {
+                return storage
+            }
+            self.application.connectionManager.initialize()
+            self.application.connectionManager.use(.default(maxConcurrentConnections: 50, ASCEnabled: false))
             guard let storage = self.application.storage[Key.self] else {
                 fatalError("ConnectionManager not initialized. Configure with app.connectionManager.initialize()")
             }

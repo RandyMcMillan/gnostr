@@ -1,0 +1,74 @@
+name: Tests
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  typos:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: crate-ci/typos@v1
+
+  doc-and-test:
+    name: Test and check formatting
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly
+      - name: Build docs
+        run: |
+          cargo doc --all-features --no-deps -Zwarnings --config 'build.warnings="deny"'
+      - name: Test
+        run: |
+          cargo test
+          cargo test --all-features
+          cargo test --no-default-features --lib --tests
+          cargo test --no-default-features --features libm
+
+  fmt-and-test:
+    name: Test and check formatting
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: beta
+          components: rustfmt
+      - name: Rustfmt check
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check
+      - name: Test
+        run: |
+          cargo test
+          cargo test --all-features
+          cargo test --no-default-features --lib --tests
+          cargo test --no-default-features --features libm
+
+  test:
+    name: Test MSRV
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7
+      - name: Install toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.96.0"
+      - name: Use Cargo.lock.msrv
+        run: cp Cargo.lock.msrv Cargo.lock
+      - name: Test
+        run: |
+          cargo test
+          cargo test --all-features
+          cargo test --no-default-features --lib --tests
+          cargo test --no-default-features --features libm

@@ -2,7 +2,8 @@ use std::{collections::HashMap, error::Error as StdError, io, io::Write, time::S
 
 use crate::crawler::processor::BOOTSTRAP_RELAYS;
 use gnostr_asyncgit::sync::{
-    get_commit_details, get_head, is_workdir_clean, status::get_status, status::StatusType, RepoPath,
+    get_commit_details, get_head, is_workdir_clean, status::get_status, status::StatusType,
+    RepoPath,
 };
 use gnostr_legit::gitminer::{self, Gitminer};
 use once_cell::sync::OnceCell;
@@ -11,10 +12,25 @@ use tokio::sync::mpsc;
 use tracing::{debug, error, info};
 
 use gnostr_asyncgit::types::{
-    Event, EventKind, KeySigner, PreEvent, PrivateKey, Signer, Tag, UncheckedUrl, Unixtime,
+    Event, EventKind, EventMining, KeySigner, PreEvent, PrivateKey, Signer, Tag, UncheckedUrl,
+    Unixtime,
 };
 
-pub async fn run_legit_command(mut opts: gitminer::Options) -> io::Result<()> {
+pub async fn run_legit_command(opts: gitminer::Options) -> io::Result<()> {
+    run_legit_command_with_event_difficulty(opts, 0).await
+}
+
+pub async fn run_legit_command_with_event_difficulty(
+    opts: gitminer::Options,
+    event_difficulty: u8,
+) -> io::Result<()> {
+    run_legit_command_with_event_mining(opts, EventMining::Difficulty(event_difficulty)).await
+}
+
+pub async fn run_legit_command_with_event_mining(
+    mut opts: gitminer::Options,
+    target: EventMining,
+) -> io::Result<()> {
     let _start = SystemTime::now();
     let _system_time = SystemTime::now();
     let repo_path = RepoPath::from(opts.repo.as_str());
@@ -41,9 +57,9 @@ pub async fn run_legit_command(mut opts: gitminer::Options) -> io::Result<()> {
     }
 
     //TODO create nostr event and inject into multi line message BEFORE mining
-    //TODO --event-pow for nostr event creation
     let mut miner = Gitminer::new(opts.clone())
-        .map_err(|e| io::Error::other(format!("Failed to start git miner: {}", e)))?;
+        .map_err(|e| io::Error::other(format!("Failed to start git miner: {}", e)))?
+        .with_event_mining(target.clone());
     debug!("Gitminer options: {:?}", opts);
 
     let _hash = miner
@@ -53,7 +69,7 @@ pub async fn run_legit_command(mut opts: gitminer::Options) -> io::Result<()> {
     // Initiate gnostr_legit_event after GitMiner has finished.
     // gnostr_legit_event itself spawns tasks on the global runtime.
     // We don't need to block_on it here, as it manages its own runtime tasks.
-    match gnostr_legit_event(opts.kind, repo_path).await {
+    match gnostr_legit_event_with_event_mining(opts.kind, repo_path, target).await {
         Ok(_) => {
             info!("gnostr_legit_event initiated successfully.");
             Ok(())
@@ -71,7 +87,31 @@ pub async fn create_event_with_custom_tags(
     content: &str,
     custom_tags: HashMap<String, Vec<String>>,
 ) -> anyhow::Result<(Event, PreEvent)> {
-    let mut tags = Vec::new();
+    create_event_with_custom_tags_and_pow(keys, content, custom_tags, 0).await
+}
+
+pub async fn create_event_with_custom_tags_and_pow(
+    keys: &KeySigner,
+    content: &str,
+    custom_tags: HashMap<String, Vec<String>>,
+    event_difficulty: u8,
+) -> anyhow::Result<(Event, PreEvent)> {
+    create_event_with_custom_tags_and_mining(
+        keys,
+        content,
+        custom_tags,
+        &EventMining::Difficulty(event_difficulty),
+    )
+    .await
+}
+
+pub async fn create_event_with_custom_tags_and_mining(
+    keys: &KeySigner,
+    content: &str,
+    custom_tags: HashMap<String, Vec<String>>,
+    target: &EventMining,
+) -> anyhow::Result<(Event, PreEvent)> {
+    let mut tags = vec![Tag::new(&["t", "gnostr"])];
     for (tag_name, tag_values) in custom_tags {
         info!("tag_name={:?}", tag_name);
         info!("tag_values={:?}", tag_values);
@@ -90,20 +130,17 @@ pub async fn create_event_with_custom_tags(
         content: content.to_string(),
     };
 
-    let id = pre_event.hash().unwrap();
-    let sig = keys.sign_id(id).unwrap();
+    sign_legit_event(keys, pre_event, target)
+}
 
-    let signed_event = Event {
-        id,
-        pubkey: pre_event.pubkey,
-        created_at: pre_event.created_at,
-        kind: pre_event.kind,
-        tags: pre_event.tags.clone(), // Clone tags for the signed event
-        content: pre_event.content.clone(), // Clone content for the signed event
-        sig,
-    };
-
-    Ok((signed_event, pre_event))
+fn sign_legit_event(
+    keys: &KeySigner,
+    mut pre_event: PreEvent,
+    target: &EventMining,
+) -> anyhow::Result<(Event, PreEvent)> {
+    let event = target.sign(keys, pre_event.clone())?;
+    pre_event.tags = event.tags.clone();
+    Ok((event, pre_event))
 }
 
 pub async fn create_unsigned_event(
@@ -111,7 +148,7 @@ pub async fn create_unsigned_event(
     content: &str,
     custom_tags: HashMap<String, Vec<String>>,
 ) -> anyhow::Result<PreEvent> {
-    let mut tags = Vec::new();
+    let mut tags = vec![Tag::new(&["t", "gnostr"])];
     for (tag_name, tag_values) in custom_tags {
         if let Some(value) = tag_values.get(0) {
             tags.push(Tag::new(&[&tag_name, value]));
@@ -134,7 +171,34 @@ pub async fn create_kind_event(
     content: &str,
     custom_tags: HashMap<String, Vec<String>>,
 ) -> anyhow::Result<(Event, PreEvent)> {
-    let mut tags = Vec::new();
+    create_kind_event_with_pow(keys, kind, content, custom_tags, 0).await
+}
+
+pub async fn create_kind_event_with_pow(
+    keys: &KeySigner,
+    kind: u16,
+    content: &str,
+    custom_tags: HashMap<String, Vec<String>>,
+    event_difficulty: u8,
+) -> anyhow::Result<(Event, PreEvent)> {
+    create_kind_event_with_mining(
+        keys,
+        kind,
+        content,
+        custom_tags,
+        &EventMining::Difficulty(event_difficulty),
+    )
+    .await
+}
+
+pub async fn create_kind_event_with_mining(
+    keys: &KeySigner,
+    kind: u16,
+    content: &str,
+    custom_tags: HashMap<String, Vec<String>>,
+    target: &EventMining,
+) -> anyhow::Result<(Event, PreEvent)> {
+    let mut tags = vec![Tag::new(&["t", "gnostr"])];
     for (tag_name, tag_values) in custom_tags {
         if let Some(value) = tag_values.get(0) {
             tags.push(Tag::new(&[&tag_name, value]));
@@ -149,20 +213,7 @@ pub async fn create_kind_event(
         content: content.to_string(),
     };
 
-    let id = pre_event.hash().unwrap();
-    let sig = keys.sign_id(id).unwrap();
-
-    let signed_event = Event {
-        id,
-        pubkey: pre_event.pubkey,
-        created_at: pre_event.created_at,
-        kind: pre_event.kind,
-        tags: pre_event.tags.clone(),
-        content: pre_event.content.clone(),
-        sig,
-    };
-
-    Ok((signed_event, pre_event))
+    sign_legit_event(keys, pre_event, target)
 }
 
 pub async fn create_event(
@@ -170,12 +221,36 @@ pub async fn create_event(
     custom_tags: HashMap<String, Vec<String>>,
     content: &str,
 ) -> anyhow::Result<Event> {
+    create_event_with_pow(keys, custom_tags, content, 0).await
+}
+
+pub async fn create_event_with_pow(
+    keys: KeySigner,
+    custom_tags: HashMap<String, Vec<String>>,
+    content: &str,
+    event_difficulty: u8,
+) -> anyhow::Result<Event> {
+    create_event_with_mining(
+        keys,
+        custom_tags,
+        content,
+        &EventMining::Difficulty(event_difficulty),
+    )
+    .await
+}
+
+pub async fn create_event_with_mining(
+    keys: KeySigner,
+    custom_tags: HashMap<String, Vec<String>>,
+    content: &str,
+    target: &EventMining,
+) -> anyhow::Result<Event> {
     // Changed return type
 
     //let content = "Hello, Nostr with custom tags!";
 
     let (signed_event, _unsigned_event) =
-        create_event_with_custom_tags(&keys, content, custom_tags).await?;
+        create_event_with_custom_tags_and_mining(&keys, content, custom_tags, target).await?;
 
     info!(
         "gnostr/src/lib/legit/command.rs:224:signed_event={}",
@@ -221,6 +296,7 @@ pub async fn create_event(
     info!("pubkey={}", pubkey_keys.as_hex_string());
 
     let mut tags: Vec<Tag> = Vec::new();
+    tags.push(Tag::new(&["t", "gnostr"]));
     tags.push(Tag::new_pubkey(pubkey_keys, None, None));
     tags.push(Tag::new(&["gnostr", "1 2 3 4 11 22 33 44"]));
     tags.push(Tag::new(&["gnostr", "1 2 3 4 11 22 33"]));
@@ -244,18 +320,7 @@ pub async fn create_event(
         .to_string(),
     };
 
-    let id = pre_event.hash().unwrap();
-    let sig = keys.sign_id(id).unwrap();
-
-    let text_note_event = Event {
-        id,
-        pubkey: pre_event.pubkey,
-        created_at: pre_event.created_at,
-        kind: pre_event.kind,
-        tags: pre_event.tags,
-        content: pre_event.content,
-        sig,
-    };
+    let (text_note_event, _) = sign_legit_event(&keys, pre_event, target)?;
 
     let output_send_event = client.send_event(text_note_event.clone()).await?;
     print!("output_send_event={:?}", output_send_event);
@@ -314,13 +379,33 @@ pub async fn gnostr_legit_event(
     kind: Option<u16>,
     repo_path: RepoPath,
 ) -> Result<(), Box<dyn StdError>> {
+    gnostr_legit_event_with_event_difficulty(kind, repo_path, 0).await
+}
+
+pub async fn gnostr_legit_event_with_event_difficulty(
+    kind: Option<u16>,
+    repo_path: RepoPath,
+    event_difficulty: u8,
+) -> Result<(), Box<dyn StdError>> {
+    gnostr_legit_event_with_event_mining(kind, repo_path, EventMining::Difficulty(event_difficulty))
+        .await
+}
+
+pub async fn gnostr_legit_event_with_event_mining(
+    kind: Option<u16>,
+    repo_path: RepoPath,
+    target: EventMining,
+) -> Result<(), Box<dyn StdError>> {
     let head_id = get_head(&repo_path)?;
     let details = get_commit_details(&repo_path, head_id)?;
     let commit_hash = details.hash.clone();
     let author_name = details.author.name.clone();
     let author_email = details.author.email.clone();
     let author_time = details.author.time;
-    let committer_name = details.committer.as_ref().map(|committer| committer.name.clone());
+    let committer_name = details
+        .committer
+        .as_ref()
+        .map(|committer| committer.name.clone());
     let committer_email = details
         .committer
         .as_ref()
@@ -345,7 +430,10 @@ pub async fn gnostr_legit_event(
     let padded_keys = KeySigner::from_private_key(padded_private_key, "", 1).unwrap();
 
     let mut custom_tags = HashMap::new();
-    custom_tags.insert("serialized_commit".to_string(), vec![serialized_commit.clone()]);
+    custom_tags.insert(
+        "serialized_commit".to_string(),
+        vec![serialized_commit.clone()],
+    );
     custom_tags.insert("gnostr".to_string(), vec!["git".to_string()]);
     custom_tags.insert("GIT".to_string(), vec!["GNOSTR".to_string()]);
     custom_tags.insert(
@@ -357,11 +445,13 @@ pub async fn gnostr_legit_event(
         PrivateKey::try_from_hex_string(&crate::git2::default_gnostr_private_key_hex()).unwrap();
     let empty_hash_keys = KeySigner::from_private_key(empty_hash_private_key, "", 1).unwrap();
     let custom_tags_clone = custom_tags.clone();
+    let empty_hash_target = target.clone();
     global_rt().spawn(async move {
-        let signed_event = create_event(
+        let signed_event = create_event_with_mining(
             empty_hash_keys,
             custom_tags_clone,
             "gnostr/src/lib/legit/command.rs:asyncgit:event",
+            &empty_hash_target,
         )
         .await;
         println!("signed_event:\n{:?}", signed_event);
@@ -371,10 +461,11 @@ pub async fn gnostr_legit_event(
     let serialized_commit_for_kind_event = serialized_commit.clone();
     global_rt().spawn(async move {
         let result: anyhow::Result<()> = async {
-            let create_event_result = create_event(
+            let create_event_result = create_event_with_mining(
                 padded_keys.clone(),
                 custom_tags,
                 "gnostr/src/lib/legit/command.rs:asyncgit:event",
+                &target,
             )
             .await?;
             println!(
@@ -383,22 +474,24 @@ pub async fn gnostr_legit_event(
             );
             io::stdout().flush().unwrap();
 
-            if let Err(e) = create_kind_event(
+            if let Err(e) = create_kind_event_with_mining(
                 &padded_keys,
                 kind.unwrap_or(1),
                 &serialized_commit_for_kind_event,
                 HashMap::new(),
+                &target,
             )
             .await
             {
                 error!("Failed to create kind event: {:?}", e);
             }
 
-            if let Err(e) = create_kind_event(
+            if let Err(e) = create_kind_event_with_mining(
                 &padded_keys,
                 kind.unwrap_or(1),
                 &serialized_commit_for_kind_event,
                 HashMap::new(),
+                &target,
             )
             .await
             {
@@ -413,4 +506,72 @@ pub async fn gnostr_legit_event(
     });
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use gnostr_asyncgit::types::{get_leading_zero_bits, nip13::NIP13Event};
+
+    #[tokio::test]
+    async fn event_prefix_helpers_preserve_the_winning_preevent_without_a_bit_claim() {
+        let private = PrivateKey::try_from_hex_string(
+            "473a0f4c3be8a93681a267e3b1e9a7dcda1185436fe141f7749120a303721813",
+        )
+        .unwrap();
+        let keys = KeySigner::from_private_key(private, "", 1).unwrap();
+        let target = EventMining::prefix("fff").unwrap();
+        let kind_event =
+            create_kind_event_with_mining(&keys, 1617, "patch", HashMap::new(), &target)
+                .await
+                .unwrap();
+        let custom_event = create_event_with_custom_tags_and_mining(
+            &keys,
+            "announcement",
+            HashMap::new(),
+            &target,
+        )
+        .await
+        .unwrap();
+        for (event, preevent) in [kind_event, custom_event] {
+            event.verify(None).unwrap();
+            assert_eq!(preevent.hash().unwrap(), event.id);
+            assert!(event.id.as_hex_string().starts_with("fff"));
+            assert_eq!(event.pow(), 0);
+            assert_eq!(event.nonce_data().unwrap().1, 0);
+        }
+    }
+
+    #[tokio::test]
+    async fn event_pow_publish_helpers_preserve_the_winning_preevent() {
+        let private = PrivateKey::try_from_hex_string(
+            "473a0f4c3be8a93681a267e3b1e9a7dcda1185436fe141f7749120a303721813",
+        )
+        .unwrap();
+        let keys = KeySigner::from_private_key(private, "", 1).unwrap();
+        for bits in [0, 8] {
+            let kind_event = create_kind_event_with_pow(&keys, 1617, "patch", HashMap::new(), bits)
+                .await
+                .unwrap();
+            let custom_event = create_event_with_custom_tags_and_pow(
+                &keys,
+                "announcement",
+                HashMap::from([("commit".to_string(), vec!["test commit".to_string()])]),
+                bits,
+            )
+            .await
+            .unwrap();
+            for (event, preevent) in [kind_event, custom_event] {
+                event.verify(None).unwrap();
+                assert_eq!(preevent.hash().unwrap(), event.id);
+                assert_eq!(event.pow(), bits);
+                if bits > 0 {
+                    assert!(get_leading_zero_bits(&event.id.0) >= bits);
+                    assert_eq!(event.nonce_data().unwrap().1, bits);
+                } else {
+                    assert!(event.nonce_data().is_none());
+                }
+            }
+        }
+    }
 }

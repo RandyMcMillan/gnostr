@@ -74,17 +74,7 @@ impl Source for MioListener {
         match *self {
             MioListener::Tcp(ref mut lst) => lst.deregister(registry),
             #[cfg(unix)]
-            MioListener::Uds(ref mut lst) => {
-                let res = lst.deregister(registry);
-
-                // cleanup file path
-                if let Ok(addr) = lst.local_addr() {
-                    if let Some(path) = addr.as_pathname() {
-                        let _ = std::fs::remove_file(path);
-                    }
-                }
-                res
-            }
+            MioListener::Uds(ref mut lst) => lst.deregister(registry),
         }
     }
 }
@@ -105,9 +95,9 @@ impl From<StdUnixListener> for MioListener {
 impl fmt::Debug for MioListener {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
-            MioListener::Tcp(ref lst) => write!(f, "{:?}", lst),
+            MioListener::Tcp(ref lst) => write!(f, "{lst:?}"),
             #[cfg(unix)]
-            MioListener::Uds(ref lst) => write!(f, "{:?}", lst),
+            MioListener::Uds(ref lst) => write!(f, "{lst:?}"),
         }
     }
 }
@@ -115,9 +105,9 @@ impl fmt::Debug for MioListener {
 impl fmt::Display for MioListener {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
-            MioListener::Tcp(ref lst) => write!(f, "{:?}", lst),
+            MioListener::Tcp(ref lst) => write!(f, "{lst:?}"),
             #[cfg(unix)]
-            MioListener::Uds(ref lst) => write!(f, "{:?}", lst),
+            MioListener::Uds(ref lst) => write!(f, "{lst:?}"),
         }
     }
 }
@@ -133,9 +123,9 @@ impl fmt::Display for SocketAddr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
             Self::Unknown => write!(f, "Unknown SocketAddr"),
-            Self::Tcp(ref addr) => write!(f, "{}", addr),
+            Self::Tcp(ref addr) => write!(f, "{addr}"),
             #[cfg(unix)]
-            Self::Uds(ref addr) => write!(f, "{:?}", addr),
+            Self::Uds(ref addr) => write!(f, "{addr:?}"),
         }
     }
 }
@@ -144,9 +134,9 @@ impl fmt::Debug for SocketAddr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
             Self::Unknown => write!(f, "Unknown SocketAddr"),
-            Self::Tcp(ref addr) => write!(f, "{:?}", addr),
+            Self::Tcp(ref addr) => write!(f, "{addr:?}"),
             #[cfg(unix)]
-            Self::Uds(ref addr) => write!(f, "{:?}", addr),
+            Self::Uds(ref addr) => write!(f, "{addr:?}"),
         }
     }
 }
@@ -243,8 +233,8 @@ pub(crate) fn create_mio_tcp_listener(
         Ok(sock) => sock,
 
         Err(err) if matches!(mptcp, MpTcp::TcpFallback) => {
-            tracing::warn!("binding socket as MPTCP failed: {err}");
-            tracing::warn!("falling back to TCP");
+            tracing::warn!("Binding socket as MPTCP failed: {err}");
+            tracing::warn!("Falling back to TCP");
             Socket::new(Domain::for_address(addr), Type::STREAM, Some(Protocol::TCP))?
         }
 
@@ -266,14 +256,14 @@ mod tests {
     #[test]
     fn socket_addr() {
         let addr = SocketAddr::Tcp("127.0.0.1:8080".parse().unwrap());
-        assert!(format!("{:?}", addr).contains("127.0.0.1:8080"));
-        assert_eq!(format!("{}", addr), "127.0.0.1:8080");
+        assert!(format!("{addr:?}").contains("127.0.0.1:8080"));
+        assert_eq!(format!("{addr}"), "127.0.0.1:8080");
 
         let addr: StdSocketAddr = "127.0.0.1:0".parse().unwrap();
         let lst = create_mio_tcp_listener(addr, 128, &MpTcp::Disabled).unwrap();
         let lst = MioListener::Tcp(lst);
-        assert!(format!("{:?}", lst).contains("TcpListener"));
-        assert!(format!("{}", lst).contains("127.0.0.1"));
+        assert!(format!("{lst:?}").contains("TcpListener"));
+        assert!(format!("{lst}").contains("127.0.0.1"));
     }
 
     #[test]
@@ -283,12 +273,41 @@ mod tests {
         if let Ok(socket) = MioUnixListener::bind("/tmp/sock.xxxxx") {
             let addr = socket.local_addr().expect("Couldn't get local address");
             let a = SocketAddr::Uds(addr);
-            assert!(format!("{:?}", a).contains("/tmp/sock.xxxxx"));
-            assert!(format!("{}", a).contains("/tmp/sock.xxxxx"));
+            assert!(format!("{a:?}").contains("/tmp/sock.xxxxx"));
+            assert!(format!("{a}").contains("/tmp/sock.xxxxx"));
 
             let lst = MioListener::Uds(socket);
-            assert!(format!("{:?}", lst).contains("/tmp/sock.xxxxx"));
-            assert!(format!("{}", lst).contains("/tmp/sock.xxxxx"));
+            assert!(format!("{lst:?}").contains("/tmp/sock.xxxxx"));
+            assert!(format!("{lst}").contains("/tmp/sock.xxxxx"));
         }
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn uds_deregister_does_not_unlink_socket_file() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+
+        static CNT: AtomicUsize = AtomicUsize::new(0);
+
+        let name = format!(
+            "actix-server-test-uds-{}-{}.sock",
+            std::process::id(),
+            CNT.fetch_add(1, Ordering::Relaxed)
+        );
+        let path = std::env::temp_dir().join(name);
+
+        let _ = std::fs::remove_file(&path);
+
+        let mut lst = MioListener::Uds(MioUnixListener::bind(&path).unwrap());
+        assert!(path.exists());
+
+        let poll = mio::Poll::new().unwrap();
+        poll.registry()
+            .register(&mut lst, mio::Token(0), mio::Interest::READABLE)
+            .unwrap();
+        poll.registry().deregister(&mut lst).unwrap();
+
+        // Regression test for https://github.com/actix/actix-net/issues/364.
+        assert!(path.exists());
     }
 }

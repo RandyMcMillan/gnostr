@@ -22,8 +22,14 @@ DRY_RUN=false
 LIST_ONLY=false
 VERBOSE=false
 FORCE_BROKEN_CROSS=${GNOSTR_CROSS_FORCE:-false}
+INTERACTIVE=false
+INSTALL_TARGETS=auto
+TOOLCHAIN="${RUSTUP_TOOLCHAIN:-}"
+MANAGED_RUSTC=""
+# shellcheck source=scripts/lib/script-ui.sh
+source "$SCRIPT_DIR/lib/script-ui.sh"
 
-HOST_TRIPLE=$(rustc -vV | awk '/^host: / { print $2 }')
+HOST_TRIPLE=""
 HOST_OS=$(uname -s)
 HOST_ARCH=$(uname -m)
 CROSS_VERSION=$(cross --version 2>/dev/null | awk 'NR==1 { print $2 }' || true)
@@ -69,6 +75,7 @@ Options:
   --skip NAME|TRIPLE     Skip the named CI target or Rust target triple.
                          Repeat to skip multiple targets.
   --profile NAME         Cargo profile to use (default: release).
+  --toolchain NAME       Use this rustup toolchain for target installation and Cargo.
   --package NAME         Cargo package to build (default: gnostr-bins).
   --workspace            Build the full workspace instead of one package.
   --all-features         Enable all cargo features.
@@ -78,6 +85,9 @@ Options:
   --verbose              Pass --verbose to cargo/cross.
   --force-broken-cross   Attempt known-broken Apple Silicon cross targets anyway.
   --list                 List the targets this host can attempt, then exit.
+  --interactive          Select available targets, package, and profile.
+  --install-targets      Install missing Rust targets without prompting.
+  --no-install-targets   Report missing targets without installing them.
   --dry-run              Print commands without executing them.
   --help                 Show this help.
 
@@ -86,6 +96,11 @@ Examples:
   $0 --profile dist --target linux-arm64 --target linux-arm64-musl
   $0 --workspace --all-features --dry-run
   $0 --package gnostr-bins --features chat,p2p,blossom --dry-run
+
+Missing native targets prompt for installation in a terminal or --interactive
+mode. Non-interactive CI keeps automatic installation. Dry runs never install.
+Native builds use rustup's Cargo and rustc together, even if Homebrew Rust is
+earlier in PATH. The toolchain defaults to the repository's active toolchain.
 EOF
 }
 
@@ -157,26 +172,31 @@ host_can_attempt() {
 }
 
 ensure_rust_target() {
-  local triple="$1"
+  local triple="$1" installed
 
-  if ! rustup target list --installed | grep -qx "$triple"; then
-    if [[ "$DRY_RUN" == true ]]; then
-      log "would run: rustup target add $triple"
-    else
-      log "installing rust target: $triple"
-      rustup target add "$triple"
-    fi
+  if ! installed="$(rustup target list --installed --toolchain "$TOOLCHAIN")"; then
+    warn "could not inspect installed Rust targets; check your active rustup toolchain"
+    return 1
   fi
-}
 
-build_cmd_prefix() {
-  local triple="$1"
-  local tool="$2"
-
-  if [[ "$tool" == "cross" ]]; then
-    printf 'cross build'
-  else
-    printf 'cargo build'
+  if ! grep -Fxq "$triple" <<<"$installed"; then
+    if [[ "$INSTALL_TARGETS" == false ]]; then
+      warn "missing Rust target $triple (core/std unavailable). Run: rustup target add $triple --toolchain $TOOLCHAIN; or rerun with --install-targets"
+      return 1
+    fi
+    if [[ "$DRY_RUN" == true ]]; then
+      log "would run: rustup target add $triple --toolchain $TOOLCHAIN"
+    else
+      if [[ "$INSTALL_TARGETS" == auto ]] &&
+        [[ "$INTERACTIVE" == true || -t 0 ]]; then
+        ui_confirm "Rust target $triple is missing for $TOOLCHAIN (core/std unavailable). Run rustup target add $triple --toolchain $TOOLCHAIN?"
+      fi
+      log "installing rust target: $triple"
+      if ! rustup target add "$triple" --toolchain "$TOOLCHAIN"; then
+        warn "failed to install $triple; no build will be attempted. Retry: rustup target add $triple --toolchain $TOOLCHAIN"
+        return 1
+      fi
+    fi
   fi
 }
 
@@ -184,13 +204,15 @@ run_build() {
   local name="$1"
   local triple="$2"
   local tool="$3"
-  local cmd_prefix
   local -a cmd
 
-  cmd_prefix=$(build_cmd_prefix "$triple" "$tool")
-  ensure_rust_target "$triple"
+  if [[ "$tool" == cargo ]]; then
+    ensure_rust_target "$triple" || return 1
+    cmd=(env "RUSTC=$MANAGED_RUSTC" rustup run "$TOOLCHAIN" cargo build)
+  else
+    cmd=(cross "+$TOOLCHAIN" build)
+  fi
 
-  read -r -a cmd <<<"$cmd_prefix"
   cmd+=(--target "$triple")
 
   if [[ "$PROFILE" == "release" ]]; then
@@ -229,7 +251,7 @@ run_build() {
     cmd+=(--features "$FEATURES")
   fi
 
-  log "building $name ($triple) via ${cmd[0]}"
+  log "building $name ($triple) via $tool (toolchain=$TOOLCHAIN)"
   if [[ "$DRY_RUN" == true ]]; then
     printf '  %q' "${cmd[@]}"
     printf '\n'
@@ -244,6 +266,18 @@ run_build() {
 parse_args() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
+      --interactive|-i)
+        INTERACTIVE=true
+        shift
+        ;;
+      --install-targets)
+        INSTALL_TARGETS=true
+        shift
+        ;;
+      --no-install-targets)
+        INSTALL_TARGETS=false
+        shift
+        ;;
       --target)
         [[ $# -ge 2 ]] || die "--target requires a value"
         REQUESTED_TARGETS+=("$2")
@@ -257,6 +291,11 @@ parse_args() {
       --profile)
         [[ $# -ge 2 ]] || die "--profile requires a value"
         PROFILE="$2"
+        shift 2
+        ;;
+      --toolchain)
+        [[ $# -ge 2 ]] || die "--toolchain requires a value"
+        TOOLCHAIN="$2"
         shift 2
         ;;
       --package)
@@ -349,6 +388,50 @@ collect_targets() {
 main() {
   parse_args "$@"
 
+  local active_toolchain
+  if [[ -z "$TOOLCHAIN" ]]; then
+    active_toolchain="$(cd "$REPO_ROOT" && rustup show active-toolchain)" ||
+      die "could not resolve the repository's active rustup toolchain"
+    TOOLCHAIN="${active_toolchain%% *}"
+  fi
+  [[ -n "$TOOLCHAIN" ]] || die "no rustup toolchain selected"
+  MANAGED_RUSTC="$(cd "$REPO_ROOT" && rustup which --toolchain "$TOOLCHAIN" rustc)" ||
+    die "toolchain $TOOLCHAIN is unavailable; run rustup toolchain install $TOOLCHAIN"
+  HOST_TRIPLE="$(rustup run "$TOOLCHAIN" rustc -vV | awk '/^host: / { print $2 }')" ||
+    die "could not inspect rustc for $TOOLCHAIN"
+  [[ -n "$HOST_TRIPLE" ]] || die "rustc did not report a host triple"
+  # cross composes "<toolchain>-<host>" itself; hand it the bare channel or
+  # rustup rejects the doubled name (e.g. stable-x86_64-...-x86_64-...).
+  case "$TOOLCHAIN" in
+    *-"$HOST_TRIPLE")
+      TOOLCHAIN="${TOOLCHAIN%-"$HOST_TRIPLE"}"
+      log "normalized toolchain for cross: $TOOLCHAIN"
+      ;;
+  esac
+
+  if [[ "$INTERACTIVE" == true && "$LIST_ONLY" != true ]]; then
+    local choices=() candidate name triple tool
+    while IFS= read -r candidate; do
+      IFS='|' read -r name triple tool <<<"$candidate"
+      if ! should_skip "$name" "$triple" && host_can_attempt "$triple" "$tool" &&
+        ! cross_known_broken_for_host "$triple" "$tool"; then
+        choices+=("$candidate")
+      fi
+    done < <(collect_targets)
+    ui_select "Build targets: name / triple / tool" ${choices[@]+"${choices[@]}"}
+    REQUESTED_TARGETS=()
+    for candidate in "${UI_SELECTED[@]}"; do
+      REQUESTED_TARGETS+=("${candidate%%|*}")
+    done
+    ui_prompt "Package (__workspace__ builds all workspace members)" "$PACKAGE"
+    PACKAGE="$UI_VALUE"
+    ui_prompt "Cargo profile" "$PROFILE"
+    PROFILE="$UI_VALUE"
+    ui_prompt "Features (comma-separated)" "$FEATURES"
+    FEATURES="$UI_VALUE"
+    ui_confirm "Build ${#REQUESTED_TARGETS[@]} targets for $PACKAGE with profile $PROFILE (dry-run=$DRY_RUN)?"
+  fi
+
   log "host: $HOST_TRIPLE ($HOST_OS/$HOST_ARCH)"
   if [[ -n "$CROSS_VERSION" ]]; then
     log "cross: $CROSS_VERSION"
@@ -357,7 +440,7 @@ main() {
   local entry name triple tool
   local attempted=0
 
-  while IFS= read -r entry; do
+  while IFS= read -r entry <&3; do
     [[ -n "$entry" ]] || continue
     IFS='|' read -r name triple tool <<<"$entry"
 
@@ -387,7 +470,7 @@ main() {
       FAILED_TARGETS+=("$name|$triple")
       warn "build failed for $name ($triple)"
     fi
-  done < <(collect_targets)
+  done 3< <(collect_targets)
 
   if [[ "$LIST_ONLY" == true ]]; then
     exit 0

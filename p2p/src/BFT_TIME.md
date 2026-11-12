@@ -46,9 +46,11 @@ Given peer estimates `e_i = (d_i, a_i)`, the algorithm computes:
 
 After sorting these values, the consensus window is defined as:
 
-`m_min = sorted(d_over)[f]`
+`m_min = sorted(d_under)[n - 1 - f]`
 
-`m_max = sorted(d_under)[n - 1 - f]`
+`m_max = sorted(d_over)[f]`
+
+`m_min` is the `(f+1)`-th largest lower bound and `m_max` the `(f+1)`-th smallest upper bound, i.e. Marzullo's selection: the window must be covered by at least `n - f` estimate intervals.
 
 Synchronization proceeds only if `m_min <= m_max`. The chosen offset is the midpoint of the window:
 

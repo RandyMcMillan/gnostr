@@ -15,25 +15,7 @@ struct RelayView: View {
     @State var conn_color: Color = .gray
     @State private var isSelected: Bool = false
     @State private var relayInfo: RelayInformation?
-
-    func fetchRelayInfo() {
-        let url = relay.descriptor.url
-        var request = URLRequest(url: url)
-        request.setValue("application/nostr+json", forHTTPHeaderField: "Accept")
-
-        URLSession.shared.dataTask(with: request) { data, response, error in
-            guard let data = data, error == nil else { return }
-
-            let decoder = JSONDecoder()
-            decoder.keyDecodingStrategy = .convertFromSnakeCase
-            
-            if let decodedInfo = try? decoder.decode(RelayInformation.self, from: data) {
-                DispatchQueue.main.async {
-                    self.relayInfo = decodedInfo
-                }
-            }
-        }.resume()
-    }
+    @State private var relayInfoError: String?
     
     func update_connection_color() {
         let c = relay.connection
@@ -64,6 +46,15 @@ struct RelayView: View {
             Text(relay.descriptor.url.absoluteString)
                 .font(.caption)
                 .foregroundColor(.gray)
+            if let info = relayInfo {
+                Text(info.supportsNIP34 ? "NIP-34 advertised" : "NIP-34 not advertised")
+                    .font(.caption)
+                    .foregroundColor(info.supportsNIP34 ? .green : .secondary)
+            } else if let error = relayInfoError {
+                Text("NIP-34 unknown: \(error)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
             
             if isSelected {
                 if let info = relayInfo {
@@ -93,7 +84,7 @@ struct RelayView: View {
                             .font(.footnote)
                             .foregroundColor(.gray)
                     }
-                } else {
+                } else if relayInfoError == nil {
                     ProgressView() // Show a loading indicator while fetching
                 }
             } else {
@@ -116,19 +107,24 @@ struct RelayView: View {
         }
         .onAppear() {
             update_connection_color()
-            fetchRelayInfo()
+        }
+        .task(id: relay.descriptor.url) {
+            do {
+                relayInfo = try await state.pool.load_relay_information(relay.descriptor.url)
+                relayInfoError = nil
+            } catch {
+                guard !Task.isCancelled else { return }
+                relayInfoError = error.localizedDescription
+                print("NIP-11 fetch failed for \(relay.descriptor.url): \(error)")
+            }
         }
         .swipeActions {
-            if let privkey = state.keypair.privkey {
-                RemoveAction(privkey: privkey)
-            }
+            RemoveAction()
         }
         .contextMenu {
             CopyAction(relay: relay.descriptor.url.absoluteString)
             
-            if let privkey = state.keypair.privkey {
-                RemoveAction(privkey: privkey)
-            }
+            RemoveAction()
         }
     }
     
@@ -140,21 +136,18 @@ struct RelayView: View {
         }
     }
     
-    func RemoveAction(privkey: String) -> some View {
+    func RemoveAction() -> some View {
         Button {
-            guard let ev = state.contacts.event else {
-                return
-            }
-            
             let descriptors = state.pool.descriptors
-            guard let new_ev = remove_relay(ev: ev, current_relays: descriptors, privkey: privkey, relay: relay.descriptor.url.absoluteString) else {
-                return
+            state.pool.remove_relay(relay.id)
+            if let ev = state.contacts.event, let privkey = state.keypair.privkey,
+               let new_ev = remove_relay(ev: ev, current_relays: descriptors, privkey: privkey,
+                                        relay: relay.descriptor.url.absoluteString) {
+                process_contact_event(pool: state.pool, contacts: state.contacts, pubkey: state.pubkey, ev: new_ev)
+                state.pool.send(.event(new_ev))
             }
-            
-            process_contact_event(pool: state.pool, contacts: state.contacts, pubkey: state.pubkey, ev: new_ev)
-            state.pool.send(.event(new_ev))
         } label: {
-            Label("Delete", systemImage: "trash")
+            Label("Remove", systemImage: "minus.circle")
         }
         .tint(.red)
     }

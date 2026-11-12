@@ -18,8 +18,8 @@ use libp2p::{
     swarm::{NetworkBehaviour, SwarmEvent},
     tcp, yamux, Multiaddr, PeerId, StreamProtocol,
 };
-use parking_lot::Mutex;
 use once_cell::sync::OnceCell;
+use parking_lot::Mutex;
 use terminal_size::{terminal_size, Width};
 use textwrap::{self, Options};
 use tokio::select;
@@ -48,8 +48,15 @@ async fn publish_or_queue_chat_message(
     recv: &tokio::sync::mpsc::Sender<ChatEvent>,
 ) -> Result<()> {
     let payload = serde_json::to_vec(&msg)?;
-    match swarm.behaviour_mut().gossipsub.publish(topic.clone(), payload) {
-        Ok(_) => Ok(()),
+    match swarm
+        .behaviour_mut()
+        .gossipsub
+        .publish(topic.clone(), payload)
+    {
+        Ok(_) => {
+            recv.send(ChatEvent::MessagePublished).await?;
+            Ok(())
+        }
         Err(error) if is_insufficient_peers_error(&error) => {
             pending_chat_messages.push_back(msg);
             recv.send(ChatEvent::ShowInfoMsg(
@@ -63,7 +70,8 @@ async fn publish_or_queue_chat_message(
             let system = Msg::default()
                 .set_content(format!("publish error: {error:?}"), 0)
                 .set_kind(MsgKind::System);
-            recv.send(ChatEvent::ShowErrorMsg(system.to_string())).await?;
+            recv.send(ChatEvent::ShowErrorMsg(system.to_string()))
+                .await?;
             Ok(())
         }
     }
@@ -77,10 +85,17 @@ async fn flush_pending_chat_messages(
 ) -> Result<()> {
     while let Some(msg) = pending_chat_messages.pop_front() {
         let payload = serde_json::to_vec(&msg)?;
-        match swarm.behaviour_mut().gossipsub.publish(topic.clone(), payload) {
+        match swarm
+            .behaviour_mut()
+            .gossipsub
+            .publish(topic.clone(), payload)
+        {
             Ok(_) => {
-                recv.send(ChatEvent::ShowInfoMsg("sent queued chat message".to_string()))
-                    .await?;
+                recv.send(ChatEvent::ShowInfoMsg(
+                    "sent queued chat message".to_string(),
+                ))
+                .await?;
+                recv.send(ChatEvent::MessagePublished).await?;
             }
             Err(error) if is_insufficient_peers_error(&error) => {
                 pending_chat_messages.push_front(msg);
@@ -91,7 +106,8 @@ async fn flush_pending_chat_messages(
                 let system = Msg::default()
                     .set_content(format!("publish error: {error:?}"), 0)
                     .set_kind(MsgKind::System);
-                recv.send(ChatEvent::ShowErrorMsg(system.to_string())).await?;
+                recv.send(ChatEvent::ShowErrorMsg(system.to_string()))
+                    .await?;
             }
         }
     }
@@ -193,8 +209,8 @@ async fn run_local_p2p_relay_service(
         })?
         .build();
 
-    swarm.listen_on("/ip4/127.0.0.1/tcp/0".parse()?)?;
-    swarm.listen_on("/ip4/127.0.0.1/udp/0/quic-v1".parse()?)?;
+    swarm.listen_on("/ip4/0.0.0.0/tcp/0".parse()?)?;
+    swarm.listen_on("/ip4/0.0.0.0/udp/0/quic-v1".parse()?)?;
 
     let mut listen_addr_tx = Some(listen_addr_tx);
 
@@ -401,6 +417,95 @@ pub async fn async_prompt(mempool_url: String) -> String {
 //    .unwrap() // Handle potential join errors
 //}
 
+#[cfg(feature = "fractal")]
+async fn handle_perfect_ip_manifest(
+    recv: &tokio::sync::mpsc::Sender<ChatEvent>,
+    msg: Msg,
+) -> Result<()> {
+    use crate::fractal::{request_slices, PerfectIpManifest};
+    use anyhow::Context;
+
+    // Forward the manifest announcement to the UI so it appears in chat history.
+    recv.send(ChatEvent::ChatMessage(msg.clone())).await?;
+
+    let manifest_json = msg
+        .perfect_ip_manifest
+        .clone()
+        .ok_or_else(|| anyhow!("PerfectIpManifest message missing manifest payload"))?;
+    let manifest: PerfectIpManifest = serde_json::from_str(&manifest_json)
+        .context("failed to deserialize perfect_ip manifest")?;
+    let total = manifest.total_slices();
+    let root = manifest.root.clone();
+
+    recv.send(ChatEvent::PerfectIpProgress {
+        root: root.clone(),
+        received: 0,
+        total,
+    })
+    .await?;
+
+    let recv_clone = recv.clone();
+    tokio::spawn(async move {
+        let repair_addr = match manifest.repair_addr.parse() {
+            Ok(addr) => addr,
+            Err(error) => {
+                let _ = recv_clone
+                    .send(ChatEvent::ShowErrorMsg(format!(
+                        "invalid fractal repair address: {error}"
+                    )))
+                    .await;
+                return;
+            }
+        };
+
+        let ids = manifest.all_slice_ids();
+        match request_slices(repair_addr, ids.clone(), Duration::from_secs(120)).await {
+            Ok(manager) => {
+                let output_dir = std::env::temp_dir().join(format!(
+                    "gnostr-chat-fractal-{}",
+                    crate::perfect_ip_core::sha256_hex(manifest_json.as_bytes())
+                        .chars()
+                        .take(16)
+                        .collect::<String>()
+                ));
+                let _ = recv_clone
+                    .send(ChatEvent::PerfectIpProgress {
+                        root: root.clone(),
+                        received: ids.len(),
+                        total,
+                    })
+                    .await;
+                match crate::fractal::reconstruct_from_manager(&manager, &manifest, &output_dir) {
+                    Ok(()) => {
+                        let _ = recv_clone
+                            .send(ChatEvent::PerfectIpComplete {
+                                root,
+                                output_path: output_dir,
+                            })
+                            .await;
+                    }
+                    Err(error) => {
+                        let _ = recv_clone
+                            .send(ChatEvent::ShowErrorMsg(format!(
+                                "fractal reconstruction failed: {error}"
+                            )))
+                            .await;
+                    }
+                }
+            }
+            Err(error) => {
+                let _ = recv_clone
+                    .send(ChatEvent::ShowErrorMsg(format!(
+                        "fractal slice download failed: {error}"
+                    )))
+                    .await;
+            }
+        }
+    });
+
+    Ok(())
+}
+
 /// Run the chat swarm event loop.
 ///
 /// This bootstraps the transport stack, subscribes to the requested topic, and
@@ -409,10 +514,12 @@ pub async fn evt_loop(
     mut send: tokio::sync::mpsc::Receiver<ChatEvent>,
     recv: tokio::sync::mpsc::Sender<ChatEvent>,
     topic: gossipsub::IdentTopic,
+    relay: Option<String>,
 ) -> Result<()> {
     let reassembler = Arc::new(MessageReassembler::new()); // Create reassembler here
     let mut pending_crawler_search: HashMap<kad::QueryId, i32> = HashMap::new();
     let mut pending_chat_messages: VecDeque<Msg> = VecDeque::new();
+    let mut flush_pending_interval = tokio::time::interval(Duration::from_secs(1));
 
     let mut swarm = libp2p::SwarmBuilder::with_new_identity()
         .with_tokio()
@@ -441,7 +548,7 @@ pub async fn evt_loop(
             let gossipsub_config = gossipsub::ConfigBuilder::default()
                 .heartbeat_interval(Duration::from_secs(10))
                 // This is set to aid debugging by not cluttering the log space
-                .validation_mode(gossipsub::ValidationMode::Strict)
+                .validation_mode(gossipsub::ValidationMode::Permissive)
                 // This sets the kind of message validation.
                 // The default is Strict (enforce message signing)
                 // .message_id_fn(message_id_fn)
@@ -499,6 +606,20 @@ pub async fn evt_loop(
             c.with_idle_connection_timeout(Duration::from_secs(60))
         })
         .build();
+
+    // Bootstrap to the hardcoded libp2p/IPFS relays so remote peers can discover us.
+    for (addr, peer) in gnostr_p2p::network_config::Network::Ipfs.bootnodes() {
+        let mut a = addr.clone();
+        a.push(libp2p::multiaddr::Protocol::P2p(peer));
+        let _ = swarm.dial(a);
+    }
+
+    // Dial an optional external relay for remote<->local hole punching.
+    if let Some(relay_addr) = relay {
+        if let Ok(ma) = relay_addr.parse::<libp2p::Multiaddr>() {
+            let _ = swarm.dial(ma);
+        }
+    }
 
     // subscribes to our topic
     swarm.behaviour_mut().gossipsub.subscribe(&topic)?;
@@ -596,7 +717,11 @@ pub async fn evt_loop(
                         pending_crawler_search.insert(query_id, nip);
                         recv.send(ChatEvent::ShowInfoMsg(format!("searching crawler bucket {nip} providers"))).await?;
                     }
-                    ChatEvent::ShowErrorMsg(_) | ChatEvent::ShowInfoMsg(_) | ChatEvent::PeerConnected { .. } => {}
+                    ChatEvent::ShowErrorMsg(_) | ChatEvent::ShowInfoMsg(_) | ChatEvent::PeerConnected { .. } | ChatEvent::MessagePublished => {}
+                    #[cfg(feature = "fractal")]
+                    ChatEvent::PerfectIpProgress { .. } => {}
+                    #[cfg(feature = "fractal")]
+                    ChatEvent::PerfectIpComplete { .. } => {}
                 }
             }
             event = swarm.select_next_some() => match event {
@@ -709,6 +834,12 @@ pub async fn evt_loop(
                     );
                     match serde_json::from_slice::<Msg>(&message.data) {
                         Ok(msg) => {
+                            #[cfg(feature = "fractal")]
+                            if msg.kind == MsgKind::PerfectIpManifest {
+                                handle_perfect_ip_manifest(&recv, msg).await?;
+                                continue;
+                            }
+
                             if msg.message_id.is_some() && msg.sequence_num.is_some() && msg.total_chunks.is_some() {
                                                                 if let Some(mut reassembled_msg) = reassembler.add_chunk_and_reassemble(msg) {
                                                                     let terminal_width = terminal_size().map(|(Width(w), _)| w as usize).unwrap_or(80);
@@ -740,6 +871,15 @@ pub async fn evt_loop(
                         .await?;
                 }
                 _ => {}
+            },
+            _ = flush_pending_interval.tick() => {
+                flush_pending_chat_messages(
+                    &mut swarm,
+                    &topic,
+                    &mut pending_chat_messages,
+                    &recv,
+                )
+                .await?;
             }
         }
     }

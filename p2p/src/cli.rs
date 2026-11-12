@@ -1,7 +1,7 @@
 use anyhow::Result;
 use clap::Parser;
-use std::ffi::{OsStr, OsString};
 use libp2p::{multiaddr::Protocol, swarm::NetworkBehaviour, Multiaddr};
+use std::ffi::{OsStr, OsString};
 
 use crate::network_config::Network;
 
@@ -23,6 +23,25 @@ pub struct NodeOpts {
     /// Seed used to generate a deterministic Ed25519 identity.
     #[arg(long)]
     pub secret_key_seed: Option<String>,
+
+    /// Optional IPFS/Kubo swarm key (PSK) shared with the embedded Kubo node.
+    #[arg(long, env = "GNOSTR_P2P_SWARM_KEY")]
+    pub swarm_key: Option<String>,
+
+    /// Directory used to store the embedded Kubo (IPFS) repository.
+    #[cfg(feature = "ipfs")]
+    #[arg(long, env = "GNOSTR_P2P_IPFS_REPO")]
+    pub ipfs_repo: Option<std::path::PathBuf>,
+
+    /// Start the embedded Kubo node in online mode (swarm participation).
+    #[cfg(feature = "ipfs")]
+    #[arg(long, env = "GNOSTR_P2P_IPFS_ONLINE", default_value_t = false)]
+    pub ipfs_online: bool,
+
+    /// Disable the embedded Kubo (IPFS) node even when the `ipfs` feature is enabled.
+    #[cfg(feature = "ipfs")]
+    #[arg(long, env = "GNOSTR_P2P_IPFS_DISABLE", default_value_t = false)]
+    pub ipfs_disable: bool,
 
     /// Run the service in the background and exit the parent process.
     #[arg(long)]
@@ -69,12 +88,26 @@ pub struct LookupOpts {
     #[arg(long)]
     pub secret_key_seed: Option<String>,
 
+    /// Optional IPFS/Kubo swarm key (PSK) shared with the embedded Kubo node.
+    #[arg(long, env = "GNOSTR_P2P_SWARM_KEY")]
+    pub swarm_key: Option<String>,
+
     /// Lookup a peer directly by dialing its multiaddr.
-    #[arg(long, value_name = "ADDR", conflicts_with = "peer", required_unless_present = "peer")]
+    #[arg(
+        long,
+        value_name = "ADDR",
+        conflicts_with = "peer",
+        required_unless_present = "peer"
+    )]
     pub multiaddr: Option<Multiaddr>,
 
     /// Lookup a peer through the DHT using its peer ID.
-    #[arg(long, value_name = "PEER_ID", conflicts_with = "multiaddr", required_unless_present = "multiaddr")]
+    #[arg(
+        long,
+        value_name = "PEER_ID",
+        conflicts_with = "multiaddr",
+        required_unless_present = "multiaddr"
+    )]
     pub peer: Option<String>,
 
     /// Optional bootstrap network whose bootnodes will be added to the DHT.

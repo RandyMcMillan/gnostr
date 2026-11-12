@@ -22,6 +22,10 @@ extension Application {
     public var events: EventBus {
         let eventBus = self.eventbus.storage.eventBus.withLockedValue { $0 }
         guard let eventBus else {
+            if self.didShutdown {
+                self.logger.warning("Accessing events after Application shutdown; returning no-op EventBus")
+                return EventBus(application: self, instanceID: "shutdown")
+            }
             fatalError("No EventBus configured. Configure with app.eventbus.use(...)")
         }
         return eventBus
@@ -62,6 +66,11 @@ extension Application {
         let application: Application
 
         var storage: Storage {
+            if let storage = self.application.storage[Key.self] {
+                return storage
+            }
+            self.application.eventbus.initialize()
+            self.application.eventbus.use(.default)
             guard let storage = self.application.storage[Key.self] else {
                 fatalError("EventBus not initialized. Configure with app.eventbus.initialize()")
             }

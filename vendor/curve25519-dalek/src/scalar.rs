@@ -124,13 +124,11 @@ use cfg_if::cfg_if;
 
 #[cfg(feature = "group")]
 use group::ff::{Field, FromUniformBytes, PrimeField};
-#[cfg(feature = "group-bits")]
-use group::ff::{FieldBits, PrimeFieldBits};
 
 #[cfg(feature = "group")]
-use rand_core::TryRngCore;
+use rand_core::TryRng;
 
-#[cfg(any(test, feature = "rand_core"))]
+#[cfg(feature = "rand_core")]
 use rand_core::CryptoRng;
 
 #[cfg(feature = "digest")]
@@ -567,7 +565,6 @@ impl Scalar {
         ],
     };
 
-    #[cfg(any(test, feature = "rand_core"))]
     /// Return a `Scalar` chosen uniformly at random using a user-provided RNG.
     ///
     /// # Inputs
@@ -583,12 +580,12 @@ impl Scalar {
     /// ```
     /// # fn main() {
     /// use curve25519_dalek::scalar::Scalar;
+    /// use getrandom::{SysRng, rand_core::UnwrapErr};
     ///
-    /// use rand_core::{OsRng, TryRngCore};
-    ///
-    /// let mut csprng = OsRng.unwrap_err();
+    /// let mut csprng = UnwrapErr(SysRng);
     /// let a: Scalar = Scalar::random(&mut csprng);
     /// # }
+    #[cfg(feature = "rand_core")]
     pub fn random<R: CryptoRng + ?Sized>(rng: &mut R) -> Self {
         let mut scalar_bytes = [0u8; 64];
         rng.fill_bytes(&mut scalar_bytes);
@@ -1250,7 +1247,7 @@ impl Field for Scalar {
     const ZERO: Self = Self::ZERO;
     const ONE: Self = Self::ONE;
 
-    fn try_from_rng<R: TryRngCore + ?Sized>(rng: &mut R) -> Result<Self, R::Error> {
+    fn try_random<R: TryRng + ?Sized>(rng: &mut R) -> Result<Self, R::Error> {
         // NOTE: this is duplicated due to different `rng` bounds
         let mut scalar_bytes = [0u8; 64];
         rng.try_fill_bytes(&mut scalar_bytes)?;
@@ -1360,19 +1357,6 @@ impl PrimeField for Scalar {
     };
 }
 
-#[cfg(feature = "group-bits")]
-impl PrimeFieldBits for Scalar {
-    type ReprBits = [u8; 32];
-
-    fn to_le_bits(&self) -> FieldBits<Self::ReprBits> {
-        self.to_repr().into()
-    }
-
-    fn char_le_bits() -> FieldBits<Self::ReprBits> {
-        constants::BASEPOINT_ORDER.to_bytes().into()
-    }
-}
-
 #[cfg(feature = "group")]
 impl FromUniformBytes<64> for Scalar {
     fn from_uniform_bytes(bytes: &[u8; 64]) -> Self {
@@ -1430,7 +1414,10 @@ pub const fn clamp_integer(mut bytes: [u8; 32]) -> [u8; 32] {
 #[cfg(test)]
 pub(crate) mod test {
     use super::*;
-    use rand_core::RngCore;
+    use getrandom::{
+        SysRng,
+        rand_core::{Rng, UnwrapErr},
+    };
 
     #[cfg(feature = "alloc")]
     use alloc::vec::Vec;
@@ -1570,6 +1557,7 @@ pub(crate) mod test {
         }
     }
 
+    #[cfg(feature = "rand_core")]
     fn non_adjacent_form_iter(w: usize, x: &Scalar) {
         let naf = x.non_adjacent_form(w);
 
@@ -1588,9 +1576,10 @@ pub(crate) mod test {
         assert_eq!(*x, y);
     }
 
+    #[cfg(feature = "rand_core")]
     #[test]
     fn non_adjacent_form_random() {
-        let mut rng = rand::rng();
+        let mut rng = UnwrapErr(SysRng);
         for _ in 0..1_000 {
             let x = Scalar::random(&mut rng);
             for w in &[5, 6, 7, 8] {
@@ -1858,17 +1847,18 @@ pub(crate) mod test {
 
     #[test]
     #[cfg(feature = "serde")]
-    fn serde_bincode_scalar_roundtrip() {
-        use bincode;
-        let encoded = bincode::serialize(&X).unwrap();
-        let parsed: Scalar = bincode::deserialize(&encoded).unwrap();
+    fn serde_postcard_scalar_roundtrip() {
+        let encoded = postcard::to_allocvec(&X).unwrap();
+        let parsed: Scalar = postcard::from_bytes(&encoded).unwrap();
         assert_eq!(parsed, X);
 
         // Check that the encoding is 32 bytes exactly
         assert_eq!(encoded.len(), 32);
 
-        // Check that the encoding itself matches the usual one
-        assert_eq!(X, bincode::deserialize(X.as_bytes()).unwrap(),);
+        // Check that the encoding itself matches the usual one.
+        // serde::Deserialize on fixed-size arrays calls tuple deserialization. postcard
+        // (de)serializes tuples by just doing each element and that's it.
+        assert_eq!(X, postcard::from_bytes(X.as_bytes()).unwrap(),);
     }
 
     #[cfg(debug_assertions)]
@@ -2120,7 +2110,7 @@ pub(crate) mod test {
     // was reduced and b was clamped and unreduced. This checks that was always well-defined.
     #[test]
     fn test_mul_reduction_invariance() {
-        let mut rng = rand::rng();
+        let mut rng = UnwrapErr(SysRng);
 
         for _ in 0..10 {
             // Also define c that's clamped. We'll make sure that clamping doesn't affect

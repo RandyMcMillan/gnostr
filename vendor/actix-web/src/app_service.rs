@@ -228,6 +228,8 @@ where
                 let inner = Rc::get_mut(&mut req.inner).unwrap();
                 inner.path.get_mut().update(&head.uri);
                 inner.path.reset();
+                inner.resource_path.clear();
+                inner.resource_path_matched = false;
                 inner.head = head;
                 inner.conn_data = conn_data;
                 inner.extensions = extensions;
@@ -253,7 +255,7 @@ where
     T: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
 {
     fn drop(&mut self) {
-        self.app_state.pool().clear();
+        self.app_state.pool().disable();
     }
 }
 
@@ -332,7 +334,15 @@ impl Service<ServiceRequest> for AppRouting {
             guards.iter().all(|guard| guard.check(&guard_ctx))
         });
 
-        if let Some((srv, _info)) = res {
+        if let Some((srv, info)) = res {
+            req.push_resource_id(info.0);
+
+            let matched = req
+                .resource_map()
+                .is_resource_path_match(req.resource_id_path());
+
+            req.mark_resource_path(matched);
+
             srv.call(req)
         } else {
             self.default.call(req)

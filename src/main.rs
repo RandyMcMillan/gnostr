@@ -101,9 +101,16 @@ async fn main() -> anyhow::Result<()> {
         LevelFilter::INFO
     } else if gnostr_cli_args.warn {
         LevelFilter::WARN
+    } else if gnostr_cli_args.logging {
+        LevelFilter::INFO
     } else {
         LevelFilter::OFF
     };
+
+    if gnostr_cli_args.logging {
+        println!("Logging enabled.");
+    }
+
     init_logging(base_level)?;
 
     let env_args: Vec<String> = env::args().collect();
@@ -454,6 +461,12 @@ async fn main() -> anyhow::Result<()> {
             .await
             .map_err(|e| anyhow!("Error in set_user_status subcommand: {}", e))
         }
+        Some(GnostrCommands::Docker { args }) => {
+            debug!("docker subcommand");
+            sub_commands::docker::docker(args.to_vec())
+                .await
+                .map_err(|e| anyhow!("Error in docker subcommand: {}", e))
+        }
         Some(GnostrCommands::Tui(sub_command_args)) => {
             debug!("main:318:sub_command_args:{:?}", sub_command_args.clone());
             let mut sub_command_args_mut = sub_command_args.clone();
@@ -595,9 +608,14 @@ async fn main() -> anyhow::Result<()> {
 
                 client.add_relays(relays_to_use).await?;
 
-                sub_commands::dm::dm_command(&client, recipient_pubkey, message, sub_command_args.verbose > 0)
-                    .await
-                    .map_err(|e| anyhow!("Error in dm subcommand: {}", e))
+                sub_commands::dm::dm_command(
+                    &client,
+                    recipient_pubkey,
+                    message,
+                    sub_command_args.verbose > 0,
+                )
+                .await
+                .map_err(|e| anyhow!("Error in dm subcommand: {}", e))
             } else {
                 debug!(
                     recipient = %recipient_pubkey.as_hex_string(),
@@ -635,8 +653,7 @@ async fn main() -> anyhow::Result<()> {
             // Call tui with default commands and propagate its result
             let mut default_args = gnostr::core::GnostrSubCommands::default();
             if let Some(dir) = gitdir_value.clone().or(workdir_value.clone()) {
-                default_args.gitdir =
-                    Some(resolve_repo_path(&RepoPath::from(dir.as_str()))?);
+                default_args.gitdir = Some(resolve_repo_path(&RepoPath::from(dir.as_str()))?);
             }
             sub_commands::tui::tui(default_args, &gnostr_cli_args)
                 .await
@@ -721,8 +738,14 @@ mod tests {
         let relays = merge_dm_relays(
             vec!["wss://preferred.example".to_string()],
             vec!["wss://explicit.example".to_string()],
-            vec!["wss://preferred.example".to_string(), "wss://crawler.example".to_string()],
-            vec!["wss://explicit.example".to_string(), "wss://fallback.example".to_string()],
+            vec![
+                "wss://preferred.example".to_string(),
+                "wss://crawler.example".to_string(),
+            ],
+            vec![
+                "wss://explicit.example".to_string(),
+                "wss://fallback.example".to_string(),
+            ],
         );
 
         assert_eq!(

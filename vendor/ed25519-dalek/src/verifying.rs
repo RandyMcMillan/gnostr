@@ -9,6 +9,9 @@
 
 //! ed25519 public keys.
 
+#[cfg(feature = "digest")]
+use curve25519_dalek::digest::{common::KeySizeUser, typenum::U32};
+
 use core::fmt::Debug;
 use core::hash::{Hash, Hasher};
 
@@ -31,6 +34,8 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 #[cfg(feature = "digest")]
 use crate::context::Context;
+#[cfg(feature = "digest")]
+use curve25519_dalek::digest::Update;
 #[cfg(feature = "digest")]
 use signature::DigestVerifier;
 
@@ -112,6 +117,11 @@ impl From<EdwardsPoint> for VerifyingKey {
             compressed: point.compress(),
         }
     }
+}
+
+#[cfg(feature = "digest")]
+impl KeySizeUser for VerifyingKey {
+    type KeySize = U32;
 }
 
 impl VerifyingKey {
@@ -579,14 +589,16 @@ impl MultipartVerifier<ed25519::Signature> for VerifyingKey {
 #[cfg(feature = "digest")]
 impl<MsgDigest> DigestVerifier<MsgDigest, ed25519::Signature> for VerifyingKey
 where
-    MsgDigest: Digest<OutputSize = U64>,
+    MsgDigest: Digest<OutputSize = U64> + Update,
 {
-    fn verify_digest(
+    fn verify_digest<F: Fn(&mut MsgDigest) -> Result<(), SignatureError>>(
         &self,
-        msg_digest: MsgDigest,
+        f: F,
         signature: &ed25519::Signature,
     ) -> Result<(), SignatureError> {
-        self.verify_prehashed(msg_digest, None, signature)
+        let mut digest = MsgDigest::new();
+        f(&mut digest)?;
+        self.verify_prehashed(digest, None, signature)
     }
 }
 
@@ -595,15 +607,17 @@ where
 #[cfg(feature = "digest")]
 impl<MsgDigest> DigestVerifier<MsgDigest, ed25519::Signature> for Context<'_, '_, VerifyingKey>
 where
-    MsgDigest: Digest<OutputSize = U64>,
+    MsgDigest: Digest<OutputSize = U64> + Update,
 {
-    fn verify_digest(
+    fn verify_digest<F: Fn(&mut MsgDigest) -> Result<(), SignatureError>>(
         &self,
-        msg_digest: MsgDigest,
+        f: F,
         signature: &ed25519::Signature,
     ) -> Result<(), SignatureError> {
+        let mut digest = MsgDigest::new();
+        f(&mut digest)?;
         self.key()
-            .verify_prehashed(msg_digest, Some(self.value()), signature)
+            .verify_prehashed(digest, Some(self.value()), signature)
     }
 }
 
@@ -704,7 +718,7 @@ impl<'d> Deserialize<'d> for VerifyingKey {
             type Value = VerifyingKey;
 
             fn expecting(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-                write!(formatter, concat!("An ed25519 verifying (public) key"))
+                write!(formatter, "An ed25519 verifying (public) key")
             }
 
             fn visit_bytes<E: serde::de::Error>(self, bytes: &[u8]) -> Result<Self::Value, E> {

@@ -1,0 +1,36 @@
+[package]
+name = "tor-basic-utils"
+version = "0.21.0"
+authors = ["The Tor Project, Inc.", "Nick Mathewson <nickm@torproject.org>"]
+edition = "2021"
+rust-version = "1.70"
+license = "MIT OR Apache-2.0"
+homepage = "https://gitlab.torproject.org/tpo/core/arti/-/wikis/home"
+description = "General helpers used by Tor"
+keywords = ["tor", "arti"]
+# We must put *something* here and this will do
+categories = ["rust-patterns"]
+repository = "https://gitlab.torproject.org/tpo/core/arti.git/"
+
+[dependencies]
+hex = "0.4"
+paste = "1"
+rand = "0.8"
+rand_chacha = "0.3"
+slab = "0.4.4"
+thiserror = "1"
+
+[target.'cfg(unix)'.dependencies]
+libc = { version = "0.2", default-features = false }
+
+[dev-dependencies]
+derive_more = "0.99.3"
+educe = "0.4.6"
+serde = { version = "1.0.103", features = ["derive"] }
+
+[features]
+full = []
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

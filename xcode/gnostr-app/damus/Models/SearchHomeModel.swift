@@ -18,21 +18,36 @@ class SearchHomeModel: ObservableObject {
     let base_subid = UUID().description
     let profiles_subid = UUID().description
     let limit: UInt32 = 250
+    private(set) var nip34_only = false
+    private(set) var selected_nip34_kinds = Set(NostrKind.nip34_kinds)
     
     init(damus_state: DamusState) {
         self.damus_state = damus_state
     }
     
     func get_base_filter() -> NostrFilter {
-        var filter = NostrFilter.filter_kinds([1, 42])
+        let kinds = NostrKind.search_kinds(nip34_only: nip34_only, selected: selected_nip34_kinds)
+        var filter = NostrFilter.filter_kinds(kinds)
         filter.limit = self.limit
         filter.until = Int64(Date.now.timeIntervalSince1970)
         return filter
     }
     
-    func subscribe() {
+    func subscribe(nip34_only: Bool = false, selected_kinds: Set<Int>? = nil) {
+        let selection = selected_kinds ?? Set(NostrKind.nip34_kinds)
+        if self.nip34_only != nip34_only || self.selected_nip34_kinds != selection {
+            events.removeAll()
+            seen_pubkey.removeAll()
+        }
+        self.nip34_only = nip34_only
+        self.selected_nip34_kinds = selection
+        let filter = get_base_filter()
+        guard filter.kinds?.isEmpty != true else {
+            unsubscribe()
+            return
+        }
         loading = true
-        damus_state.pool.subscribe(sub_id: base_subid, filters: [get_base_filter()], handler: handle_event)
+        damus_state.pool.subscribe(sub_id: base_subid, filters: [filter], handler: handle_event)
     }
 
     func unsubscribe(to: String? = nil) {
@@ -50,8 +65,10 @@ class SearchHomeModel: ObservableObject {
                 guard sub_id == self.base_subid || sub_id == self.profiles_subid else {
                     return
                 }
-                if ev.is_textlike && ev.should_show_event {
-                    if seen_pubkey.contains(ev.pubkey) {
+                let is_git = NostrKind.nip34_kinds.contains(ev.kind)
+                if (ev.is_textlike || is_git) && ev.should_show_event &&
+                    (!nip34_only || selected_nip34_kinds.contains(ev.kind)) {
+                    if !is_git && seen_pubkey.contains(ev.pubkey) {
                         return
                     }
                     seen_pubkey.insert(ev.pubkey)
@@ -135,4 +152,3 @@ func load_profiles(profiles_subid: String, relay_id: String, events: [NostrEvent
         }
     }
 }
-

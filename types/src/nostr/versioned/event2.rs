@@ -8,10 +8,9 @@ use serde::{Deserialize, Serialize};
 use speedy::{Readable, Writable};
 
 use crate::nostr::{
-    id::Id,
     Error, EventDelegation, EventKind, EventReference, IntoVec, KeySigner, MilliSatoshi, NAddr,
     NostrBech32, NostrUrl, PrivateKey, PublicKey, PublicKeyHex, RelayUrl, Signature, Signer, TagV2,
-    Unixtime, ZapDataV1,
+    Unixtime, ZapDataV1, id::Id,
 };
 
 /// The main event type
@@ -1028,6 +1027,8 @@ impl EventV2 {
         if bytes.len() < 32 {
             None
         } else if let Ok(arr) = <[u8; 32]>::try_from(&bytes[0..32]) {
+            use crate::nostr::id;
+
             Some(unsafe { std::mem::transmute::<[u8; 32], id::Id>(arr) })
         } else {
             None

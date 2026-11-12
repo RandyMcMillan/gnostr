@@ -42,6 +42,9 @@ vendor/*/**
 !vendor/gitui
 !vendor/gitui/*
 !vendor/gitui/*/**
+!vendor/tui-textarea
+!vendor/tui-textarea/*
+!vendor/tui-textarea/*/**
 !vendor/ngit-cli
 !vendor/ngit-cli/**
 
@@ -98,6 +101,7 @@ relays.yaml**
 **/target
 .idea
 *.json
+!js/src/*.json
 !xcode/icons/Assets.xcassets/**/Contents.json
 !xcode/swift-universal/Universal App/Shared/Support/Assets.xcassets/**/Contents.json
 
@@ -213,3 +217,6 @@ src/lib/xq/xq.md
 src/src.md
 !asyncgit/src/lib/gitui/cli/
 !asyncgit/src/lib/gitui/cli/mod.rs
+
+# .cargo/local-override.toml
+target-local-override

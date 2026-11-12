@@ -1,9 +1,9 @@
 use std::{
     fmt,
     sync::{
-        atomic::{AtomicBool, AtomicU64, AtomicU8, Ordering},
-        mpsc::Sender,
         Arc,
+        atomic::{AtomicBool, AtomicU8, AtomicU64, Ordering},
+        mpsc::Sender,
     },
     thread,
     thread::JoinHandle,
@@ -17,6 +17,35 @@ use super::{
     EventV1, EventV2, Id, KeySecurity, KeySigner, Metadata, PreEvent, PreEventV2, PrivateKey,
     PublicKey, PublicKeyHex, Rumor, RumorV1, RumorV2, Signature, Tag, TagV1, TagV2, Unixtime,
 };
+
+/// Independent, mutually exclusive targets for Nostr event IDs.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum EventMining {
+    /// NIP-13 leading-zero-bit difficulty; zero preserves ordinary signing.
+    Difficulty(u8),
+    /// A hexadecimal vanity prefix, without a NIP-13 difficulty claim.
+    Prefix(String),
+}
+
+impl EventMining {
+    /// Validate and normalize a hexadecimal event-ID prefix.
+    pub fn prefix(value: &str) -> Result<Self, Error> {
+        if value.is_empty() || value.len() > 64 || !value.bytes().all(|b| b.is_ascii_hexdigit()) {
+            return Err(Error::Custom(
+                "Event prefix must contain 1 through 64 hexadecimal characters".into(),
+            ));
+        }
+        Ok(Self::Prefix(value.to_ascii_lowercase()))
+    }
+
+    /// Sign normally or mine the selected target before signing.
+    pub fn sign(&self, signer: &impl Signer, input: PreEvent) -> Result<Event, Error> {
+        match self {
+            Self::Difficulty(0) => signer.sign_event(input),
+            _ => signer.sign_event_with_mining(input, self, None),
+        }
+    }
+}
 
 /// Signer operations
 pub trait Signer: fmt::Debug {
@@ -69,7 +98,7 @@ pub trait Signer: fmt::Debug {
     /// We need the password and log_n parameters to possibly rebuild
     /// the EncryptedPrivateKey when downgrading key security
     fn export_private_key_in_hex(&mut self, pass: &str, log_n: u8)
-        -> Result<(String, bool), Error>;
+    -> Result<(String, bool), Error>;
 
     /// Export the private key in bech32.
     ///
@@ -128,6 +157,14 @@ pub trait Signer: fmt::Debug {
         // Generate Id
         let id = input.hash()?;
 
+        if log::log_enabled!(log::Level::Debug) {
+            log::debug!(
+                "Pre-signed event JSON: id={}, event={}",
+                id,
+                serde_json::to_string(&input)?
+            );
+        }
+
         // Generate Signature
         let signature = self.sign_id(id)?;
 
@@ -169,11 +206,28 @@ pub trait Signer: fmt::Debug {
     /// Sign an event with Proof-of-Work
     fn sign_event_with_pow(
         &self,
-        mut input: PreEvent,
+        input: PreEvent,
         zero_bits: u8,
         work_sender: Option<Sender<u8>>,
     ) -> Result<Event, Error> {
-        let target = format!("{zero_bits}");
+        self.sign_event_with_mining(input, &EventMining::Difficulty(zero_bits), work_sender)
+    }
+
+    /// Mine either leading zero bits or a hexadecimal prefix, then sign once.
+    fn sign_event_with_mining(
+        &self,
+        mut input: PreEvent,
+        target: &EventMining,
+        work_sender: Option<Sender<u8>>,
+    ) -> Result<Event, Error> {
+        let target = match target {
+            EventMining::Prefix(prefix) => EventMining::prefix(prefix)?,
+            EventMining::Difficulty(bits) => EventMining::Difficulty(*bits),
+        };
+        let nonce_target = match &target {
+            EventMining::Difficulty(bits) => bits.to_string(),
+            EventMining::Prefix(_) => "0".to_string(),
+        };
 
         // Verify the pubkey matches
         if input.pubkey != self.public_key() {
@@ -184,8 +238,9 @@ pub trait Signer: fmt::Debug {
         input.tags.retain(|t| t.tagname() != "nonce");
 
         // Add nonce tag to the end
-        input.tags.push(Tag::new(&["nonce", "0", &target]));
+        input.tags.push(Tag::new(&["nonce", "0", &nonce_target]));
         let index = input.tags.len() - 1;
+        log::debug!("Mining Nostr event ID: target={:?}", target);
 
         let cores = num_cpus::get();
 
@@ -202,6 +257,7 @@ pub trait Signer: fmt::Debug {
             let nonce = nonce.clone();
             let best_work = best_work.clone();
             let work_sender = work_sender.clone();
+            let target = target.clone();
             let join_handle = thread::spawn(move || {
                 loop {
                     // Lower the thread priority so other threads aren't starved
@@ -218,7 +274,11 @@ pub trait Signer: fmt::Debug {
                     let Id(id) = input.hash().unwrap();
 
                     let leading_zeroes = super::get_leading_zero_bits(&id);
-                    if leading_zeroes >= zero_bits {
+                    let matches = match &target {
+                        EventMining::Difficulty(bits) => leading_zeroes >= *bits,
+                        EventMining::Prefix(prefix) => Id(id).as_hex_string().starts_with(prefix),
+                    };
+                    if matches {
                         nonce.store(attempt, Ordering::Relaxed);
                         quitting.store(true, Ordering::Relaxed);
                         if let Some(sender) = work_sender.clone() {
@@ -247,20 +307,7 @@ pub trait Signer: fmt::Debug {
 
         // We found the nonce. Do it for reals
         input.tags[index].set_index(1, format!("{}", nonce.load(Ordering::Relaxed)));
-        let id = input.hash().unwrap();
-
-        // Signature
-        let signature = self.sign_id(id)?;
-
-        Ok(Event {
-            id,
-            pubkey: input.pubkey,
-            created_at: input.created_at,
-            kind: input.kind,
-            tags: input.tags,
-            content: input.content,
-            sig: signature,
-        })
+        self.sign_event(input)
     }
 
     /// Giftwrap an event
@@ -590,5 +637,74 @@ pub trait Signer: fmt::Debug {
 
         // Return the Rumor
         Ok(rumor)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::nostr::PrivateKey;
+
+    #[test]
+    fn event_mining_prefix_accepts_valid_hex_and_normalizes_case() {
+        // Arrange / Act / Assert: lowercase preserved
+        match EventMining::prefix("abcdef0123").unwrap() {
+            EventMining::Prefix(p) => assert_eq!(p, "abcdef0123"),
+            _ => panic!("expected Prefix variant"),
+        }
+
+        // Arrange / Act / Assert: uppercase normalized to lowercase
+        match EventMining::prefix("ABCD").unwrap() {
+            EventMining::Prefix(p) => assert_eq!(p, "abcd"),
+            _ => panic!("expected Prefix variant"),
+        }
+
+        // Boundary lengths: 1 and 64 characters
+        assert!(EventMining::prefix("0").is_ok());
+        assert!(EventMining::prefix(&"f".repeat(64)).is_ok());
+    }
+
+    #[test]
+    fn event_mining_prefix_rejects_invalid_input() {
+        // Arrange / Act / Assert
+        assert!(EventMining::prefix("").is_err(), "empty prefix must fail");
+        assert!(
+            EventMining::prefix(&"f".repeat(65)).is_err(),
+            "65-char prefix must fail"
+        );
+        assert!(EventMining::prefix("xyz").is_err(), "non-hex must fail");
+        assert!(EventMining::prefix("deadbeef!").is_err());
+        assert!(EventMining::prefix("  ").is_err());
+    }
+
+    #[test]
+    fn event_mining_difficulty_zero_signs_normally() {
+        // Arrange
+        let signer = KeySigner::from_private_key(PrivateKey::mock(), "", 1).unwrap();
+        let pre = PreEvent {
+            pubkey: signer.public_key(),
+            created_at: Unixtime::mock(),
+            kind: EventKind::mock(),
+            tags: vec![Tag::mock()],
+            content: "unmined event".to_string(),
+        };
+
+        // Act: difficulty 0 must take the ordinary signing path
+        let event = EventMining::Difficulty(0).sign(&signer, pre).unwrap();
+
+        // Assert: event is signed and verifies
+        event.verify(None).unwrap();
+        assert_eq!(event.pubkey, signer.public_key());
+    }
+
+    #[test]
+    fn event_mining_variants_are_distinct() {
+        // Arrange / Act / Assert
+        assert_eq!(EventMining::Difficulty(8), EventMining::Difficulty(8));
+        assert_ne!(EventMining::Difficulty(8), EventMining::Difficulty(9));
+        assert_ne!(
+            EventMining::Prefix("ab".to_string()),
+            EventMining::Difficulty(8)
+        );
     }
 }

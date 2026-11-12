@@ -125,7 +125,10 @@ pub fn open_database(config: &Config) -> Result<Arc<rocksdb::DB>, anyhow::Error>
             }
             Some(_) => None,
             None => {
-                db.put("schema_version", crate::app::database::schema::SCHEMA_VERSION)?;
+                db.put(
+                    "schema_version",
+                    crate::app::database::schema::SCHEMA_VERSION,
+                )?;
                 None
             }
         };
@@ -271,7 +274,9 @@ pub fn init_static_asset_hashes() {
         .set(build_asset_hash(dark_css))
         .unwrap();
 
-    super::ADD_RELAY_SVG_HASH.set(build_asset_hash(super::ADD_RELAY_SVG)).unwrap();
+    super::ADD_RELAY_SVG_HASH
+        .set(build_asset_hash(super::ADD_RELAY_SVG))
+        .unwrap();
     super::CLOSE_MODAL_SVG_HASH
         .set(build_asset_hash(super::CLOSE_MODAL_SVG))
         .unwrap();
@@ -491,6 +496,11 @@ pub struct W2UiArgs {
     pub port: u16,
 }
 
+#[cfg(feature = "ipfs")]
+const DEFAULT_BIND_PORT: u16 = 3334;
+#[cfg(not(feature = "ipfs"))]
+const DEFAULT_BIND_PORT: u16 = 3333;
+
 #[derive(Parser, Debug)]
 #[command(author, version, about)]
 pub struct GnitArgs {
@@ -504,8 +514,18 @@ pub struct GnitArgs {
     #[arg(long, default_value = "127.0.0.1")]
     pub bind_address: std::net::IpAddr,
     /// The socket port to bind to (e.g., 3333).
-    #[arg(short, long, default_value = "3333", env = "GNOSTR_GNIT_BIND_PORT")]
+    #[arg(short, long, default_value_t = DEFAULT_BIND_PORT, env = "GNOSTR_GNIT_BIND_PORT")]
     pub bind_port: u16,
+
+    /// Directory used to store the embedded Kubo (IPFS) repository.
+    #[cfg(feature = "ipfs")]
+    #[arg(long, env = "GNOSTR_IPFS_REPO")]
+    pub ipfs_repo: Option<PathBuf>,
+
+    /// Start the embedded Kubo node in online mode (swarm participation).
+    #[cfg(feature = "ipfs")]
+    #[arg(long, env = "GNOSTR_IPFS_ONLINE", default_value_t = false)]
+    pub ipfs_online: bool,
     /// The path in which your bare Git repositories reside.
     ///
     /// This directory will be scanned recursively for Git repositories.

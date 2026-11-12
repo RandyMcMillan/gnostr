@@ -1,4 +1,4 @@
-use std::{io, thread, time::Duration};
+use std::{io, sync::mpsc, thread, time::Duration};
 
 use actix_rt::time::Instant;
 use mio::{Interest, Poll, Token as MioToken};
@@ -12,7 +12,10 @@ use crate::{
     ServerBuilder, ServerHandle,
 };
 
-const TIMEOUT_DURATION_ON_ERROR: Duration = Duration::from_millis(510);
+const ACCEPT_ERROR_BACKOFF: Duration = Duration::from_millis(500);
+// Allow a 10 ms margin after the listener's retry deadline.
+const ACCEPT_ERROR_POLL_TIMEOUT: Duration =
+    ACCEPT_ERROR_BACKOFF.saturating_add(Duration::from_millis(10));
 
 struct ServerSocketInfo {
     token: usize,
@@ -24,16 +27,37 @@ struct ServerSocketInfo {
     timeout: Option<actix_rt::time::Instant>,
 }
 
-/// Poll instance of the server.
+/// Accepts connections from listeners and dispatches them to workers.
 pub(crate) struct Accept {
+    /// Waits for listener readiness and notifications from the waker queue.
     poll: Poll,
+
+    /// Shared queue for server commands, worker availability, and replacement worker handles.
     waker_queue: WakerQueue,
+
+    /// Worker handles used to send accepted connections and update connection counts.
     handles: Vec<WorkerHandleAccept>,
+
+    /// Notifies the server when a worker fails so it can start a replacement.
     srv: ServerHandle,
-    next: usize,
+
+    /// Index into `handles` of the next worker to consider for connection dispatch.
+    /// Advances after a successful dispatch or when an unavailable worker is skipped.
+    next_worker: usize,
+
+    /// Index into the listener slice at which the next `accept_all` scan starts.
+    /// Rotates between scans so listeners take turns using newly available worker capacity.
+    next_listener: usize,
+
+    /// Cached connection capacity flags, indexed by worker ID rather than position in `handles`.
     avail: Availability,
-    /// use the smallest duration from sockets timeout.
+
+    /// Poll timeout used to retry listeners after accept errors, taking the shortest requested wait.
+    /// `None` lets the poll wait indefinitely for an event.
     timeout: Option<Duration>,
+
+    /// True if accepting connections is paused by a server command.
+    /// Worker availability notifications do not resume acceptance while this is set.
     paused: bool,
 }
 
@@ -48,8 +72,10 @@ impl Accept {
         let poll = Poll::new()?;
         let waker_queue = WakerQueue::new(poll.registry())?;
 
-        // start workers and collect handles
-        let (handles_accept, handles_server) = (0..builder.threads)
+        // start every worker before waiting for any, so their services are created in parallel
+        let (startup_tx, startup_rx) = mpsc::channel();
+
+        let (handles_accept, handles_server): (Vec<_>, Vec<_>) = (0..builder.threads)
             .map(|idx| {
                 // clone service factories
                 let factories = builder
@@ -59,11 +85,50 @@ impl Accept {
                     .collect::<Vec<_>>();
 
                 // start worker using service factories
-                ServerWorker::start(idx, factories, waker_queue.clone(), builder.worker_config)
+                ServerWorker::spawn(
+                    idx,
+                    factories,
+                    waker_queue.clone(),
+                    builder.worker_config,
+                    startup_tx.clone(),
+                )
             })
-            .collect::<io::Result<Vec<_>>>()?
-            .into_iter()
             .unzip();
+
+        // keep only the workers' senders, so a worker that dies without reporting disconnects
+        // the channel instead of leaving `recv` waiting forever
+        drop(startup_tx);
+
+        // receive the startup reports as they arrive, so one worker's error is returned without
+        // waiting for another worker's still pending services
+        let mut awaiting = handles_server.len();
+        while awaiting > 0 {
+            match startup_rx.recv() {
+                Ok((_, Ok(()))) => awaiting -= 1,
+
+                Ok((failed_idx, Err(err))) => {
+                    // ask the other workers to stop without waiting for them; a stop request
+                    // also cancels a worker's still pending service creation
+                    for handle in handles_server
+                        .iter()
+                        .filter(|handle| handle.idx != failed_idx)
+                    {
+                        drop(handle.stop(false));
+                    }
+
+                    return Err(err);
+                }
+
+                // a worker died without reporting, e.g. its thread panicked during startup
+                Err(_) => {
+                    for handle in &handles_server {
+                        drop(handle.stop(false));
+                    }
+
+                    return Err(io::Error::other("A worker exited during startup"));
+                }
+            }
+        }
 
         let (mut accept, mut sockets) = Accept::new_with_sockets(
             poll,
@@ -113,7 +178,8 @@ impl Accept {
             waker_queue,
             handles: accept_handles,
             srv: server_handle,
-            next: 0,
+            next_worker: 0,
+            next_listener: 0,
             avail,
             timeout: None,
             paused: false,
@@ -130,7 +196,7 @@ impl Accept {
             if let Err(err) = self.poll.poll(&mut events, self.timeout) {
                 match err.kind() {
                     io::ErrorKind::Interrupted => {}
-                    _ => panic!("Poll error: {}", err),
+                    _ => panic!("Poll error: {err}"),
                 }
             }
 
@@ -165,7 +231,6 @@ impl Accept {
             // task is done. Take care not to take the guard again inside this loop.
             let mut guard = self.waker_queue.guard();
 
-            #[allow(clippy::significant_drop_in_scrutinee)]
             match guard.pop_front() {
                 // Worker notified it became available.
                 Some(WakerInterest::WorkerAvailable(idx)) => {
@@ -300,7 +365,7 @@ impl Accept {
     fn register_logged(&self, info: &mut ServerSocketInfo) {
         match self.register(info) {
             Ok(_) => debug!("resume accepting connections on {}", info.lst.local_addr()),
-            Err(err) => error!("can not register server socket {}", err),
+            Err(err) => error!("Can not register server socket {}", err),
         }
     }
 
@@ -308,7 +373,7 @@ impl Accept {
         match self.poll.registry().deregister(&mut info.lst) {
             Ok(_) => debug!("paused accepting connections on {}", info.lst.local_addr()),
             Err(err) => {
-                error!("can not deregister server socket {}", err)
+                error!("Can not deregister server socket {}", err)
             }
         }
     }
@@ -332,9 +397,10 @@ impl Accept {
             .for_each(|(_, info)| self.deregister_logged(info));
     }
 
-    // Send connection to worker and handle error.
+    /// Sends connection to worker and handles error.
     fn send_connection(&mut self, conn: Conn) -> Result<(), Conn> {
         let next = self.next();
+
         match next.send(conn) {
             Ok(_) => {
                 // Increment counter of WorkerHandle.
@@ -352,12 +418,12 @@ impl Accept {
                 self.remove_next();
 
                 if self.handles.is_empty() {
-                    error!("no workers");
+                    error!("No workers");
                     // All workers are gone and Conn is nowhere to be sent.
                     // Treat this situation as Ok and drop Conn.
                     return Ok(());
-                } else if self.handles.len() <= self.next {
-                    self.next = 0;
+                } else if self.handles.len() <= self.next_worker {
+                    self.next_worker = 0;
                 }
 
                 Err(conn)
@@ -401,7 +467,7 @@ impl Accept {
                 Err(ref err) if err.kind() == io::ErrorKind::WouldBlock => return,
                 Err(ref err) if connection_error(err) => continue,
                 Err(err) => {
-                    error!("error accepting connection: {}", err);
+                    error!("Error accepting connection: {}", err);
 
                     // deregister listener temporary
                     self.deregister_logged(info);
@@ -409,8 +475,8 @@ impl Accept {
                     // sleep after error. write the timeout to socket info as later
                     // the poll would need it mark which socket and when it's
                     // listener should be registered
-                    info.timeout = Some(Instant::now() + Duration::from_millis(500));
-                    self.set_timeout(TIMEOUT_DURATION_ON_ERROR);
+                    info.timeout = Some(Instant::now() + ACCEPT_ERROR_BACKOFF);
+                    self.set_timeout(ACCEPT_ERROR_POLL_TIMEOUT);
 
                     return;
                 }
@@ -418,29 +484,44 @@ impl Accept {
         }
     }
 
+    /// Checks every listener for connections, starting at `next_listener` and wrapping around.
+    ///
+    /// Each listener accepts connections until worker capacity is exhausted, no connection is
+    /// ready, or a listener error stops acceptance. The first listener rotates between calls so a
+    /// busy listener cannot always take newly available capacity before the other listeners.
+    /// Rotation applies to whole scans, not to individual connections within a scan.
+    ///
+    /// The listener slice must be nonempty, as required when the server starts.
     fn accept_all(&mut self, sockets: &mut [ServerSocketInfo]) {
-        sockets
-            .iter_mut()
-            .map(|info| info.token)
-            .collect::<Vec<_>>()
-            .into_iter()
-            .for_each(|idx| self.accept(sockets, idx))
+        if sockets.len() == 1 {
+            self.accept(sockets, sockets[0].token);
+            return;
+        }
+
+        let start = self.next_listener;
+        for offset in 0..sockets.len() {
+            let idx = (start + offset) % sockets.len();
+            self.accept(sockets, sockets[idx].token);
+        }
+
+        // Let each listener use newly available capacity before the others.
+        self.next_listener = (start + 1) % sockets.len();
     }
 
     #[inline(always)]
     fn next(&self) -> &WorkerHandleAccept {
-        &self.handles[self.next]
+        &self.handles[self.next_worker]
     }
 
     /// Set next worker handle that would accept connection.
     #[inline(always)]
     fn set_next(&mut self) {
-        self.next = (self.next + 1) % self.handles.len();
+        self.next_worker = (self.next_worker + 1) % self.handles.len();
     }
 
     /// Remove next worker handle that fail to accept connection.
     fn remove_next(&mut self) {
-        let handle = self.handles.swap_remove(self.next);
+        let handle = self.handles.swap_remove(self.next_worker);
         let idx = handle.idx();
         // A message is sent to `ServerBuilder` future to notify it a new worker
         // should be made.
@@ -455,8 +536,8 @@ impl Accept {
 /// All other errors will incur a timeout before next `accept()` call is attempted. The timeout is
 /// useful to handle resource exhaustion errors like `ENFILE` and `EMFILE`. Otherwise, it could
 /// enter into a temporary spin loop.
-fn connection_error(e: &io::Error) -> bool {
-    e.kind() == io::ErrorKind::ConnectionRefused
-        || e.kind() == io::ErrorKind::ConnectionAborted
-        || e.kind() == io::ErrorKind::ConnectionReset
+fn connection_error(err: &io::Error) -> bool {
+    err.kind() == io::ErrorKind::ConnectionRefused
+        || err.kind() == io::ErrorKind::ConnectionAborted
+        || err.kind() == io::ErrorKind::ConnectionReset
 }

@@ -6,6 +6,7 @@ use libp2p::{Multiaddr, PeerId, StreamProtocol};
 
 pub const DEFAULT_DISCOVERY_TOPIC: &str = "gnostr/p2p/presence";
 pub const DEFAULT_CHAT_TOPIC: &str = "gnostr-dev";
+pub const DEFAULT_NOSTR_TOPIC: &str = "kubo-hybrid";
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
 pub enum Network {
@@ -99,7 +100,8 @@ pub fn active_protocol_name() -> String {
 }
 
 pub fn active_discovery_topic() -> String {
-    normalized_env_value("GNOSTR_P2P_DISCOVERY_TOPIC").unwrap_or_else(|| DEFAULT_DISCOVERY_TOPIC.to_string())
+    normalized_env_value("GNOSTR_P2P_DISCOVERY_TOPIC")
+        .unwrap_or_else(|| DEFAULT_DISCOVERY_TOPIC.to_string())
 }
 
 pub fn active_chat_topic() -> String {
@@ -115,6 +117,18 @@ pub const IPFS_BOOTNODES: [&str; 6] = [
     "12D3KooWFhXabKDwALpzqMbto94sB7rvmZ6M28hs9Y9xSopDKwQr",
 ];
 pub const IPFS_PROTO_NAME: StreamProtocol = StreamProtocol::new("/ipfs/kad/1.0.0");
+
+/// Parse a pipe-delimited Nostr gossip envelope: `topic|sender_peer_id|payload`.
+pub fn parse_nostr_envelope(s: &str) -> Option<(&str, &str, &str)> {
+    let mut parts = s.splitn(3, '|');
+    let topic = parts.next()?;
+    let peer = parts.next()?;
+    let payload = parts.next()?;
+    if topic.is_empty() || peer.is_empty() || payload.is_empty() {
+        return None;
+    }
+    Some((topic, peer, payload))
+}
 
 fn normalized_env_value(key: &str) -> Option<String> {
     let value = env::var(key).ok()?;
@@ -153,7 +167,17 @@ mod tests {
     #[test]
     fn ipfs_bootnodes_include_bootstrap_nodes() {
         let bootnodes = Network::Ipfs.bootnodes();
-        assert!(bootnodes.iter().any(|(_, peer)| peer.to_string() == "QmNnooDu7bfjPFoTZYxMNLWUQJyrVwtbZg5gBMjTezGAJN"));
+        assert!(bootnodes
+            .iter()
+            .any(|(_, peer)| peer.to_string() == "QmNnooDu7bfjPFoTZYxMNLWUQJyrVwtbZg5gBMjTezGAJN"));
+    }
+
+    #[test]
+    fn parse_nostr_envelope_works() {
+        let (t, p, pl) = parse_nostr_envelope("kubo-hybrid|12D3KooW|{\"kind\":1}").unwrap();
+        assert_eq!(t, "kubo-hybrid");
+        assert_eq!(p, "12D3KooW");
+        assert_eq!(pl, "{\"kind\":1}");
     }
 
     #[test]

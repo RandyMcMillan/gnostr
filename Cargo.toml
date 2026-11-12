@@ -9,7 +9,6 @@ authors = [
     "TODO <add_more@gnostr.org>",
 ]
 readme = "README.md"
-homepage = "https://github.com/gnostr-org/gnostr"
 repository = "https://github.com/gnostr-org/gnostr.git"
 license = "MIT"
 keywords = ["gnostr", "tool", "nostr"]
@@ -33,7 +32,15 @@ exclude = [
     "tui",
     "wix/**",
     "xcode/**",
-    "vendor/gitui/**",
+    ## TODO "vendor/**",
+    ## archive for reference
+    "vendor/ngit-cli",
+    ## archive for reference
+    "vendor/nostui",
+    ## archive for reference
+    "vendor/rexpect",
+    ## archive for reference
+    "vendor/simple-websockets",
     "CHANGELOG.md",
     "CODECOV.md",
     "Contrapuntal_Network_Topology.md",
@@ -55,6 +62,7 @@ members = [
     "bins",
     "chat",
     "crawler",
+    "docker",
     "filetreelist",
     "git2-hooks",
     "git2-testing",
@@ -69,14 +77,16 @@ members = [
     "relay",
     "relay/extensions",
     "scopetime",
+    "tui",
     "types",
     "web",
+    "xcode/connectivity/rust",
 ]
-exclude = ["tui", "vendor/gitui/**"]
+exclude = ["vendor/**"]
 
 [workspace.package]
 # gnostr semver: blockheight is major, weeble is minor, wobble is patch.
-version = "970403.1846.49785"
+version = "973442.1842.47355"
 
 exclude = [
     ".git/",
@@ -97,7 +107,6 @@ exclude = [
     "org",
     "proxy",
     "xcode",
-    "tui",
     "xq",
     "GEMINI.md",
 ]
@@ -150,31 +159,32 @@ dialoguer = { version = "0.12.0" }
 directories = { version = "6.0.0" }
 env_logger = "0.11"
 expectrl = "0.8.0"
-filetreelist = { path = "filetreelist", package = "gnostr-filetreelist", version = ">=970403.1846.49785" }
+filetreelist = { path = "filetreelist", package = "gnostr-filetreelist", version = ">=973442.1842.47355" }
 flate2 = "1.1.8"
 function_name = "0.3.0"
 futures = { version = "0.3.31" }
 futures-util = "0.3.31"
 git2 = { version = "^0.21", default-features = false, features = ["cred"] }
-git2-hooks = { path = "git2-hooks", package = "gnostr-git2-hooks", version = ">=970403.1846.49785" }
-git2-testing = { path = "git2-testing", package = "gnostr-git2-testing", version = ">=970403.1846.49785" }
+git2-hooks = { path = "git2-hooks", package = "gnostr-git2-hooks", version = ">=973442.1842.47355" }
+git2-testing = { path = "git2-testing", package = "gnostr-git2-testing", version = ">=973442.1842.47355" }
 # Keep the root workspace dependency on the current local asyncgit version during publish.
-gnostr-asyncgit = { path = "asyncgit", version = ">=970403.1846.49785", default-features = false, features = [
+gnostr-asyncgit = { path = "asyncgit", version = ">=973442.1842.47355", default-features = false, features = [
     "vendor-openssl",
 ] }
-gnostr-chat = { path = "chat", version = ">=970403.1846.49785" }
+gnostr-chat = { path = "chat", version = ">=973442.1842.47355" }
 # Keep crawler aligned with the current workspace version here so the root package can package cleanly.
-gnostr-crawler = { path = "crawler", version = ">=970403.1846.49785" }
+gnostr-crawler = { path = "crawler", version = ">=973442.1842.47355" }
+gnostr-docker = { path = "./docker" }
 
-gnostr-extensions = { path = "relay/extensions", version = ">=970403.1846.49785", default-features = false }
-gnostr-grammar = { path = "grammar", version = ">=970403.1846.49785" }
-gnostr-js = { path = "js", version = ">=970403.1846.49785", default-features = false }
+gnostr-extensions = { path = "relay/extensions", version = ">=973442.1842.47355", default-features = false }
+gnostr-grammar = { path = "grammar", version = ">=973442.1842.47355" }
+gnostr-js = { path = "js", version = ">=973442.1842.47355", default-features = false }
 #gnostr-grammar = { version = "1894.934224.276199", path = "grammar" }
-gnostr-legit = { path = "legit", version = ">=970403.1846.49785" }
-gnostr-p2p = { path = "p2p", version = ">=970403.1846.49785" }
-gnostr-relay = { path = "relay", version = ">=970403.1846.49785", default-features = false }
-gnostr-types = { path = "types", version = ">=970403.1846.49785" }
-gnostr_qr = { path = "qr", version = ">=970403.1846.49785" }
+gnostr-legit = { path = "legit", version = ">=973442.1842.47355" }
+gnostr-p2p = { path = "p2p", version = ">=973442.1842.47355" }
+gnostr-relay = { path = "relay", version = ">=973442.1842.47355", default-features = false }
+gnostr-types = { path = "types", version = ">=973442.1842.47355" }
+gnostr_qr = { path = "qr", version = ">=973442.1842.47355" }
 handlebars = { version = "6.3.2" }
 #zeroize = "1.6.0"
 
@@ -186,7 +196,7 @@ httparse = "1.10.1"
 humantime = "2.1.3"
 include_dir = { version = "0.7.4", features = ["glob", "metadata"] }
 indicatif = { version = "0.18.0" }
-invalidstring = { path = "invalidstring", package = "gnostr-invalidstring", version = ">=970403.1846.49785" }
+invalidstring = { path = "invalidstring", package = "gnostr-invalidstring", version = ">=973442.1842.47355" }
 itertools = "0.14.0"
 k256 = { version = "0.13", features = ["schnorr", "ecdh"] }
 kanal = "0.1.1"
@@ -234,7 +244,7 @@ libp2p = { version = "0.54.1", features = [
 ] }
 libp2p-quic = { version = "^0.12", features = ["async-std"] }
 libp2p-tls = "^0.6"
-libp2p-webrtc = "0.9.0-alpha"
+libp2p-webrtc = { version = "0.9.0-alpha", features = ["tokio", "pem"] }
 lightning-invoice = "0.33.2"
 linkify = "0.10"
 log = "0.4.29"
@@ -271,7 +281,9 @@ qrcode = { version = "0.14.1", default-features = false }
 quote = "1.0"
 rand = "0.8"
 rand_core = { version = "0.6", features = ["getrandom"] }
-ratatui = { version = "0.29", default-features = false, features = ["macros"] }
+ratatui = { version = "0.30.2", default-features = false, features = [
+    "macros",
+] }
 regex = "1.11"
 reqwest = { version = "0.12.22", features = ["json", "blocking"] }
 rkyv = "0.8.14"
@@ -286,7 +298,12 @@ rust-embed = { version = "8.6.0", features = [
     "include-exclude",
 ] }
 rust-ini = "0.21.3"
-scopetime = { path = "scopetime", package = "gnostr-scopetime", version = ">=970403.1846.49785" }
+rustls = { version = "0.23", default-features = false, features = [
+    "ring",
+    "std",
+    "tls12",
+] }
+scopetime = { path = "scopetime", package = "gnostr-scopetime", version = ">=973442.1842.47355" }
 scrypt = { version = "0.11.0" }
 secp256k1 = { version = "0.29.1", features = [
     "hashes",
@@ -329,7 +346,7 @@ terminal_size = "0.3.0"
 textwrap = "0.16.2"
 thiserror = "1.0.69"
 thread-priority = "1.2.0"
-time = { version = "0.3.46", features = ["macros", "formatting"] }
+time = { version = "0.3.47", features = ["macros", "formatting"] }
 timeago = { version = "0.4.2", default-features = false }
 tiny_http = { version = "0.12" }
 tokio = { version = "1.46.1", features = ["full"] }
@@ -361,19 +378,20 @@ tree-sitter-highlight = "0.23.2"
 tree-sitter-json = "0.24.8"
 tree-sitter-language = "0.1.6"
 trust-dns-resolver = "0.23.2"
-tui-input = "0.14.0"
+tui-input = "0.15.5"
 tui-textarea = "0.7.0"
 two-face = { version = "0.4.5", default-features = false }
 unicode-normalization = "0.1.25"
 unicode-segmentation = "1.12.0"
 unicode-truncate = "1.1.0"
-unicode-width = "0.1.14"
+unicode-width = "0.2.1"
 unix_mode = "0.1.4"
 ureq = { version = "2.12.1", features = ["json", "charset"] }
 url = "2.5.8" ## 2.2.2?
 urlencoding = { version = "2.1.3" }
 uuid = { version = "1.20.0", features = ["v4"] }
 v_htmlescape = { version = "0.15.8", features = ["bytes-buf"] }
+vt100 = "0.16"
 walkdir = "2.5.0"
 warp = { version = "0.3" }
 webbrowser = { version = "0.8" }
@@ -517,6 +535,7 @@ default = ["ghemoji", "regex-fancy", "trace-libgit", "blossom"]
 long_tests = []
 expensive_tests = ["long_tests"] # Backward-compatible alias.
 blossom = []
+ipfs = []
 ghemoji = ["dep:gh-emoji"]
 gnostr-web = []
 # regex-* features are mutually exclusive.
@@ -610,7 +629,7 @@ constant_time_eq = { workspace = true }
 #chacha20poly1305 = "0.10"
 core-net = "0.1"
 crossbeam-channel = "0.5"
-crossterm = { version = "0.28.1", features = ["event-stream", "serde"] }
+crossterm = { workspace = true, features = ["event-stream", "serde"] }
 csv = "1.3.0"
 ctrlc = { version = "3.4.7", features = ["termination"] }
 
@@ -651,15 +670,17 @@ globset = "0.4"
 
 ##gitui
 gnostr-asyncgit = { workspace = true, features = ["tui"] }
-gnostr-crawler = { version = ">=970403.1846.49785", path = "crawler" }
-gnostr-git-helpers = { version = ">=970403.1846.49785", path = "git-helpers" }
+gnostr-crawler = { version = ">=973442.1842.47355", path = "crawler" }
+
+gnostr-docker = { workspace = true }
+gnostr-git-helpers = { version = ">=973442.1842.47355", path = "git-helpers" }
 gnostr-grammar = { workspace = true }
 gnostr-js = { workspace = true, default-features = false, optional = true }
 gnostr-legit = { workspace = true }
 gnostr-relay = { workspace = true }
-gnostr-web = { path = "web", version = ">=970403.1846.49785", default-features = false }
-gnostr_chat = { package = "gnostr-chat", path = "chat", version = ">=970403.1846.49785" }
-gnostr_p2p = { package = "gnostr-p2p", path = "p2p", version = ">=970403.1846.49785" }
+gnostr-web = { path = "web", version = ">=973442.1842.47355", default-features = false }
+gnostr_chat = { package = "gnostr-chat", path = "chat", version = ">=973442.1842.47355" }
+gnostr_p2p = { package = "gnostr-p2p", path = "p2p", version = ">=973442.1842.47355" }
 gnostr_qr = { workspace = true }
 handlebars = { workspace = true, optional = true }
 hex = { workspace = true }
@@ -698,7 +719,7 @@ mailparse = { workspace = true }
 md5 = "0.7"
 metrics = "0.23.0"
 moka = { version = "0.12.0", features = ["future"], optional = true }
-ngit = { package = "gnostr-ngit", version = ">=970403.1846.49785", path = "ngit", features = [
+ngit = { package = "gnostr-ngit", version = ">=973442.1842.47355", path = "ngit", features = [
     "vendored-openssl",
 ] }
 nostr = { workspace = true }
@@ -713,16 +734,14 @@ nostr-relay = { version = "0.4.8", default-features = false }
 nostr-relay-pool = { workspace = true }
 
 nostr-sdk = { workspace = true }
-## TODO remove and upgrade
-## nostr-sdk_0_34_0 = { package = "nostr-sdk", version = "0.34.0" }
-
+## TODO remove and upgrade## nostr-sdk_0_34_0 = { package = "nostr-sdk", version = "0.34.0" }
 ## REF: https://docs.rs/nostr-sdk/0.37.0/nostr_sdk/
-nostr-sdk_0_37_0 = { package = "nostr-sdk", version = "0.37.0" }
-nostr-signer_0_34_0 = { package = "nostr-signer", version = "0.34.0" }
+## nostr-sdk_0_37_0 = { package = "nostr-sdk", version = "0.37.0" }
+## nostr-signer_0_34_0 = { package = "nostr-signer", version = "0.34.0" }
 ## TODO remove and upgrade
 ## TODO remove and upgrade
-nostr_0_34_1 = { package = "nostr", version = "0.34.1" }
-nostr_0_37_0 = { package = "nostr", version = "0.37.0" }
+## nostr_0_34_1 = { package = "nostr", version = "0.34.1" }
+## nostr_0_37_0 = { package = "nostr", version = "0.37.0" }
 
 notify = "6.1.1"
 notify-debouncer-mini = "0.4"
@@ -750,7 +769,7 @@ qrcode = { workspace = true }
 rand = { workspace = true }
 rand_core = { workspace = true }
 ##
-ratatui = { version = "0.29", default-features = false, features = [
+ratatui = { workspace = true, default-features = false, features = [
     'crossterm',
     'serde',
 ] }
@@ -771,11 +790,7 @@ russh = { version = "0.37.1", features = ["openssl"] }
 russh-keys = "0.37.1"
 rust-crypto = "0.2.36"
 rust-ini = { version = "0.21.1", optional = true }
-rustls = { version = "0.23", default-features = false, features = [
-    "ring",
-    "std",
-    "tls12",
-] }
+rustls = { workspace = true }
 scopeguard = "1.2.0"
 scopetime = { workspace = true }
 #rand = "0.8"
@@ -820,7 +835,7 @@ thiserror = "1.0.63"
 #thiserror = "1.0"
 thread-priority = { workspace = true }
 #thiserror = "1"
-time = { version = "0.3.41", features = ["macros", "formatting"] }
+time = { version = "0.3.47", features = ["macros", "formatting"] }
 
 timeago = { version = "0.4.2", default-features = false, optional = true }
 tiny_http = { workspace = true, optional = true }
@@ -852,7 +867,7 @@ tree-sitter-language = "0.1.6"
 #tree-sitter-language = "0.1.6"
 #tree-sitter-language = "0.1"
 trust-dns-resolver = "0.23" # Use the latest version
-tui-input = "0.14.0"
+tui-input = "0.15.5"
 tui-textarea = "0.7.0"
 #tungstenite = { version = "0.28", features = [ "rustls-tls-webpki-roots" ] }
 two-face = { version = "0.4.0", default-features = false }
@@ -868,7 +883,7 @@ urlencoding = { workspace = true }
 uuid = { version = "1.19.0", features = ["v4"] }
 v_htmlescape = { version = "0.15", features = ["bytes-buf"] }
 ##
-vt100 = "^0.15"
+vt100 = "0.16"
 walkdir = "2.4"
 warp = { workspace = true, optional = true }
 webbrowser = { workspace = true, optional = true }
@@ -936,7 +951,7 @@ actix-test = "0.1.5"
 anyhow = { workspace = true }
 assert_cmd = { workspace = true }
 comma = "1.0.0"
-crossterm = { version = "0.28.1" }
+crossterm = { workspace = true }
 ctor = "0.6.3"
 dep-graph = "0.2.0"
 dialoguer = { workspace = true }
@@ -969,12 +984,13 @@ url = { workspace = true }
 [patch.crates-io]
 asn1-rs = { path = "vendor/asn1-rs" }
 actix-web-actors = { path = "vendor/actix-web-actors" }
-time = { path = "vendor/time" }
-curve25519-dalek = { path = "vendor/curve25519-dalek" }
-ed25519-dalek = { path = "vendor/ed25519-dalek" }
+# time = { path = "vendor/time" }  # removed: no custom patches
+#curve25519-dalek = { path = "vendor/curve25519-dalek" }
+#ed25519-dalek = { path = "vendor/ed25519-dalek" }
 lindera-dictionary = { path = "vendor/lindera-dictionary" }
 nostr-relay = { path = "vendor/nostr-relay" }
 gitui = { path = "vendor/gitui" }
+tui-textarea = { path = "vendor/tui-textarea" }
 
 # The profile that 'dist' will build with
 [profile.dist]

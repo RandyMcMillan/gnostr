@@ -8,8 +8,6 @@
 //! # Tests
 //! See docs for the [`#[test]`](macro@test) macro.
 
-#![deny(rust_2018_idioms, nonstandard_style)]
-#![warn(future_incompatible)]
 #![doc(html_logo_url = "https://actix.rs/img/logo.png")]
 #![doc(html_favicon_url = "https://actix.rs/favicon.ico")]
 
@@ -28,8 +26,6 @@ type AttributeArgs = syn::punctuated::Punctuated<syn::Meta, syn::Token![,]>;
 ///     println!("Hello world");
 /// }
 /// ```
-// #[allow(clippy::needless_doctest_main)]
-// #[cfg(not(test))] // Work around for rust-lang/rust#62127
 #[proc_macro_attribute]
 pub fn main(args: TokenStream, item: TokenStream) -> TokenStream {
     let mut input = match syn::parse::<syn::ItemFn>(item.clone()) {

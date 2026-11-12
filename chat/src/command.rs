@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use anyhow::Result;
+use anyhow::{bail, Result};
 use clap::Parser;
 use gnostr_asyncgit::types::PrivateKey;
 use gnostr_p2p::time::{Clock, P2PClock};
@@ -31,6 +31,12 @@ pub struct ChatSubCommands {
     pub name: Option<String>,
     #[arg(long, global = true, default_value = "gnostr-dev")]
     pub topic: Option<String>,
+    #[arg(
+        long,
+        global = true,
+        help = "External relay multiaddr for remote<->local hole punching"
+    )]
+    pub relay: Option<String>,
     #[arg(long, global = true)]
     pub hash: Option<String>,
     #[arg(long, default_value_t = false)]
@@ -44,10 +50,48 @@ pub struct ChatSubCommands {
     #[arg(long, default_value_t = false, help = "Run in headless mode (no TUI)")]
     pub headless: bool,
     pub workdir: Option<String>,
-    #[arg(long, value_name = "GITDIR", default_value = ".", help = "gnostr --gitdir '<string>'")]
+    #[arg(
+        long,
+        value_name = "GITDIR",
+        default_value = ".",
+        help = "gnostr --gitdir '<string>'"
+    )]
     pub gitdir: Option<gnostr_asyncgit::sync::RepoPath>,
     #[arg(short = '1', long, global = true, requires = "topic")]
     pub oneshot: Option<String>,
+
+    #[cfg(feature = "ipfs")]
+    #[arg(
+        long,
+        global = true,
+        help = "Attach a file (stored in IPFS) to the oneshot message"
+    )]
+    pub attach: Option<String>,
+
+    #[cfg(feature = "fractal")]
+    #[arg(
+        long,
+        value_name = "PATH",
+        help = "Send a file or directory as a perfect_ip manifest"
+    )]
+    pub fractal: Option<String>,
+
+    #[cfg(feature = "fractal")]
+    #[arg(
+        long,
+        default_value_t = false,
+        help = "Treat --fractal PATH as a directory tree"
+    )]
+    pub recursive: bool,
+
+    #[cfg(feature = "fractal")]
+    #[arg(
+        long,
+        value_name = "N",
+        default_value = "3",
+        help = "Maximum recursion depth for --recursive"
+    )]
+    pub depth: Option<usize>,
 }
 
 pub async fn chat(sub_command_args: &ChatSubCommands) -> Result<()> {
@@ -135,7 +179,8 @@ pub async fn run(sub_command_args: &ChatSubCommands) -> Result<()> {
     tracing::info!("\n{:?}\n", &sub_command_args);
 
     let topic_name = chat_topic(sub_command_args);
-    let mut session = ChatSession::connect(topic_name.clone()).await?;
+    let mut session =
+        ChatSession::connect(topic_name.clone(), sub_command_args.relay.clone()).await?;
     tracing::info!("local p2p relay service started for chat");
 
     if let Some(message_input) = sub_command_args.oneshot.clone() {
@@ -144,7 +189,23 @@ pub async fn run(sub_command_args: &ChatSubCommands) -> Result<()> {
             return Ok(());
         }
 
-        run_oneshot(&mut session, message_input).await?;
+        #[cfg(feature = "ipfs")]
+        let attach = sub_command_args.attach.clone();
+        #[cfg(not(feature = "ipfs"))]
+        let attach: Option<String> = None;
+        run_oneshot(&mut session, message_input, attach).await?;
+        return Ok(());
+    }
+
+    #[cfg(feature = "fractal")]
+    if let Some(path) = sub_command_args.fractal.clone() {
+        if sub_command_args.headless {
+            println!("headless conflicts with fractal!");
+            return Ok(());
+        }
+
+        let depth = sub_command_args.depth.unwrap_or(3);
+        run_fractal_oneshot(&mut session, path, sub_command_args.recursive, depth).await?;
         return Ok(());
     }
 
@@ -177,7 +238,11 @@ fn chat_topic(sub_command_args: &ChatSubCommands) -> String {
         .unwrap_or_else(|| "gnostr-dev".to_string())
 }
 
-async fn run_chat_session(sub_command_args: &ChatSubCommands, username: String, session: &ChatSession) -> Result<()> {
+async fn run_chat_session(
+    sub_command_args: &ChatSubCommands,
+    username: String,
+    session: &ChatSession,
+) -> Result<()> {
     let topic_name = sub_command_args
         .topic
         .clone()
@@ -187,7 +252,11 @@ async fn run_chat_session(sub_command_args: &ChatSubCommands, username: String, 
     Ok(())
 }
 
-async fn run_oneshot(session: &mut ChatSession, message_input: String) -> Result<()> {
+async fn run_oneshot(
+    session: &mut ChatSession,
+    message_input: String,
+    _attach: Option<String>,
+) -> Result<()> {
     tracing::info!("Oneshot mode: sending message '{}'", message_input);
     let printer = spawn_notification_printer(session.subscribe());
     println!("Initializing network and discovering peers...");
@@ -195,13 +264,85 @@ async fn run_oneshot(session: &mut ChatSession, message_input: String) -> Result
     session.wait_for_connected(Duration::from_secs(30)).await?;
     let p2p_timestamp = oneshot_p2p_timestamp(session.topic());
     println!("p2p time timestamp: {p2p_timestamp}");
-    session.send_text(message_input).await?;
-    println!("Oneshot message sent at {p2p_timestamp}. Waiting for propagation...");
 
-    tokio::time::sleep(Duration::from_secs(2)).await;
+    // Subscribe to publication confirmations before sending so we cannot miss the event.
+    let mut publish_rx = session.subscribe();
+    #[cfg(feature = "ipfs")]
+    if let Some(path) = _attach {
+        session
+            .send_oneshot_with_attachment(message_input, std::path::Path::new(&path))
+            .await?;
+    } else {
+        session.send_oneshot(message_input).await?;
+    }
+    #[cfg(not(feature = "ipfs"))]
+    session.send_oneshot(message_input).await?;
+    println!("Oneshot message queued at {p2p_timestamp}. Waiting for publication...");
+
+    match wait_for_message_published(&mut publish_rx, Duration::from_secs(30)).await {
+        Ok(()) => println!("Oneshot message published."),
+        Err(e) => {
+            tracing::warn!("chat oneshot: did not receive publication confirmation: {e}");
+            println!("Warning: message may not have been published: {e}");
+        }
+    }
+
+    // Brief grace period so gossipsub can transmit the message before the swarm is dropped.
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    printer.abort();
     drop(printer);
     tracing::info!("Oneshot operation complete.");
     Ok(())
+}
+
+#[cfg(feature = "fractal")]
+async fn run_fractal_oneshot(
+    session: &mut ChatSession,
+    path: String,
+    recursive: bool,
+    depth: usize,
+) -> Result<()> {
+    tracing::info!("Fractal oneshot mode: sending {}", path);
+    let printer = spawn_notification_printer(session.subscribe());
+    println!("Initializing network and discovering peers...");
+    session.wait_for_connected(Duration::from_secs(30)).await?;
+
+    let mut publish_rx = session.subscribe();
+    session
+        .send_perfect_ip_file(std::path::Path::new(&path), recursive, depth)
+        .await?;
+    println!("Fractal manifest queued. Waiting for publication...");
+
+    match wait_for_message_published(&mut publish_rx, Duration::from_secs(30)).await {
+        Ok(()) => println!("Fractal manifest published."),
+        Err(e) => {
+            tracing::warn!("chat fractal oneshot: did not receive publication confirmation: {e}");
+            println!("Warning: manifest may not have been published: {e}");
+        }
+    }
+
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    printer.abort();
+    drop(printer);
+    tracing::info!("Fractal oneshot operation complete.");
+    Ok(())
+}
+
+async fn wait_for_message_published(
+    rx: &mut tokio::sync::broadcast::Receiver<ChatNotification>,
+    timeout: Duration,
+) -> Result<()> {
+    tokio::time::timeout(timeout, async {
+        loop {
+            match rx.recv().await {
+                Ok(ChatNotification::MessagePublished) => return Ok(()),
+                Ok(_) => {}
+                Err(_) => bail!("notification channel closed before publication confirmation"),
+            }
+        }
+    })
+    .await
+    .map_err(|_| anyhow::anyhow!("timed out waiting for publication confirmation"))?
 }
 
 fn oneshot_p2p_timestamp(topic: &str) -> String {
@@ -211,7 +352,10 @@ fn oneshot_p2p_timestamp(topic: &str) -> String {
 
 fn oneshot_clock_path(topic: &str) -> String {
     let mut path = std::env::temp_dir();
-    path.push(format!("gnostr-chat-oneshot-{}.json", sanitize_for_filename(topic)));
+    path.push(format!(
+        "gnostr-chat-oneshot-{}.json",
+        sanitize_for_filename(topic)
+    ));
     path.to_string_lossy().into_owned()
 }
 
@@ -240,6 +384,22 @@ fn spawn_notification_printer(
                 ChatNotification::Connected { peer_id, endpoint } => {
                     println!("Connected to peer {peer_id} via {endpoint}")
                 }
+                ChatNotification::MessagePublished => {}
+                #[cfg(feature = "fractal")]
+                ChatNotification::PerfectIpProgress {
+                    root,
+                    received,
+                    total,
+                } => {
+                    println!("[FRACTAL] {root}: {received}/{total} slices received");
+                }
+                #[cfg(feature = "fractal")]
+                ChatNotification::PerfectIpComplete { root, output_path } => {
+                    println!(
+                        "[FRACTAL] {root}: reconstruction complete at {}",
+                        output_path.display()
+                    );
+                }
             }
         }
     })
@@ -265,6 +425,13 @@ mod tests {
             workdir: None,
             gitdir: None,
             oneshot: None,
+            relay: None,
+            #[cfg(feature = "fractal")]
+            fractal: None,
+            #[cfg(feature = "fractal")]
+            recursive: false,
+            #[cfg(feature = "fractal")]
+            depth: Some(3),
         };
 
         assert_eq!(chat_topic(&args), "gnostr-dev");
@@ -288,6 +455,13 @@ mod tests {
                 workdir: None,
                 gitdir: None,
                 oneshot: None,
+                relay: None,
+                #[cfg(feature = "fractal")]
+                fractal: None,
+                #[cfg(feature = "fractal")]
+                recursive: false,
+                #[cfg(feature = "fractal")]
+                depth: Some(3),
             }
         };
 
@@ -296,7 +470,10 @@ mod tests {
 
     #[test]
     fn sanitize_for_filename_replaces_topic_separators() {
-        assert_eq!(sanitize_for_filename("gnostr/chat oneshot"), "gnostr_chat_oneshot");
+        assert_eq!(
+            sanitize_for_filename("gnostr/chat oneshot"),
+            "gnostr_chat_oneshot"
+        );
     }
 
     #[test]

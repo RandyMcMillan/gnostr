@@ -1,0 +1,193 @@
+# Template originally came from:
+# https://gitlab.com/gitlab-org/gitlab/-/blob/master/lib/gitlab/ci/templates/Rust.gitlab-ci.yml
+
+stages:
+  - test
+  - comprehensive
+
+default:
+  before_script:
+    # Print version info for debugging
+    - rustc --version ||true
+    - cargo --version ||true
+    # See tests/stderr.rs
+    - export STDERRTEST_CARGO_OPTIONS=--locked
+
+# Official language image. Look for the different tagged releases at:
+# https://hub.docker.com/r/library/rust/tags/
+image: "rust:latest"
+
+# Running tests without --workspace is useful because that way cargo
+# won't add features to our dependencies that we didn't actually enable
+# *in the derive-adhoc or derive-adhoc-macros crates*.
+cargo-check-deps:
+  stage: test
+  script:
+    - mv Cargo.lock.example Cargo.lock
+    - cargo check --locked --verbose --all-features
+
+cargo-check:
+  stage: test
+  script:
+    - mv Cargo.lock.example Cargo.lock
+    - cargo check --locked --workspace --verbose --all-features
+
+cargo-check-minfeatures:
+  stage: test
+  script:
+    - mv Cargo.lock.example Cargo.lock
+    - cargo check --locked --verbose --no-default-features --features=minimal-1
+
+cargo-fmt:
+  stage: test
+  script:
+    - rustup component add rustfmt
+    - maint/rustfmt --verbose --check
+
+maint-check-bizarre:
+  stage: test
+  script:
+    - maint/update-bizarre --check
+
+maint-check-test-deps:
+  stage: test
+  script:
+    - apt-get -y update
+    - apt-get -y install libtoml-perl git
+    - maint/check-test-deps
+
+# Check for FIXMEs.  This is in "comprehensive" so you can sabotage
+# the CI, but still get it all to run - useful for iterating through CI.
+maint-check-todos:
+  stage: comprehensive
+  script:
+    - maint/check-blocking-todos
+
+# Warning-only checks
+check-doc-tocs:
+  stage: test
+  allow_failure: true
+  script:
+    - maint/update-tocs --check
+
+# Warning-only checks
+check-keywords-documented:
+  stage: test
+  allow_failure: true
+  script:
+    - maint/check-keywords-documented >&2
+
+# Actual tests
+#
+# We pin to a particular cargo-expand:
+#   https://github.com/dtolnay/cargo-expand/issues/179
+cargo-test:
+  stage: test
+  # See "Using the proper Nightly Rust" in tests/tests.rs
+  image: rustlang/rust@sha256:415b7c22ab4a8a3ec3efc9cc8d7b018964f0c6757fff27bbd110e0ed92566321
+  script:
+    - ./maint/via-cargo-install-in-ci cargo-expand --locked --version=1.0.44 --features=prettyplease
+    - mv Cargo.lock.example Cargo.lock
+    - cargo test --locked --workspace --verbose --all-features -- --skip directly::check_examples
+  cache:
+    when: 'always'
+    paths:
+      - cache/*
+
+# Warning only, since this approach may be fragile and also the 
+# testing machinery (particularly the thing that parses reference.md
+# is rather baroque and ad-hco).
+check-doc-examples:
+  stage: comprehensive
+  image: rustlang/rust@sha256:415b7c22ab4a8a3ec3efc9cc8d7b018964f0c6757fff27bbd110e0ed92566321
+  allow_failure: true
+  script:
+    - mv Cargo.lock.example Cargo.lock
+    - cargo test --locked -p derive-adhoc-tests --verbose --all-features -- --nocapture directly::check_examples
+
+# Test every commit
+#
+# This may not work properly if we change the Nightly image version,
+# or the cargo expand version.  Workaround: I believe doing that as
+# the only commit in an MR will still work.
+every-commit:
+  stage: comprehensive
+  image: rustlang/rust@sha256:415b7c22ab4a8a3ec3efc9cc8d7b018964f0c6757fff27bbd110e0ed92566321
+  script:
+    - ./maint/via-cargo-install-in-ci cargo-expand --locked --version=1.0.44 --features=prettyplease
+    - maint/for-every-commit sh -ec 'cp Cargo.lock.example Cargo.lock && cargo test --locked --workspace --verbose --all-features -- --skip directly::check_examples'
+  cache:
+    when: 'always'
+    paths:
+      - cache/*
+
+cargo-test-minfeatures:
+  stage: comprehensive
+  image: rustlang/rust@sha256:415b7c22ab4a8a3ec3efc9cc8d7b018964f0c6757fff27bbd110e0ed92566321
+  script:
+    - mv Cargo.lock.example Cargo.lock
+    - cargo test --locked  -p derive-adhoc-tests --no-default-features --features=derive-adhoc-tests/recent -- --skip directly::check_examples
+
+# Test on Stable Rust
+#
+# We don't enable the ui and macrotest fatures in derive-adhoc-tests, since
+# we think their output might reasonably vary (in detail) when the with
+# compiler changes.  But we do enable the "recent" feature to test even new
+# features.
+stable:
+  stage: comprehensive
+  script:
+    - mv Cargo.lock.example Cargo.lock
+    - cargo test --locked --workspace --verbose --features=derive-adhoc-tests/recent,derive-adhoc-tests/full
+
+stable-minfeatures:
+  stage: comprehensive
+  script:
+    - mv Cargo.lock.example Cargo.lock
+    - cargo test --locked  -p derive-adhoc-tests --no-default-features --features=derive-adhoc-tests/recent
+
+# Check that the docs build
+cargo-doc:
+  stage: comprehensive
+  script:
+    - mv Cargo.lock.example Cargo.lock
+    - cargo doc --locked --workspace --verbose --features=full
+
+# Check that the complete docs build without any warnings
+cargo-doc-all:
+  stage: comprehensive
+  allow_failure: true
+  script:
+    - apt-get update
+    - apt-get -y install jq
+    - mv Cargo.lock.example Cargo.lock
+    - cargo doc --locked --workspace --verbose --features=full --document-private-items --message-format=json >rustdoc.json
+    - jq --raw-output '. | select(.message.level) | .message.rendered' <rustdoc.json |tee rustdoc.errors
+    - test ! -s rustdoc.errors
+
+# Check that our principal crate doesn't have broken links
+check-doc-links:
+  stage: comprehensive
+  allow_failure: true
+  script:
+    - apt-get update
+    - apt-get -y install linklint
+    - mv Cargo.lock.example Cargo.lock
+    - maint/check-doc-links
+
+# Test our MSRV and Cargo.toml minimal versions
+#
+# We don't enable any of the optional fatures in derive-adhoc-tests.
+minimal-versions:
+  stage: comprehensive
+  image: "rust:1.54.0"
+  script:
+    - mv Cargo.lock.minimal Cargo.lock
+    - cargo +1.54.0 test --locked --workspace --no-default-features --features=derive-adhoc-tests/full
+
+minimal-versions-minfeatures:
+  stage: comprehensive
+  image: "rust:1.54.0"
+  script:
+    - mv Cargo.lock.minimal Cargo.lock
+    - cargo +1.54.0 test --locked  -p derive-adhoc-tests --no-default-features

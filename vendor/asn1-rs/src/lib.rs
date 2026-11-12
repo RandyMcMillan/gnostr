@@ -42,7 +42,7 @@
 //! combination to objects and methods from this crate. Reading the nom documentation may
 //! help understanding how to write and combine parsers and use the output.
 //!
-//! **Minimum Supported Rust Version**: 1.63.0
+//! **Minimum Supported Rust Version**: 1.68
 //!
 //! # Recipes
 //!
@@ -101,7 +101,8 @@
 //!
 //! Writing 2 BER integers:
 //!
-//! ```rust
+#![cfg_attr(feature = "std", doc = r#"```rust"#)]
+#![cfg_attr(not(feature = "std"), doc = r#"```rust,compile_fail"#)]
 //! use asn1_rs::{Integer, ToDer};
 //!
 //! let mut writer = Vec::new();
@@ -120,7 +121,8 @@
 //!
 //! Similarly to `FromBer`/`FromDer`, serialization methods are also implemented for primitive types:
 //!
-//! ```rust
+#![cfg_attr(feature = "std", doc = r#"```rust"#)]
+#![cfg_attr(not(feature = "std"), doc = r#"```rust,compile_fail"#)]
 //! use asn1_rs::ToDer;
 //!
 //! let mut writer = Vec::new();
@@ -163,11 +165,7 @@
 #![warn(
 /* missing_docs,
 rust_2018_idioms,*/
-    missing_debug_implementations,
-)]
-#![allow(
-    mismatched_lifetime_syntaxes,
-    unreachable_patterns,
+missing_debug_implementations,
 )]
 // pragmas for doc
 #![deny(rustdoc::broken_intra_doc_links)]
@@ -194,13 +192,13 @@ mod error;
 mod header;
 mod length;
 mod tag;
+mod tostatic;
 mod traits;
 
 pub use asn1_types::*;
 pub use class::*;
 pub use datetime::*;
 pub use derive::*;
-pub use error::from_nom_error;
 pub use error::*;
 pub use header::*;
 pub use length::*;

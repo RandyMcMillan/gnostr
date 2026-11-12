@@ -46,13 +46,15 @@
 //! }
 //! ```
 //!
+//! Additional guidance and examples are available in <https://actix.rs/docs/cors>.
+//!
 //! [Private Network Access]: https://wicg.github.io/private-network-access
 
 #![forbid(unsafe_code)]
 #![warn(future_incompatible, missing_docs, missing_debug_implementations)]
 #![doc(html_logo_url = "https://actix.rs/img/logo.png")]
 #![doc(html_favicon_url = "https://actix.rs/favicon.ico")]
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 mod all_or_some;
 mod builder;

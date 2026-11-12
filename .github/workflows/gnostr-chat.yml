@@ -1,6 +1,10 @@
 ---
 name: gnostr-chat.yml
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.workflow_run.head_branch || github.ref }}-${{ toJSON(inputs) }}
+  cancel-in-progress: true
+
 on:
   workflow_run:
     workflows:
@@ -13,6 +17,11 @@ on:
         description: "Chat topic"
         required: false
         default: gnostr-dev
+        type: string
+      relay:
+        description: "Relay multiaddr for remote<->local hole punching"
+        required: false
+        default: ""
         type: string
       detect_tag_as_topic:
         description: "Use the current Git tag as the chat topic"
@@ -38,6 +47,7 @@ jobs:
       DAMUS: "wss://relay.damus.io"
       NOS: "wss://nos.lol"
       TOPIC: ${{ inputs.topic || 'gnostr-dev' }}
+      RELAY: ${{ inputs.relay || '' }}
       DETECT_TAG_AS_TOPIC: ${{ inputs.detect_tag_as_topic || 'false' }}
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     strategy:

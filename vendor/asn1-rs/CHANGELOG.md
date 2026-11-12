@@ -8,6 +8,50 @@
 
 ### Thanks
 
+## 0.7.2
+
+### Changed/Fixed
+
+- Fix potential denial of service when `REAL` from `NaN`
+
+Encoding of "Real" type does not handle NaN (Not a Number) special case,
+and attempting to call `Real::new(f64::NaN)` will:
+- on a release build, enter an infinite loop (due to an underflow in exponent encoding)
+- on a debug build, trigger a panic
+
+This is considered as low-severity.
+
+Thanks to Domen Puncer Kugler <domen.puncerkugler@nccgroup.com> for the report.
+
+- Bump dependency on time, and update Cargo.lock to use 0.3.47
+  Previous versions of `time` are affected by 'RUSTSEC-2026-0009' and cause `cargo audit` to fail
+
+  Note: features from this advisory are **not** used in `asn1-rs`, which is not affected. This
+  changed is only required because it causes failures in CI runs of dependant software.
+
+  As a side-effect, `time` requires an update of the MSRV, which is now **1.68**
+
+## 0.7.1
+
+### Changed/Fixed
+
+- Update lock file
+- Update features trace and debug to depend on std (#70)
+- Fix doctests with `--no-default-features`
+- Make some tests conditional if `std` is not enabled
+- Fix misc clippy (nightly) warnings
+
+## 0.7.0
+
+### Changed/Fixed
+
+- Update `thiserror` to 2.0 and derive `Error` for error types (even with `no_std`)
+
+### Added
+
+- Add `ToStatic` custom derive attribute
+- Add `ToDerSequence` custom derive attribute (#44)
+
 ## 0.6.2
 
 ### Changed/Fixed

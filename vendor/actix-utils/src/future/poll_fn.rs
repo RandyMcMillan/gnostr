@@ -62,6 +62,7 @@ where
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         // SAFETY: we are not moving out of the pinned field
         // see https://github.com/rust-lang/rust/pull/102737
+        #[allow(clippy::needless_borrow)]
         (unsafe { &mut self.get_unchecked_mut().f })(cx)
     }
 }
@@ -102,6 +103,7 @@ mod tests {
     #[allow(dead_code)]
     fn require_sync<T: Sync>(_t: &T) {}
 
+    #[allow(unused)]
     trait AmbiguousIfUnpin<A> {
         fn some_item(&self) {}
     }

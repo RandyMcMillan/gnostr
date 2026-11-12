@@ -1,0 +1,20 @@
+[package]
+name = "unix_mode"
+version = "0.1.4"
+authors = ["Martin Pool <mbp@sourcefrog.net>"]
+edition = "2021"
+description = "Decode, interpret, and display Unix file mode bits (even on non-Unix platforms)"
+license = "Apache-2.0"
+repository = "https://github.com/sourcefrog/unix_mode"
+
+[features]
+serde = ["dep:serde"]
+
+[dependencies.serde]
+version = "1.0"
+optional = true
+features = [ "derive" ]
+
+[target.'cfg(unix)'.dev-dependencies]
+tempfile = "3.2"
+nix = "0.22"

@@ -1,6 +1,6 @@
 [package]
 name = "rustylib"
-version = "970403.1846.49785"
+version = "973442.1842.47355"
 edition = "2021"
 
 [lib]

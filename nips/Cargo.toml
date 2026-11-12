@@ -1,13 +1,12 @@
 [package]
 name = "nips" #gnostr-nips
-version = "970403.1846.49785"
+version = "973442.1842.47355"
 edition = "2021"
 authors = [
     "randymcmillan <randymcmillan@protonmail.com>",
     "The nostr-protocol/nips Contributors",
 ]
 repository = "https://github.com/gnostr-org/gnostr.git"
-homepage = "https://github.com/gnostr-org/gnostr"
 description = "nips: a nostr-protocol/nips server"
 license = "MIT"
 
@@ -23,6 +22,7 @@ filetreelist = { workspace = true }
 futures = { workspace = true }
 gnostr-asyncgit = { workspace = true, features = ["tui", "vendor-openssl"] }
 gnostr-relay = { workspace = true }
+gnostr-types = { workspace = true }
 include_dir = { workspace = true, features = ["glob", "metadata"] }
 mime_guess = { workspace = true }
 portable-pty = "0.8.1"

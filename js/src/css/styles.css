@@ -9,7 +9,7 @@ html,
 body {
 	background: var(--clrBg);
 	color: var(--clrText);
-	font-family: "Noto Sans", sans-serif;
+	font-family: var(--ffDefault);
 	font-size: var(--fsNormal);
 	margin: 0;
 	padding: 0;

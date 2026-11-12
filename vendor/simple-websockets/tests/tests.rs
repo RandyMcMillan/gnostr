@@ -52,7 +52,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(deprecated)]
     fn receive_text_message_test() {
         // Start a server
         let (websocket_event_hub, server_endpoint) = start_websocket_and_get_server_endpoint();
@@ -101,7 +100,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(deprecated)]
     fn receive_binary_message_test() {
         // Start a server
         let (websocket_event_hub, server_endpoint) = start_websocket_and_get_server_endpoint();
@@ -141,7 +139,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(deprecated)]
     fn send_text_message_test() {
         // Start a server
         let (websocket_event_hub, server_endpoint) = start_websocket_and_get_server_endpoint();
@@ -184,7 +181,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(deprecated)]
     fn send_binary_message_test() {
         // Start a server
         let (websocket_event_hub, server_endpoint) = start_websocket_and_get_server_endpoint();

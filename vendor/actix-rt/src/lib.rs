@@ -14,6 +14,12 @@
 //! backlogged threads. Tasks that are disproportionately expensive should be offloaded to the
 //! blocking task thread-pool using [`task::spawn_blocking`].
 //!
+//! # Features
+//!
+//! The `macros`, `net`, and `signal` features are enabled by default. `net` enables
+//! socket types and `signal` enables OS signal handling. Disable default features to
+//! use the runtime without either facility, then enable the features you need.
+//!
 //! # Examples
 //! ```no_run
 //! use std::sync::mpsc;
@@ -33,20 +39,9 @@
 //! arbiter.join().unwrap();
 //! ```
 //!
-//! # `io-uring` Support
-//!
-//! There is experimental support for using io-uring with this crate by enabling the
-//! `io-uring` feature. For now, it is semver exempt.
-//!
-//! Note that there are currently some unimplemented parts of using `actix-rt` with `io-uring`.
-//! In particular, when running a `System`, only `System::block_on` is supported.
-
 #![allow(clippy::type_complexity)]
 #![doc(html_logo_url = "https://actix.rs/img/logo.png")]
 #![doc(html_favicon_url = "https://actix.rs/favicon.ico")]
-
-#[cfg(all(not(target_os = "linux"), feature = "io-uring"))]
-compile_error!("io_uring is a linux only feature.");
 
 use std::future::Future;
 
@@ -68,9 +63,10 @@ use tokio::task::JoinHandle;
 pub use self::{
     arbiter::{Arbiter, ArbiterHandle},
     runtime::Runtime,
-    system::{System, SystemRunner},
+    system::{System, SystemRunner, SystemStop},
 };
 
+#[cfg(feature = "signal")]
 pub mod signal {
     //! Asynchronous signal handling (Tokio re-exports).
 
@@ -82,6 +78,7 @@ pub mod signal {
     pub use tokio::signal::ctrl_c;
 }
 
+#[cfg(feature = "net")]
 pub mod net {
     //! TCP/UDP/Unix bindings (mostly Tokio re-exports).
 

@@ -13,7 +13,7 @@
 edition = "2024"
 rust-version = "1.85.0"
 name = "curve25519-dalek"
-version = "5.0.0-pre.1"
+version = "5.0.0"
 authors = [
     "Isis Lovecruft <isis@patternsinthevoid.net>",
     "Henry de Valence <hdevalence@hdevalence.ca>",
@@ -48,19 +48,13 @@ repository = "https://github.com/dalek-cryptography/curve25519-dalek/tree/main/c
 resolver = "2"
 
 [package.metadata.docs.rs]
-features = [
-    "serde",
-    "rand_core",
-    "digest",
-    "legacy_compatibility",
-    "group-bits",
-]
 rustdoc-args = [
     "--html-in-header",
     "docs/assets/rustdoc-include-katex-header.html",
     "--cfg",
     "docsrs",
 ]
+all-features = true
 
 [features]
 alloc = ["zeroize?/alloc"]
@@ -74,12 +68,13 @@ group = [
     "dep:group",
     "rand_core",
 ]
-group-bits = [
-    "group",
-    "ff/bits",
-]
 legacy_compatibility = []
+lizard = ["digest"]
 precomputed-tables = []
+rand_core = [
+    "dep:rand_core",
+    "digest/rand_core",
+]
 
 [lib]
 name = "curve25519_dalek"
@@ -98,23 +93,23 @@ required-features = [
 version = "1"
 
 [dependencies.digest]
-version = "0.11.0-rc.1"
+version = "0.11"
 features = ["block-api"]
 optional = true
 default-features = false
 
 [dependencies.ff]
-version = "=0.14.0-pre.0"
+version = "0.14"
 optional = true
 default-features = false
 
 [dependencies.group]
-version = "=0.14.0-pre.0"
+version = "0.14"
 optional = true
 default-features = false
 
 [dependencies.rand_core]
-version = "0.9"
+version = "0.10"
 optional = true
 default-features = false
 
@@ -134,33 +129,27 @@ version = "1"
 optional = true
 default-features = false
 
-[dev-dependencies.bincode]
-version = "1"
-
 [dev-dependencies.criterion]
 version = "0.5"
 features = ["html_reports"]
 
+[dev-dependencies.getrandom]
+version = "0.4"
+features = ["sys_rng"]
+
 [dev-dependencies.hex]
 version = "0.4.2"
+
+[dev-dependencies.postcard]
+version = "1"
+features = ["alloc"]
 
 [dev-dependencies.proptest]
 version = "1"
 
-[dev-dependencies.rand]
-version = "0.9"
-
-[dev-dependencies.rand_core]
-version = "0.9"
-features = ["os_rng"]
-default-features = false
-
 [dev-dependencies.sha2]
-version = "0.11.0-rc.2"
+version = "0.11"
 default-features = false
-
-[build-dependencies]
-chrono = { version = "0.4", default-features = false, features = ["clock"] }
 
 [build-dependencies.rustc_version]
 version = "0.4.0"
@@ -173,14 +162,14 @@ version = "0.3.0"
 default-features = false
 
 [target.'cfg(target_arch = "x86_64")'.dependencies.cpufeatures]
-version = "0.2.17"
+version = "0.3"
 
 [lints.rust.unexpected_cfgs]
 level = "warn"
 priority = 0
 check-cfg = [
     "cfg(allow_unused_unsafe)",
-    'cfg(curve25519_dalek_backend, values("fiat", "serial", "simd", "unstable_avx512"))',
+    'cfg(curve25519_dalek_backend, values("fiat", "serial", "simd", "avx512"))',
     'cfg(curve25519_dalek_diagnostics, values("build"))',
     'cfg(curve25519_dalek_bits, values("32", "64"))',
     "cfg(nightly)",

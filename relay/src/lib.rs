@@ -7,6 +7,8 @@ use std::{
 use actix_web::{dev::ServerHandle, web, HttpServer};
 
 pub mod cli;
+#[cfg(feature = "ipfs")]
+pub mod ipfs;
 pub mod launcher;
 
 pub use nostr_relay::*;

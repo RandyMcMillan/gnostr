@@ -1,5 +1,5 @@
 use std::{
-    cell::{Ref, RefCell, RefMut},
+    cell::{Cell, Ref, RefCell, RefMut},
     collections::HashMap,
     fmt,
     hash::{BuildHasher, Hash},
@@ -29,6 +29,9 @@ use crate::{
 #[cfg(feature = "cookies")]
 struct Cookies(Vec<Cookie<'static>>);
 
+#[cfg(feature = "cookies")]
+struct RawCookies(Vec<Cookie<'static>>);
+
 /// An incoming request.
 #[derive(Clone)]
 pub struct HttpRequest {
@@ -42,6 +45,8 @@ pub struct HttpRequest {
 pub(crate) struct HttpRequestInner {
     pub(crate) head: Message<RequestHead>,
     pub(crate) path: Path<Url>,
+    pub(crate) resource_path: SmallVec<[u16; 4]>,
+    pub(crate) resource_path_matched: bool,
     pub(crate) app_data: SmallVec<[Rc<Extensions>; 4]>,
     pub(crate) conn_data: Option<Rc<Extensions>>,
     pub(crate) extensions: Rc<RefCell<Extensions>>,
@@ -65,6 +70,8 @@ impl HttpRequest {
             inner: Rc::new(HttpRequestInner {
                 head,
                 path,
+                resource_path: SmallVec::new(),
+                resource_path_matched: false,
                 app_state,
                 app_data: data,
                 conn_data,
@@ -82,7 +89,10 @@ impl HttpRequest {
     }
 
     /// This method returns mutable reference to the request head.
-    /// panics if multiple references of HTTP request exists.
+    ///
+    /// # Panics
+    ///
+    /// Panics if multiple references of HTTP request exists.
     #[inline]
     pub(crate) fn head_mut(&mut self) -> &mut RequestHead {
         &mut Rc::get_mut(&mut self.inner).unwrap().head
@@ -98,6 +108,12 @@ impl HttpRequest {
     ///
     /// Reconstructed URL is best-effort, using [`connection_info`](HttpRequest::connection_info())
     /// to get forwarded scheme & host.
+    ///
+    /// # Panics
+    ///
+    /// Panics when the reconstructed URL cannot be parsed, such as when the host is malformed.
+    ///
+    /// # Examples
     ///
     /// ```
     /// use actix_web::test::TestRequest;
@@ -180,6 +196,26 @@ impl HttpRequest {
         &mut Rc::get_mut(&mut self.inner).unwrap().path
     }
 
+    #[inline]
+    pub(crate) fn push_resource_id(&mut self, id: u16) {
+        Rc::get_mut(&mut self.inner).unwrap().resource_path.push(id);
+    }
+
+    #[inline]
+    pub(crate) fn mark_resource_path(&mut self, is_matched: bool) {
+        Rc::get_mut(&mut self.inner).unwrap().resource_path_matched = is_matched;
+    }
+
+    #[inline]
+    pub(crate) fn resource_path(&self) -> &[u16] {
+        &self.inner.resource_path
+    }
+
+    #[inline]
+    pub(crate) fn is_resource_path_matched(&self) -> bool {
+        self.inner.resource_path_matched
+    }
+
     /// The resource definition pattern that matched the path. Useful for logging and metrics.
     ///
     /// For example, when a resource with pattern `/user/{id}/profile` is defined and a call is made
@@ -188,6 +224,15 @@ impl HttpRequest {
     /// Returns a None when no resource is fully matched, including default services.
     #[inline]
     pub fn match_pattern(&self) -> Option<String> {
+        if self.is_resource_path_matched() {
+            if let Some(pattern) = self
+                .resource_map()
+                .match_pattern_by_resource_path(self.resource_path())
+            {
+                return Some(pattern);
+            }
+        }
+
         self.resource_map().match_pattern(self.path())
     }
 
@@ -196,6 +241,15 @@ impl HttpRequest {
     /// Returns a None when no resource is fully matched, including default services.
     #[inline]
     pub fn match_name(&self) -> Option<&str> {
+        if self.is_resource_path_matched() {
+            if let Some(name) = self
+                .resource_map()
+                .match_name_by_resource_path(self.resource_path())
+            {
+                return Some(name);
+            }
+        }
+
         self.resource_map().match_name(self.path())
     }
 
@@ -415,6 +469,8 @@ impl HttpRequest {
 
     /// Load request cookies.
     ///
+    /// The names and values of cookies are percent-decoded.
+    ///
     /// Any cookie that cannot be parsed is omitted from the result.
     /// This includes cookies with an empty name (e.g. `document.cookie = "=value"`).
     #[cfg(feature = "cookies")]
@@ -439,16 +495,49 @@ impl HttpRequest {
         }))
     }
 
+    /// Load request cookies **without** percent-decoding their names and values.
+    ///
+    /// Any cookie that cannot be parsed is omitted from the result.
+    /// This includes cookies with an empty name (e.g. `document.cookie = "=value"`).
+    #[cfg(feature = "cookies")]
+    pub fn cookies_raw(&self) -> Result<Ref<'_, Vec<Cookie<'static>>>, CookieParseError> {
+        use actix_http::header::COOKIE;
+
+        if self.extensions().get::<RawCookies>().is_none() {
+            let mut cookies = Vec::new();
+            for hdr in self.headers().get_all(COOKIE) {
+                let s = str::from_utf8(hdr.as_bytes()).map_err(CookieParseError::from)?;
+                for cookie_str in s.split(';').map(|s| s.trim()).filter(|s| !s.is_empty()) {
+                    if let Ok(cookie) = Cookie::parse(cookie_str) {
+                        cookies.push(cookie.into_owned());
+                    }
+                }
+            }
+            self.extensions_mut().insert(RawCookies(cookies));
+        }
+
+        Ok(Ref::map(self.extensions(), |ext| {
+            &ext.get::<RawCookies>().unwrap().0
+        }))
+    }
+
     /// Return request cookie.
     #[cfg(feature = "cookies")]
     pub fn cookie(&self, name: &str) -> Option<Cookie<'static>> {
         if let Ok(cookies) = self.cookies() {
-            for cookie in cookies.iter() {
-                if cookie.name() == name {
-                    return Some(cookie.to_owned());
-                }
-            }
+            return cookies.iter().find(|cookie| cookie.name() == name).cloned();
         }
+
+        None
+    }
+
+    /// Return request cookie **without** percent-decoding its name and value.
+    #[cfg(feature = "cookies")]
+    pub fn cookie_raw(&self, name: &str) -> Option<Cookie<'static>> {
+        if let Ok(cookies) = self.cookies_raw() {
+            return cookies.iter().find(|cookie| cookie.name() == name).cloned();
+        }
+
         None
     }
 }
@@ -580,6 +669,7 @@ impl fmt::Debug for HttpRequest {
 /// The pool's default capacity is 128 items.
 pub(crate) struct HttpRequestPool {
     inner: RefCell<Vec<Rc<HttpRequestInner>>>,
+    enabled: Cell<bool>,
     cap: usize,
 }
 
@@ -593,6 +683,7 @@ impl HttpRequestPool {
     pub(crate) fn with_capacity(cap: usize) -> Self {
         HttpRequestPool {
             inner: RefCell::new(Vec::with_capacity(cap)),
+            enabled: Cell::new(true),
             cap,
         }
     }
@@ -609,7 +700,7 @@ impl HttpRequestPool {
     /// Check if the pool still has capacity for request storage.
     #[inline]
     pub(crate) fn is_available(&self) -> bool {
-        self.inner.borrow_mut().len() < self.cap
+        self.enabled.get() && self.inner.borrow().len() < self.cap
     }
 
     /// Push a request to pool.
@@ -618,21 +709,23 @@ impl HttpRequestPool {
         self.inner.borrow_mut().push(req);
     }
 
-    /// Clears all allocated HttpRequest objects.
-    pub(crate) fn clear(&self) {
-        self.inner.borrow_mut().clear()
+    /// Prevents future requests from being returned to the pool and clears existing entries.
+    pub(crate) fn disable(&self) {
+        self.enabled.set(false);
+        self.inner.borrow_mut().clear();
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
+    use std::{collections::HashMap, sync::Arc};
 
     use bytes::Bytes;
 
     use super::*;
     use crate::{
         dev::{ResourceDef, Service},
+        guard,
         http::{header, StatusCode},
         test::{self, call_service, init_service, read_body, TestRequest},
         web, App, HttpResponse,
@@ -678,6 +771,49 @@ mod tests {
 
         let cookie = req.cookie("cookie-unknown");
         assert!(cookie.is_none());
+    }
+
+    #[test]
+    #[cfg(feature = "cookies")]
+    fn test_request_cookies_raw() {
+        let req = TestRequest::default()
+            .append_header((header::COOKIE, "cookie1=hello%20world"))
+            .append_header((header::COOKIE, "cookie2=%db"))
+            .to_http_request();
+        {
+            let cookies = req.cookies_raw().unwrap();
+            assert_eq!(cookies.len(), 2);
+            assert_eq!(cookies[0].name(), "cookie1");
+            assert_eq!(cookies[0].value(), "hello%20world");
+            assert_eq!(cookies[1].name(), "cookie2");
+            assert_eq!(cookies[1].value(), "%db");
+        }
+
+        let cookie = req.cookie_raw("cookie1");
+        assert!(cookie.is_some());
+        let cookie = cookie.unwrap();
+        assert_eq!(cookie.name(), "cookie1");
+        assert_eq!(cookie.value(), "hello%20world");
+
+        let cookie = req.cookie_raw("cookie2");
+        assert!(cookie.is_some());
+        let cookie = cookie.unwrap();
+        assert_eq!(cookie.name(), "cookie2");
+        assert_eq!(cookie.value(), "%db");
+    }
+
+    #[test]
+    #[cfg(feature = "cookies")]
+    fn test_request_cookies_raw_is_independent_from_encoded_cookies() {
+        let req = TestRequest::default()
+            .append_header((header::COOKIE, "cookie=%20"))
+            .to_http_request();
+
+        let cookie = req.cookie("cookie").unwrap();
+        assert_eq!(cookie.value(), " ");
+
+        let raw_cookie = req.cookie_raw("cookie").unwrap();
+        assert_eq!(raw_cookie.value(), "%20");
     }
 
     #[test]
@@ -861,6 +997,41 @@ mod tests {
     }
 
     #[actix_rt::test]
+    async fn test_request_dropped_after_service_does_not_reenter_pool() {
+        struct State {
+            _data: Arc<String>,
+        }
+
+        let (weak_data, app_data) = {
+            let data = Arc::new("data".to_owned());
+            (Arc::downgrade(&data), web::Data::new(State { _data: data }))
+        };
+
+        let held_req = Rc::new(RefCell::new(None));
+
+        {
+            let held_req = Rc::clone(&held_req);
+            let srv = init_service(App::new().app_data(app_data).service(web::resource("/").to(
+                move |req: HttpRequest| {
+                    *held_req.borrow_mut() = Some(req.clone());
+                    HttpResponse::Ok()
+                },
+            )))
+            .await;
+
+            let resp = call_service(&srv, TestRequest::default().to_request()).await;
+            assert_eq!(resp.status(), StatusCode::OK);
+
+            drop(resp);
+            drop(srv);
+        }
+
+        assert!(weak_data.upgrade().is_some());
+        drop(held_req.borrow_mut().take());
+        assert!(weak_data.upgrade().is_none());
+    }
+
+    #[actix_rt::test]
     async fn test_data() {
         let srv = init_service(App::new().app_data(10usize).service(web::resource("/").to(
             |req: HttpRequest| {
@@ -1015,6 +1186,44 @@ mod tests {
         assert_eq!(res.status(), StatusCode::OK);
 
         let req = TestRequest::get().uri("/user/22/not-exist").to_request();
+        let res = call_service(&srv, req).await;
+        assert_eq!(res.status(), StatusCode::OK);
+    }
+
+    #[actix_rt::test]
+    async fn extract_path_pattern_with_guards() {
+        let srv = init_service(
+            App::new().service(
+                web::scope("/widgets")
+                    .service(
+                        web::resource("/{id}")
+                            .name("get_widget")
+                            .guard(guard::Get())
+                            .to(|req: HttpRequest| {
+                                assert_eq!(req.match_pattern(), Some("/widgets/{id}".to_owned()));
+                                assert_eq!(req.match_name(), Some("get_widget"));
+                                HttpResponse::Ok().finish()
+                            }),
+                    )
+                    .service(
+                        web::resource("/action")
+                            .name("widget_action")
+                            .guard(guard::Post())
+                            .to(|req: HttpRequest| {
+                                assert_eq!(req.match_pattern(), Some("/widgets/action".to_owned()));
+                                assert_eq!(req.match_name(), Some("widget_action"));
+                                HttpResponse::Ok().finish()
+                            }),
+                    ),
+            ),
+        )
+        .await;
+
+        let req = TestRequest::get().uri("/widgets/42").to_request();
+        let res = call_service(&srv, req).await;
+        assert_eq!(res.status(), StatusCode::OK);
+
+        let req = TestRequest::post().uri("/widgets/action").to_request();
         let res = call_service(&srv, req).await;
         assert_eq!(res.status(), StatusCode::OK);
     }

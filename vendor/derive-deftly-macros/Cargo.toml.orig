@@ -1,0 +1,40 @@
+[package]
+name = "derive-deftly-macros"
+version = "0.14.6"
+edition = "2021"
+readme = "README.md"
+authors=["Ian Jackson <ijackson@chiark.greenend.org.uk>",
+         "and the contributors to Rust derive-deftly"]
+license = "MIT"
+description="Macros that implement the derive_deftly crate"
+homepage = "https://gitlab.torproject.org/Diziet/rust-derive-deftly"
+repository = "https://gitlab.torproject.org/Diziet/rust-derive-deftly"
+rust-version = "1.56"
+
+# After editing this file, you will probably need to run
+#   maint/update-bizarre
+# to update the "bizarre" testing versions in tests/pub-export/bizarre-*
+
+[features]
+case = ["heck"]
+expect = ["sha3", "syn/full"]
+meta-as-expr = ["syn/full"]
+meta-as-items = ["syn/full"]
+beta = []
+
+[dependencies]
+indexmap = ">=1.8, <3"
+itertools = ">=0.10.1, <0.16"
+proc-macro-crate = ">=1.1.3, <4"
+proc-macro2 = "1.0.53"
+quote = "1"
+sha3 = { version = "0.10", optional = true }
+strum = { version = ">=0.24, <0.28", features = ["derive"] }
+syn = { version = "2.0.53", features = ["extra-traits"] }
+void = "1"
+
+heck = { version = ">=0.4, <0.6", optional = true }
+
+[lib]
+path = "macros.rs"
+proc-macro = true

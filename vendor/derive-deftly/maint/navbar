@@ -1,0 +1,20 @@
+divider =  | $
+text = <nav style="text-align: right; margin-bottom: 12px;">[ <em>docs: $
+book-to-rustdoc = https://docs.rs/derive-deftly/latest/derive_deftly/
+
+url toplevel = index.html
+text = crate top-level
+|
+url overall-toc = index.html#overall-toc
+subanchor toc = overall toc
+text = , $
+subanchor macros = macros
+|
+url reference = doc_reference/index.html
+text = template etc. reference
+|
+url book-start = https://diziet.pages.torproject.net/rust-derive-deftly/latest/guide/
+subanchor book-chapter = guide/tutorial
+
+$$
+text = </em> ]</nav>

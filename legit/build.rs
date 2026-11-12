@@ -176,7 +176,7 @@ fn get_git_hash() -> String {
     let commit_output = Command::new("git")
         .arg("rev-parse")
         .arg("--short=7")
-        .arg("--verify")
+        .arg("--no-verify")
         .arg("HEAD")
         .output()
         .expect("Failed to execute git command to get commit hash");
@@ -286,7 +286,9 @@ fn main() {
                 println!("cargo:warning=Homebrew detected.");
                 install_zlib();
             } else {
-                println!("cargo:warning=Homebrew not found. Please install zlib manually if needed.");
+                println!(
+                    "cargo:warning=Homebrew not found. Please install zlib manually if needed."
+                );
             }
         }
     }
@@ -330,9 +332,7 @@ fn if_linux_unknown() -> bool {
 
         match pkg_config_check {
             Ok(output) if output.status.success() => {
-                println!(
-                    "cargo:warning=Found `pkg-config` in your PATH."
-                );
+                println!("cargo:warning=Found `pkg-config` in your PATH.");
             }
             _ => {
                 println!(
@@ -520,7 +520,7 @@ This directory is intentionally kept minimal and serves as a placeholder for the
 empty tree object in the Git repository history. The first commit creates the project's
 root using a known epoch date for historical consistency.
 
-GIT_AUTHOR_NAME=gnostr-vfs
+GIT_AUTHOR_NAME=gnostr-legit
 
 GIT_AUTHOR_EMAIL=admin@gnostr.org
 
@@ -648,6 +648,7 @@ fn _git_commit(dir_path: &Path) -> Result<(), io::Error> {
         dir_path_str,
         "commit",
         "--allow-empty",
+        "--no-verify",
         "-m",
         "initial commit",
     ]);

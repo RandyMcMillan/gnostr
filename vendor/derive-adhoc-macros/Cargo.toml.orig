@@ -1,0 +1,35 @@
+[package]
+name = "derive-adhoc-macros"
+version = "0.7.3"
+edition = "2018"
+readme = "../README.md"
+authors=["Ian Jackson <ijackson@chiark.greenend.org.uk>",
+         "and the contributors to Rust derive-adhoc"]
+license = "MIT"
+description="Macros that implement the derive_adhoc crate"
+homepage = "https://gitlab.torproject.org/Diziet/rust-derive-adhoc"
+repository = "https://gitlab.torproject.org/Diziet/rust-derive-adhoc"
+
+# After editing this file, you will probably need to run
+#   maint/update-bizarre
+# to update the "bizarre" testing versions in tests/pub-export/bizarre-*
+
+[features]
+case = ["heck"]
+expect = ["sha3", "syn/full"]
+
+[dependencies]
+itertools = ">=0.10.1, <0.12"
+proc-macro-crate = "1.1.3"
+proc-macro2 = "1"
+quote = "1"
+sha3 = { version = "0.10", optional = true }
+strum = { version = ">=0.24, <0.26", features = ["derive"] }
+syn = { version = "1.0.61", features = ["extra-traits"] }
+void = "1"
+
+heck = { version = "0.4", optional = true }
+
+[lib]
+path = "macros.rs"
+proc-macro = true

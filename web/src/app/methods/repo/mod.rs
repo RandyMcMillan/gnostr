@@ -57,7 +57,8 @@ pub async fn service(mut request: Request<Body>) -> Response {
     let scan_path = request
         .extensions()
         .get::<Arc<PathBuf>>()
-        .expect("scan_path missing");
+        .expect("scan_path missing")
+        .clone();
 
     let uri_segments: Vec<&str> = request
         .uri()
@@ -104,35 +105,37 @@ pub async fn service(mut request: Request<Body>) -> Response {
         && full_potential_repo_path.join("objects").is_dir(); //<repo>.git/objects/
         let is_working_tree = full_potential_repo_path.join(".git").is_file(); //<repo>/.git
         let is_working_tree_repo = full_potential_repo_path.join(".git").is_dir();
-        let exists_in_db = crate::app::database::schema::repository::Repository::exists(
-            db,
-            &potential_repo_name,
-        )
-        .unwrap_or_default();
+        let exists_in_db =
+            crate::app::database::schema::repository::Repository::exists(db, &potential_repo_name)
+                .unwrap_or_default();
         debug!(
             "  Is Bare: {}, Is Working Tree: {}, Is Working Tree Repo:{}, Exists in DB: {}",
             is_bare_repo, is_working_tree, is_working_tree_repo, exists_in_db
         );
 
-        // Only consider it a repository if it exists on disk *and* is in the database
+        // Only consider it a repository if it exists on disk *and* is in the database.
+        // We keep scanning so that a nested repository (e.g. a SwiftPM checkout inside
+        // another repo) is chosen over its parent.
         if (is_bare_repo || is_working_tree || is_working_tree_repo) && exists_in_db {
             repository_name = potential_repo_name;
 
-            // If it's a working tree repo, but the URL *includes* .git (e.g., /repo/.git/tree)
-            // we should treat the part before .git as the repository_name
+            // If it's a working tree repo, but the URL *includes* .git (e.g. /repo/.git/tree)
+            // we should treat the part before .git as the repository_name.
+            let mut next_index = current_segment_index + 1;
             if (is_working_tree || is_working_tree_repo)
-                && current_segment_index + 1 < uri_segments.len()
-                && uri_segments[current_segment_index + 1] == ".git"
+                && next_index < uri_segments.len()
+                && uri_segments[next_index] == ".git"
             {
                 // Adjust segments to skip ".git"
-                current_segment_index += 1; // Skip the .git segment
+                next_index += 1;
             }
 
-            if current_segment_index + 1 < uri_segments.len() {
-                handler_segment = Some(uri_segments[current_segment_index + 1]);
-                child_path_segments = uri_segments[current_segment_index + 2..].to_vec();
+            handler_segment = None;
+            child_path_segments = Vec::new();
+            if next_index < uri_segments.len() {
+                handler_segment = Some(uri_segments[next_index]);
+                child_path_segments = uri_segments[next_index + 1..].to_vec();
             }
-            break;
         }
         current_segment_index += 1;
     }
@@ -152,7 +155,24 @@ pub async fn service(mut request: Request<Body>) -> Response {
     debug!("Child Path Segments: {:?}", child_path_segments);
 
     if repository_name.as_os_str().is_empty() {
-        return RepositoryNotFound.into_response();
+        let prefix = uri_segments.join("/");
+        if prefix.is_empty() {
+            return RepositoryNotFound.into_response();
+        }
+        let prefix_response = super::index::render_prefix(db.clone(), &prefix).await;
+        if let Ok(response) = &prefix_response {
+            if response.status() == StatusCode::NOT_FOUND {
+                if let Some(tree_response) =
+                    super::file_tree::render(scan_path.as_path(), &PathBuf::from(&prefix))
+                {
+                    return tree_response;
+                }
+            }
+        }
+        return match prefix_response {
+            Ok(response) => response,
+            Err(error) => error.into_response(),
+        };
     }
 
     let mut child_path = None;
@@ -184,21 +204,38 @@ pub async fn service(mut request: Request<Body>) -> Response {
         Some("tag") => h!(handle_tag),
         Some("snapshot") => h!(handle_snapshot),
         Some("thread") => h!(handle_thread), // GEMINI: Add thread handler
-        _ => h!(handle_summary),             // Default to summary if no specific handler is found
+        _ => {
+            // Default to summary; preserve any trailing path segments so the
+            // page title/header can reflect the requested path.
+            if !child_path_segments.is_empty() {
+                child_path = Some(child_path_segments.into_iter().collect::<PathBuf>().clean());
+            }
+            h!(handle_summary)
+        } // Default to summary if no specific handler is found
     };
 
     debug!("Final Child Path: {:?}", child_path);
 
-    let repository_abs_path = repository_abs_path(scan_path, &repository_name);
+    let repository_abs_path = repository_abs_path(scan_path.as_path(), &repository_name);
 
     debug!("Repository Name: {}", repository_name.display());
     debug!("Repository Path: {}", repository_abs_path.display());
+
+    // If the selected repository path is not a valid git repo but is a directory,
+    // render a file tree landing page instead of letting the handler fail.
+    if gix::open(&repository_abs_path).is_err() && repository_abs_path.is_dir() {
+        return super::file_tree::render(scan_path.as_path(), &repository_name)
+            .unwrap_or_else(|| RepositoryNotFound.into_response());
+    }
 
     request.extensions_mut().insert(ChildPath(child_path));
     request.extensions_mut().insert(Repository(repository_name));
     request
         .extensions_mut()
         .insert(RepositoryPath(repository_abs_path));
+    request
+        .extensions_mut()
+        .insert(ScanPath(scan_path.to_path_buf()));
 
     service
         .call(request)
@@ -226,6 +263,43 @@ impl Repository {
             format!("/{}/", self.0.display())
         }
     }
+
+    pub fn title(&self) -> String {
+        if self.0.as_os_str().is_empty() || self.0 == Path::new(".") {
+            "gnostr.org".to_string()
+        } else {
+            format!("gnostr.org/{}", self.0.display())
+        }
+    }
+
+    pub fn path_segments(&self) -> Vec<(String, String)> {
+        if self.0.as_os_str().is_empty() || self.0 == Path::new(".") {
+            return Vec::new();
+        }
+        let components: Vec<_> = self
+            .0
+            .components()
+            .map(|c| c.as_os_str().to_string_lossy().to_string())
+            .collect();
+        let mut segments = Vec::new();
+        let mut href = String::new();
+        for component in components {
+            if !href.is_empty() {
+                href.push('/');
+            }
+            href.push_str(&component);
+            segments.push((component.clone(), format!("/{href}")));
+        }
+        segments
+    }
+
+    pub fn display_name(&self) -> String {
+        if self.0.as_os_str().is_empty() || self.0 == Path::new(".") {
+            "root repo".to_string()
+        } else {
+            self.0.display().to_string()
+        }
+    }
 }
 
 #[cfg(test)]
@@ -236,10 +310,7 @@ mod tests {
     #[test]
     fn root_repository_uses_scan_path() {
         let scan_path = Path::new("/tmp/gnostr-worktree");
-        assert_eq!(
-            repository_abs_path(scan_path, Path::new(".")),
-            scan_path
-        );
+        assert_eq!(repository_abs_path(scan_path, Path::new(".")), scan_path);
     }
 
     #[test]
@@ -254,6 +325,9 @@ mod tests {
 
 #[derive(Clone)]
 pub struct RepositoryPath(pub PathBuf);
+
+#[derive(Clone)]
+pub struct ScanPath(pub PathBuf);
 
 #[derive(Clone)]
 pub struct ChildPath(pub Option<PathBuf>);

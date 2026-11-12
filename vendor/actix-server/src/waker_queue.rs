@@ -8,6 +8,8 @@ use mio::{Registry, Token as MioToken, Waker};
 
 use crate::worker::WorkerHandleAccept;
 
+const INITIAL_QUEUE_CAPACITY: usize = 16;
+
 /// Waker token for `mio::Poll` instance.
 pub(crate) const WAKER_TOKEN: MioToken = MioToken(usize::MAX);
 
@@ -36,7 +38,7 @@ impl WakerQueue {
     /// event's token for it to properly handle `WakerInterest`.
     pub(crate) fn new(registry: &Registry) -> std::io::Result<Self> {
         let waker = Waker::new(registry, WAKER_TOKEN)?;
-        let queue = Mutex::new(VecDeque::with_capacity(16));
+        let queue = Mutex::new(VecDeque::with_capacity(INITIAL_QUEUE_CAPACITY));
 
         Ok(Self(Arc::new((waker, queue))))
     }
@@ -52,7 +54,7 @@ impl WakerQueue {
 
         waker
             .wake()
-            .unwrap_or_else(|e| panic!("can not wake up Accept Poll: {}", e));
+            .unwrap_or_else(|err| panic!("Can not wake up Accept Poll: {err}"));
     }
 
     /// Get a MutexGuard of the waker queue.
@@ -62,7 +64,7 @@ impl WakerQueue {
 
     /// Reset the waker queue so it does not grow infinitely.
     pub(crate) fn reset(queue: &mut VecDeque<WakerInterest>) {
-        std::mem::swap(&mut VecDeque::<WakerInterest>::with_capacity(16), queue);
+        *queue = VecDeque::<WakerInterest>::with_capacity(INITIAL_QUEUE_CAPACITY);
     }
 }
 

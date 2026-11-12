@@ -5,8 +5,8 @@
 
 use std::fmt::Display;
 
-use gnostr_asyncgit::sync::CommitId;
 use gnostr_asyncgit::git2::Oid;
+use gnostr_asyncgit::sync::CommitId;
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 
@@ -41,6 +41,18 @@ pub enum MsgKind {
     GitDiff,
     OneShot,
     Debug,
+    PerfectIpManifest,
+}
+
+/// A content-addressed attachment carried by a chat message.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Default)]
+pub struct Attachment {
+    /// IPFS CID of the attachment bytes.
+    pub cid: String,
+    /// Original file name.
+    pub name: String,
+    /// MIME type, if known.
+    pub mime: String,
 }
 
 /// A single chat message or structured payload moving through the swarm.
@@ -63,6 +75,12 @@ pub struct Msg {
     pub sequence_num: Option<usize>,
     /// Total chunk count for reassembly.
     pub total_chunks: Option<usize>,
+    /// Content-addressed attachments (IPFS CIDs).
+    #[serde(default)]
+    pub attachments: Vec<Attachment>,
+    /// JSON-encoded `perfect_ip` manifest when `kind` is `PerfectIpManifest`.
+    #[serde(default)]
+    pub perfect_ip_manifest: Option<String>,
 }
 
 impl Default for Msg {
@@ -76,11 +94,27 @@ impl Default for Msg {
             message_id: None,
             sequence_num: None,
             total_chunks: None,
+            attachments: Vec::new(),
+            perfect_ip_manifest: None,
         }
     }
 }
 
 impl Msg {
+    /// Build a plain chat message payload using the default sender.
+    pub fn chat(content: impl Into<String>) -> Self {
+        let content = content.into();
+        let mut lines: Vec<String> = content.lines().map(|line| line.to_string()).collect();
+        if lines.is_empty() {
+            lines.push(content);
+        }
+
+        Self {
+            content: lines,
+            ..Self::default()
+        }
+    }
+
     /// Set the message kind and return the updated value.
     pub fn set_kind(mut self, kind: MsgKind) -> Self {
         self.kind = kind;
@@ -123,6 +157,23 @@ impl Msg {
     pub fn set_total_chunks(mut self, total_chunks: usize) -> Self {
         self.total_chunks = Some(total_chunks);
         self
+    }
+
+    /// Attach a content-addressed attachment (IPFS CID).
+    pub fn add_attachment(mut self, attachment: Attachment) -> Self {
+        self.attachments.push(attachment);
+        self
+    }
+
+    /// Attach a JSON-encoded perfect_ip manifest.
+    pub fn set_perfect_ip_manifest(mut self, manifest: String) -> Self {
+        self.perfect_ip_manifest = Some(manifest);
+        self
+    }
+
+    /// Return the textual body of the message.
+    pub fn body(&self) -> String {
+        self.content.join("\n")
     }
 
     pub fn wrap_text(self, _text: Msg, _max_width: usize) -> Self {
@@ -373,6 +424,22 @@ impl<'a> From<&'a Msg> for ratatui::text::Line<'a> {
                 }
                 Line::from(spans)
             }
+            PerfectIpManifest => {
+                let mut spans = Vec::new();
+                let purple_style = Style::default().fg(Color::Magenta);
+
+                if let Some(first_line) = m.content.first() {
+                    spans.push(Span::styled(
+                        format!("[FRACTAL] {}: {}", m.from, first_line),
+                        purple_style,
+                    ));
+                }
+
+                for line in m.content.iter().skip(1) {
+                    spans.push(Span::styled(line.clone(), purple_style));
+                }
+                Line::from(spans)
+            }
         }
     }
 }
@@ -466,6 +533,34 @@ impl Display for Msg {
             MsgKind::OneShot => {
                 write!(f, "[ONESHOT] {}: {}", self.from, self.content[0])
             }
+            MsgKind::PerfectIpManifest => {
+                write!(f, "[FRACTAL] {}: {}", self.from, self.content[0])
+            }
         }
+    }
+}
+
+#[cfg(test)]
+mod attachment_tests {
+    use super::*;
+
+    #[test]
+    fn attachment_roundtrips() {
+        let mut msg = Msg::chat("hello");
+        msg = msg.add_attachment(Attachment {
+            cid: "QmTest".into(),
+            name: "file.txt".into(),
+            mime: "text/plain".into(),
+        });
+        let json = serde_json::to_string(&msg).unwrap();
+        let back: Msg = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.attachments.len(), 1);
+        assert_eq!(back.attachments[0].cid, "QmTest");
+    }
+
+    #[test]
+    fn default_has_no_attachments() {
+        let msg = Msg::default();
+        assert!(msg.attachments.is_empty());
     }
 }

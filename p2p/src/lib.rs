@@ -20,6 +20,9 @@ pub mod git2 {
 }
 
 use std::path::PathBuf;
+
+#[cfg(feature = "ipfs")]
+extern crate kubo_ffi;
 use std::process::{Command, Stdio};
 
 #[cfg(not(target_os = "tvos"))]
@@ -30,9 +33,9 @@ use sha2::{Digest, Sha256};
 #[cfg(not(target_os = "tvos"))]
 pub mod args;
 #[cfg(not(target_os = "tvos"))]
-pub mod cli;
-#[cfg(not(target_os = "tvos"))]
 pub mod behaviour;
+#[cfg(not(target_os = "tvos"))]
+pub mod cli;
 #[cfg(target_os = "tvos")]
 #[path = "embedded_network_tvos.rs"]
 pub mod embedded_network;
@@ -40,52 +43,59 @@ pub mod embedded_network;
 pub mod embedded_network;
 #[cfg(not(target_os = "tvos"))]
 pub mod fractal;
-#[cfg(not(target_os = "tvos"))]
-pub mod perfect_ip;
+// moved to mod fractal #[cfg(not(target_os = "tvos"))]
+// moved to mod fractal pub mod perfect_ip_core;
+// moved to mod fractal #[cfg(not(target_os = "tvos"))]
+// moved to mod fractal pub mod perfect_ip;
+#[cfg(not(doc))]
+#[cfg(all(feature = "js", not(target_os = "tvos")))]
+pub mod bridge;
 #[cfg(not(target_os = "tvos"))]
 pub mod command_handler;
+#[cfg(not(target_os = "tvos"))]
+pub mod crawler_broadcast;
 #[cfg(not(target_os = "tvos"))]
 pub mod event_handler;
 #[cfg(not(target_os = "tvos"))]
 pub mod git_integration;
 #[cfg(not(target_os = "tvos"))]
 pub mod git_publisher;
+#[cfg(all(feature = "ipfs", not(target_os = "tvos")))]
+pub mod ipfs;
+#[cfg(all(feature = "ipfs", not(target_os = "tvos")))]
+pub mod ipfs_bridge;
+#[cfg(not(doc))]
+#[cfg(all(feature = "js", not(target_os = "tvos")))]
+pub mod js;
 #[cfg(not(target_os = "tvos"))]
 pub mod kvs;
 #[cfg(not(target_os = "tvos"))]
 pub mod lookup;
-#[cfg(not(target_os = "tvos"))]
-pub mod network_config;
-#[cfg(not(target_os = "tvos"))]
-pub mod opt;
-#[cfg(not(doc))]
-#[cfg(all(feature = "js", not(target_os = "tvos")))]
-pub mod bridge;
-#[cfg(not(doc))]
-#[cfg(all(feature = "js", not(target_os = "tvos")))]
-pub mod js;
-#[cfg(not(doc))]
-#[cfg(all(feature = "tor", not(target_os = "tvos")))]
-pub mod tor;
-#[cfg(not(target_os = "tvos"))]
-pub mod crawler_broadcast;
 #[cfg(not(doc))]
 #[cfg(not(target_os = "tvos"))]
 pub mod message;
 #[cfg(not(target_os = "tvos"))]
-pub mod repo_state;
+pub mod network_config;
+#[cfg(not(target_os = "tvos"))]
+pub mod opt;
+pub mod peer_registry;
 #[cfg(not(doc))]
 #[cfg(not(target_os = "tvos"))]
 pub mod relay_bridge;
 #[cfg(not(target_os = "tvos"))]
 pub mod relay_paths;
 #[cfg(not(target_os = "tvos"))]
-pub mod time;
+pub mod repo_state;
+#[cfg(not(target_os = "tvos"))]
+pub mod swarm_builder;
 #[cfg(not(doc))]
 #[cfg(all(feature = "js", not(target_os = "tvos")))]
 pub mod template_html;
 #[cfg(not(target_os = "tvos"))]
-pub mod swarm_builder;
+pub mod time;
+#[cfg(not(doc))]
+#[cfg(all(feature = "tor", not(target_os = "tvos")))]
+pub mod tor;
 #[cfg(not(target_os = "tvos"))]
 pub mod utils;
 #[cfg(not(target_os = "tvos"))]
@@ -102,6 +112,19 @@ pub fn js_source_dir() -> PathBuf {
 /// Build a deterministic libp2p keypair from an optional secret seed string.
 ///
 /// Hex SHA-256 seeds are used directly; any other input is hashed into a 32-byte seed.
+/// Derive an IPFS/Kubo swarm key from a Nostr private key (nsec or hex).
+/// Only available with the `ipfs` feature.
+#[cfg(all(feature = "ipfs", not(target_os = "tvos")))]
+pub fn swarm_key_from_nsec(nsec_or_hex: &str) -> Result<String, String> {
+    kubo_ffi::nostr_nsec_to_swarm_key(nsec_or_hex)
+}
+#[cfg(feature = "ipfs")]
+pub fn ipfs_disabled() -> bool {
+    std::env::var("GNOSTR_P2P_IPFS_DISABLE")
+        .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+        .unwrap_or(false)
+}
+
 #[cfg(not(target_os = "tvos"))]
 pub fn keypair_from_seed(secret_key_seed: Option<String>) -> identity::Keypair {
     match secret_key_seed {
@@ -128,24 +151,63 @@ fn seed_bytes(seed: &str) -> [u8; 32] {
 
 #[cfg(all(not(doc), feature = "js", not(target_os = "tvos")))]
 pub use bridge::{asset_content_type, asset_response, shell_html};
+#[cfg(not(target_os = "tvos"))]
+pub use fractal::fractal_ip as perfect_ip;
+#[cfg(not(target_os = "tvos"))]
+pub use fractal::fractal_ip_core as perfect_ip_core;
+#[cfg(not(target_os = "tvos"))]
+pub use fractal::fractal_ip_core::{
+    calculate_parity, generate_manifest, list_directory, packetize, process_slice,
+    reconstruct_directory, reconstruct_payload, recover_missing_data, recover_missing_slice,
+    run_directory_walk, sha256_hex, summarize_packets, DirectoryWalk, Header, IntegrityManager,
+    PacketBatch, ProtocolSlice, MTU_PAYLOAD,
+};
+#[cfg(not(target_os = "tvos"))]
+pub use fractal::fractal_ip_core_v2 as perfect_ip_core_v2;
+#[cfg(not(target_os = "tvos"))]
+pub use fractal::fractal_ip_core_v2::{
+    build_fractal_swarm_v2, build_fractal_swarm_v2_with_protocols, git_fsck_strict,
+    request_slices_v2, run_fractal_engine_v2, FractalBehaviourV2, FractalBehaviourV2Event,
+    PostcardCodec, RepairResponseV2, WireCodecV2,
+};
+#[cfg(not(target_os = "tvos"))]
+pub use fractal::fractal_ip_v2 as perfect_ip_v2;
+#[cfg(not(target_os = "tvos"))]
+pub use fractal::{
+    build_fractal_swarm, run_fractal_engine, FractalBehaviour, FractalBehaviourEvent, FractalSlice,
+};
+#[cfg(not(target_os = "tvos"))]
+pub use gnostr_types::perfect_ip_v2::{
+    generate_manifest_v2, packetize_v2, reconstruct_directory_v2, run_directory_walk_v2,
+    DirectoryWalkV2, FileEntryV2, HeaderV2, IntegrityManagerV2, ManifestEntry, PacketBatchV2,
+    ProtocolSliceV2, ReconstructErrorV2, RecoveryReport, RejectedSlice,
+};
+#[cfg(not(target_os = "tvos"))]
+pub use gnostr_types::perfect_ip_nostr::{
+    event_to_manifest_v1, event_to_manifest_v2, event_to_slice_v1, event_to_slice_v2,
+    manifest_event_v1, manifest_event_v2, slice_event_v1, slice_event_v2, NostrCarrierError,
+    PERFECT_IP_MANIFEST_MARK, PERFECT_IP_NOSTR_KIND, PERFECT_IP_TAG, PERFECT_IP_TOPIC,
+    PERFECT_IP_VERSION_V1, PERFECT_IP_VERSION_V2,
+};
 #[cfg(all(not(doc), feature = "js", not(target_os = "tvos")))]
 pub use js::get_js_assets;
-#[cfg(all(not(doc), feature = "tor", not(target_os = "tvos")))]
-pub use tor::{build_transport as build_tor_transport, AddressConversion, TorError, TorTransport, TorTransportError, TokioTorStream};
 #[cfg(not(target_os = "tvos"))]
 #[cfg(not(doc))]
 pub use message::*;
 #[cfg(not(target_os = "tvos"))]
-pub use repo_state::{RepoStateQuorum, RepoStateRefs, RepoStateSnapshot};
-#[cfg(not(target_os = "tvos"))]
 #[cfg(not(doc))]
-pub use relay_bridge::{RelayBridgeCommand, RelayBridgeNotification, RelayBridgeSession, NostrRelayConnection};
+pub use relay_bridge::{
+    NostrRelayConnection, RelayBridgeCommand, RelayBridgeNotification, RelayBridgeSession,
+};
 #[cfg(not(target_os = "tvos"))]
-pub use fractal::{build_fractal_swarm, run_fractal_engine, FractalBehaviour, FractalBehaviourEvent, IntegrityManager, ProtocolSlice};
-#[cfg(not(target_os = "tvos"))]
-pub use perfect_ip::{calculate_parity, process_slice, Header, ProtocolSlice as PerfectProtocolSlice, MTU_PAYLOAD};
+pub use repo_state::{RepoStateQuorum, RepoStateRefs, RepoStateSnapshot};
 #[cfg(all(not(doc), feature = "js", not(target_os = "tvos")))]
 pub use template_html::{get_template_assets, TemplateHtml};
+#[cfg(all(not(doc), feature = "tor", not(target_os = "tvos")))]
+pub use tor::{
+    build_transport as build_tor_transport, AddressConversion, TokioTorStream, TorError,
+    TorTransport, TorTransportError,
+};
 
 pub fn spawn_detached_current_exe<I, S>(args: I) -> Result<u32, Box<dyn std::error::Error>>
 where
@@ -175,14 +237,13 @@ mod tests {
 /// Compatibility namespace for the legacy `crate::p2p::...` module paths.
 #[cfg(not(target_os = "tvos"))]
 pub mod p2p {
+    #[cfg(feature = "tor")]
+    pub use crate::tor;
     pub use crate::{
-        args, behaviour, cli, command_handler, event_handler, git_integration, git_publisher, kvs,
-        keypair_from_seed, lookup, network_config, opt, repo_state, relay_paths, time, crawler_broadcast,
-        fractal,
-        swarm_builder, utils,
+        args, behaviour, cli, command_handler, crawler_broadcast, event_handler, fractal,
+        git_integration, git_publisher, keypair_from_seed, kvs, lookup, network_config, opt,
+        relay_paths, repo_state, swarm_builder, time, utils,
     };
     #[cfg(not(doc))]
     pub use crate::{message, relay_bridge};
-    #[cfg(feature = "tor")]
-    pub use crate::tor;
 }

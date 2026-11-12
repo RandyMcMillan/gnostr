@@ -170,8 +170,11 @@ impl SyncState {
         d_overs.sort_by(|a, b| a.partial_cmp(b).unwrap());
         d_unders.sort_by(|a, b| a.partial_cmp(b).unwrap());
 
-        let m_min = d_overs[self.f];
-        let m_max = d_unders[count - 1 - self.f];
+        // Marzullo selection: m_min is the (f+1)-th largest lower bound,
+        // m_max the (f+1)-th smallest upper bound, so the window is covered
+        // by at least n - f estimate intervals.
+        let m_min = d_unders[count - 1 - self.f];
+        let m_max = d_overs[self.f];
 
         if m_min <= m_max {
             let offset = (m_min + m_max) / 2.0;
@@ -248,6 +251,7 @@ pub struct TimeSyncBehaviour {
 }
 
 /// P2P clock implementation using libp2p.
+#[derive(Clone)]
 pub struct P2PClock {
     /// Shared synchronization state.
     pub inner: Arc<RwLock<SyncState>>,
@@ -282,12 +286,16 @@ impl Clock for P2PClock {
     }
 }
 
-/// Run the P2P time synchronization daemon.
-pub async fn run_time_sync_daemon() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+/// Run the P2P time synchronization daemon with a shared [`SyncState`].
+///
+/// The caller owns the clock state, so estimates collected by this daemon update
+/// the same logical clock used by other components (e.g. the chat TUI).
+pub async fn run_time_sync_daemon_with_state(
+    shared_state: Arc<RwLock<SyncState>>,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let keypair = libp2p::identity::Keypair::generate_ed25519();
-    let (p2p_clock, shared_state) = {
-        let state = Arc::new(RwLock::new(SyncState::new(1, "clock_final.json")));
-        (P2PClock { inner: state.clone() }, state)
+    let p2p_clock = P2PClock {
+        inner: shared_state.clone(),
     };
 
     let mut swarm = libp2p::SwarmBuilder::with_existing_identity(keypair)
@@ -375,16 +383,23 @@ pub async fn run_time_sync_daemon() -> Result<(), Box<dyn std::error::Error + Se
                     }
                 }
                 _ => {}
-            }
+            },
         }
     }
 }
 
+/// Run the P2P time synchronization daemon with its own clock state.
+pub async fn run_time_sync_daemon() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let state = Arc::new(RwLock::new(SyncState::new(1, "clock_final.json")));
+    run_time_sync_daemon_with_state(state).await
+}
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::keypair_from_seed;
-    use gnostr_asyncgit::{blockheight::blockheight_sync, weeble::weeble_sync, wobble::wobble_sync};
+    use gnostr_asyncgit::{
+        blockheight::blockheight_sync, weeble::weeble_sync, wobble::wobble_sync,
+    };
     use tempfile::NamedTempFile;
 
     fn padded_metric_identity(metric: &str) -> String {
@@ -433,7 +448,10 @@ mod tests {
             Estimation { d: 0.007, a: 0.001 },
             Estimation { d: 0.007, a: 0.001 },
         ]);
-        assert!(matches!(state.status, ClockStatus::Synced | ClockStatus::Slewing));
+        assert!(matches!(
+            state.status,
+            ClockStatus::Synced | ClockStatus::Slewing
+        ));
     }
 
     #[test]
@@ -461,18 +479,18 @@ mod tests {
             );
         }
 
-        let estimates: Vec<Estimation> = peer_estimates.iter().map(|(_, estimate)| *estimate).collect();
+        let estimates: Vec<Estimation> = peer_estimates
+            .iter()
+            .map(|(_, estimate)| *estimate)
+            .collect();
         let mut d_overs: Vec<f64> = estimates.iter().map(|e| e.d + e.a).collect();
         let mut d_unders: Vec<f64> = estimates.iter().map(|e| e.d - e.a).collect();
         d_overs.sort_by(|a, b| a.partial_cmp(b).unwrap());
         d_unders.sort_by(|a, b| a.partial_cmp(b).unwrap());
 
-        let m_min = d_overs[state.f];
-        let m_max = d_unders[estimates.len() - 1 - state.f];
-        println!(
-            "consensus window: m_min={:.6}s m_max={:.6}s",
-            m_min, m_max
-        );
+        let m_min = d_unders[estimates.len() - 1 - state.f];
+        let m_max = d_overs[state.f];
+        println!("consensus window: m_min={:.6}s m_max={:.6}s", m_min, m_max);
 
         state.apply_bft_sync(estimates);
 
@@ -481,7 +499,10 @@ mod tests {
             state.status, state.slew_rate, state.pending_alert
         );
 
-        assert!(matches!(state.status, ClockStatus::Synced | ClockStatus::Slewing));
+        assert!(matches!(
+            state.status,
+            ClockStatus::Synced | ClockStatus::Slewing
+        ));
         assert!(state.pending_alert.is_none());
         assert!((state.slew_rate - 1.0).abs() <= 0.005);
     }
@@ -576,12 +597,9 @@ mod tests {
             d_overs.sort_by(|a, b| a.partial_cmp(b).unwrap());
             d_unders.sort_by(|a, b| a.partial_cmp(b).unwrap());
 
-            let m_min = d_overs[state.f];
-            let m_max = d_unders[estimates.len() - 1 - state.f];
-            println!(
-                "consensus window: m_min={:.6}s m_max={:.6}s",
-                m_min, m_max
-            );
+            let m_min = d_unders[estimates.len() - 1 - state.f];
+            let m_max = d_overs[state.f];
+            println!("consensus window: m_min={:.6}s m_max={:.6}s", m_min, m_max);
 
             state.apply_bft_sync(estimates);
 
@@ -600,7 +618,10 @@ mod tests {
                 assert_eq!(state.status, ClockStatus::Init);
                 assert!(state.pending_alert.is_none());
             } else {
-                assert!(matches!(state.status, ClockStatus::Synced | ClockStatus::Slewing));
+                assert!(matches!(
+                    state.status,
+                    ClockStatus::Synced | ClockStatus::Slewing
+                ));
                 assert!(state.pending_alert.is_none());
                 assert!((state.slew_rate - 1.0).abs() <= 0.005);
             }
@@ -643,8 +664,19 @@ mod tests {
                     ("honest-alpha", "honest", Estimation { d: 0.005, a: 0.001 }),
                     ("honest-beta", "honest", Estimation { d: 0.005, a: 0.001 }),
                     ("honest-gamma", "honest", Estimation { d: 0.007, a: 0.001 }),
-                    ("malicious-red", "malicious", Estimation { d: 0.250, a: 0.001 }),
-                    ("malicious-blue", "malicious", Estimation { d: -0.200, a: 0.001 }),
+                    (
+                        "malicious-red",
+                        "malicious",
+                        Estimation { d: 0.250, a: 0.001 },
+                    ),
+                    (
+                        "malicious-blue",
+                        "malicious",
+                        Estimation {
+                            d: -0.200,
+                            a: 0.001,
+                        },
+                    ),
                 ],
             ),
             (
@@ -653,8 +685,19 @@ mod tests {
                     ("honest-beta", "honest", Estimation { d: 0.005, a: 0.001 }),
                     ("honest-gamma", "honest", Estimation { d: 0.007, a: 0.001 }),
                     ("honest-delta", "honest", Estimation { d: 0.005, a: 0.001 }),
-                    ("honest-epsilon", "honest", Estimation { d: 0.007, a: 0.001 }),
-                    ("malicious-blue", "malicious", Estimation { d: -0.200, a: 0.001 }),
+                    (
+                        "honest-epsilon",
+                        "honest",
+                        Estimation { d: 0.007, a: 0.001 },
+                    ),
+                    (
+                        "malicious-blue",
+                        "malicious",
+                        Estimation {
+                            d: -0.200,
+                            a: 0.001,
+                        },
+                    ),
                 ],
             ),
             (
@@ -662,7 +705,11 @@ mod tests {
                 vec![
                     ("honest-gamma", "honest", Estimation { d: 0.005, a: 0.001 }),
                     ("honest-delta", "honest", Estimation { d: 0.005, a: 0.001 }),
-                    ("honest-epsilon", "honest", Estimation { d: 0.007, a: 0.001 }),
+                    (
+                        "honest-epsilon",
+                        "honest",
+                        Estimation { d: 0.007, a: 0.001 },
+                    ),
                     ("honest-zeta", "honest", Estimation { d: 0.007, a: 0.001 }),
                     ("honest-eta", "honest", Estimation { d: 0.007, a: 0.001 }),
                 ],
@@ -670,7 +717,8 @@ mod tests {
         ];
 
         for (label, peers) in rounds {
-            let current_peer_names: HashSet<&str> = peers.iter().map(|(peer, _, _)| *peer).collect();
+            let current_peer_names: HashSet<&str> =
+                peers.iter().map(|(peer, _, _)| *peer).collect();
             let entered: Vec<&str> = current_peer_names
                 .difference(&last_round_peer_names)
                 .copied()
@@ -694,18 +742,16 @@ mod tests {
                 );
             }
 
-            let estimates: Vec<Estimation> = peers.iter().map(|(_, _, estimate)| *estimate).collect();
+            let estimates: Vec<Estimation> =
+                peers.iter().map(|(_, _, estimate)| *estimate).collect();
             let mut d_overs: Vec<f64> = estimates.iter().map(|e| e.d + e.a).collect();
             let mut d_unders: Vec<f64> = estimates.iter().map(|e| e.d - e.a).collect();
             d_overs.sort_by(|a, b| a.partial_cmp(b).unwrap());
             d_unders.sort_by(|a, b| a.partial_cmp(b).unwrap());
 
-            let m_min = d_overs[state.f];
-            let m_max = d_unders[estimates.len() - 1 - state.f];
-            println!(
-                "consensus window: m_min={:.6}s m_max={:.6}s",
-                m_min, m_max
-            );
+            let m_min = d_unders[estimates.len() - 1 - state.f];
+            let m_max = d_overs[state.f];
+            println!("consensus window: m_min={:.6}s m_max={:.6}s", m_min, m_max);
 
             state.apply_bft_sync(estimates);
 
@@ -720,7 +766,10 @@ mod tests {
                 state.pending_alert
             );
 
-            assert!(matches!(state.status, ClockStatus::Synced | ClockStatus::Slewing));
+            assert!(matches!(
+                state.status,
+                ClockStatus::Synced | ClockStatus::Slewing
+            ));
             assert!(state.pending_alert.is_none());
             assert!((state.slew_rate - 1.0).abs() <= 0.005);
             assert!(now > last_time);
@@ -741,15 +790,14 @@ mod tests {
 
     #[test]
     fn test_relay_triad_time_consensus_maintains_stability() {
-
-    // "Never go to sea with two chronometers; take one or three."
-    // Our three chronometers are:
-    //   - System clock
-    //   - Median of other server's clocks
-    //   - NTP servers
-    //
-    // note: NTP isn't implemented yet, so until then we just use
-    // the median of other nodes clocks to correct ours.
+        // "Never go to sea with two chronometers; take one or three."
+        // Our three chronometers are:
+        //   - System clock
+        //   - Median of other server's clocks
+        //   - NTP servers
+        //
+        // note: NTP isn't implemented yet, so until then we just use
+        // the median of other nodes clocks to correct ours.
 
         let checkpoint_blockheight = NamedTempFile::new().expect("blockheight checkpoint");
         let checkpoint_weeble = NamedTempFile::new().expect("weeble checkpoint");
@@ -834,8 +882,8 @@ mod tests {
             let mut d_unders: Vec<f64> = estimates.iter().map(|e| e.d - e.a).collect();
             d_overs.sort_by(|a, b| a.partial_cmp(b).unwrap());
             d_unders.sort_by(|a, b| a.partial_cmp(b).unwrap());
-            let m_min = d_overs[1];
-            let m_max = d_unders[estimates.len() - 2];
+            let m_min = d_unders[estimates.len() - 2];
+            let m_max = d_overs[1];
             println!("  consensus window: m_min={m_min:.6}s m_max={m_max:.6}s");
 
             let pre_blockheight = blockheight_state.get_logical_utc();
@@ -877,7 +925,11 @@ mod tests {
             blockheight_state.apply_bft_sync(estimates.clone());
             let now_blockheight: DateTime<Utc> = blockheight_state.get_logical_utc();
             let blockheight_delta = last_blockheight
-                .map(|last| now_blockheight.signed_duration_since(last).num_milliseconds())
+                .map(|last| {
+                    now_blockheight
+                        .signed_duration_since(last)
+                        .num_milliseconds()
+                })
                 .unwrap_or(0);
             println!("  post-consensus:");
             println!(
@@ -899,7 +951,10 @@ mod tests {
                 assert!(blockheight_state.pending_alert.is_none());
                 assert_eq!(blockheight_state.slew_rate, 1.0);
             } else {
-                assert!(matches!(blockheight_state.status, ClockStatus::Synced | ClockStatus::Slewing));
+                assert!(matches!(
+                    blockheight_state.status,
+                    ClockStatus::Synced | ClockStatus::Slewing
+                ));
                 assert!(blockheight_state.pending_alert.is_none());
                 assert!((blockheight_state.slew_rate - 1.0).abs() <= 0.005);
                 if let Some(last) = last_blockheight.replace(now_blockheight) {
@@ -931,7 +986,10 @@ mod tests {
                 assert!(weeble_state.pending_alert.is_none());
                 assert_eq!(weeble_state.slew_rate, 1.0);
             } else {
-                assert!(matches!(weeble_state.status, ClockStatus::Synced | ClockStatus::Slewing));
+                assert!(matches!(
+                    weeble_state.status,
+                    ClockStatus::Synced | ClockStatus::Slewing
+                ));
                 assert!(weeble_state.pending_alert.is_none());
                 assert!((weeble_state.slew_rate - 1.0).abs() <= 0.005);
                 if let Some(last) = last_weeble.replace(now_weeble) {
@@ -980,10 +1038,16 @@ mod tests {
                 assert!(wobble_state.pending_alert.is_none());
                 assert_eq!(wobble_state.slew_rate, 1.0);
             } else {
-                assert!(matches!(wobble_state.status, ClockStatus::Synced | ClockStatus::Slewing));
+                assert!(matches!(
+                    wobble_state.status,
+                    ClockStatus::Synced | ClockStatus::Slewing
+                ));
                 assert!(wobble_state.pending_alert.is_none());
                 assert!((wobble_state.slew_rate - 1.0).abs() <= 0.005);
-                assert!(consensus_spread_ms <= 50.0, "consensus spread too large: {consensus_spread_ms:.3}ms");
+                assert!(
+                    consensus_spread_ms <= 50.0,
+                    "consensus spread too large: {consensus_spread_ms:.3}ms"
+                );
                 if let Some(last) = last_wobble.replace(now_wobble) {
                     assert!(now_wobble > last);
                 }
@@ -1011,24 +1075,41 @@ mod tests {
             .map(|step| {
                 let target = 0.050 + (step as f64 * 0.050);
                 vec![
-                    Estimation { d: target - 0.040, a: 0.010 },
-                    Estimation { d: target - 0.020, a: 0.010 },
-                    Estimation { d: target, a: 0.005 },
-                    Estimation { d: target + 0.020, a: 0.010 },
-                    Estimation { d: target + 0.040, a: 0.010 },
+                    Estimation {
+                        d: target - 0.040,
+                        a: 0.010,
+                    },
+                    Estimation {
+                        d: target - 0.020,
+                        a: 0.010,
+                    },
+                    Estimation {
+                        d: target,
+                        a: 0.005,
+                    },
+                    Estimation {
+                        d: target + 0.020,
+                        a: 0.010,
+                    },
+                    Estimation {
+                        d: target + 0.040,
+                        a: 0.010,
+                    },
                 ]
             })
             .collect();
 
         for (round_idx, estimates) in wobble_shift_rounds.clone().into_iter().enumerate() {
             println!("----------------------------------------------------------------------");
-            println!("\nwobble shift round {round_idx}: {} samples", estimates.len());
+            println!(
+                "\nwobble shift round {round_idx}: {} samples",
+                estimates.len()
+            );
             let wobble_target = 0.030 + (round_idx as f64 * 0.002);
-            let wobble_shift_peer_id = keypair_from_seed(Some(
-                padded_metric_identity(&wobble_target.to_string()),
-            ))
-            .public()
-            .to_peer_id();
+            let wobble_shift_peer_id =
+                keypair_from_seed(Some(padded_metric_identity(&wobble_target.to_string())))
+                    .public()
+                    .to_peer_id();
 
             let pre_blockheight = blockheight_state.get_logical_utc();
             let pre_weeble = weeble_state.get_logical_utc();
@@ -1152,10 +1233,19 @@ mod tests {
                 wobble_shift_state.pending_alert
             );
 
-            assert!(matches!(blockheight_state.status, ClockStatus::Synced | ClockStatus::Slewing));
-            assert!(matches!(weeble_state.status, ClockStatus::Synced | ClockStatus::Slewing));
+            assert!(matches!(
+                blockheight_state.status,
+                ClockStatus::Synced | ClockStatus::Slewing
+            ));
+            assert!(matches!(
+                weeble_state.status,
+                ClockStatus::Synced | ClockStatus::Slewing
+            ));
             assert!(wobble_state.get_logical_utc() != pre_wobble);
-            assert!(matches!(wobble_shift_state.status, ClockStatus::Synced | ClockStatus::Slewing));
+            assert!(matches!(
+                wobble_shift_state.status,
+                ClockStatus::Synced | ClockStatus::Slewing
+            ));
             assert!(wobble_shift_state.get_logical_utc() != pre_wobble_shift);
             assert!(wobble_shift_state.slew_rate >= 1.0);
             println!("----------------------------------------------------------------------");
@@ -1188,7 +1278,8 @@ mod tests {
             .collect();
         let wobble_fleet_baseline = 0.200;
         let wobble_fleet_rounds = 8;
-        let mut last_fleet_times: Vec<Option<DateTime<Utc>>> = vec![None; wobble_fleet_states.len()];
+        let mut last_fleet_times: Vec<Option<DateTime<Utc>>> =
+            vec![None; wobble_fleet_states.len()];
 
         for round_idx in 0..wobble_fleet_rounds {
             let round_target = wobble_fleet_baseline + (round_idx as f64 * 0.020);
@@ -1209,11 +1300,26 @@ mod tests {
                 let node_shift = (idx as f64 - 2.0) * 0.060 * spread_scale;
                 let target = round_target + node_shift;
                 let estimates = vec![
-                    Estimation { d: target - 0.030, a: 0.010 },
-                    Estimation { d: target - 0.010, a: 0.008 },
-                    Estimation { d: target, a: 0.006 },
-                    Estimation { d: target + 0.010, a: 0.008 },
-                    Estimation { d: target + 0.030, a: 0.010 },
+                    Estimation {
+                        d: target - 0.030,
+                        a: 0.010,
+                    },
+                    Estimation {
+                        d: target - 0.010,
+                        a: 0.008,
+                    },
+                    Estimation {
+                        d: target,
+                        a: 0.006,
+                    },
+                    Estimation {
+                        d: target + 0.010,
+                        a: 0.008,
+                    },
+                    Estimation {
+                        d: target + 0.030,
+                        a: 0.010,
+                    },
                 ];
 
                 println!("  pre-consensus:");
@@ -1271,13 +1377,25 @@ mod tests {
                 "spread",
                 fleet_spread_ms
             );
-            assert!(fleet_spread_ms <= 500.0, "fleet spread too large: {fleet_spread_ms:.3}ms");
+            assert!(
+                fleet_spread_ms <= 500.0,
+                "fleet spread too large: {fleet_spread_ms:.3}ms"
+            );
         }
 
         println!("======================================================================");
-        println!("relay triad consensus maintained across {} rounds", rounds.len());
-        println!("wobble relay changed value across {} shift rounds", wobble_shift_rounds.len());
-        println!("five wobble relays converged across {} rounds", wobble_fleet_rounds);
+        println!(
+            "relay triad consensus maintained across {} rounds",
+            rounds.len()
+        );
+        println!(
+            "wobble relay changed value across {} shift rounds",
+            wobble_shift_rounds.len()
+        );
+        println!(
+            "five wobble relays converged across {} rounds",
+            wobble_fleet_rounds
+        );
         println!("======================================================================");
     }
 }

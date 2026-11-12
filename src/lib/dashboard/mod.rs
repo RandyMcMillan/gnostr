@@ -346,7 +346,7 @@ impl TuiNode {
         let h = h.max(1);
         let mut p = self.parser.lock().unwrap();
         if p.screen().size() != (h, w) || force {
-            p.set_size(h, w);
+            p.screen_mut().set_size(h, w);
             if let Some(master) = &self.master {
                 let master = master.lock().unwrap();
                 let _ = master.resize(PtySize {
@@ -1253,10 +1253,7 @@ pub async fn run_dashboard(mut commands: Vec<String>) -> anyhow::Result<()> {
                                 } else if active_tab == 1 {
                                     is_relay_active = true;
                                 } else if active_tab == 0
-                                    && visible_nodes
-                                        .get(selected_node)
-                                        .copied()
-                                        .unwrap_or(false)
+                                    && visible_nodes.get(selected_node).copied().unwrap_or(false)
                                 {
                                     active_node = Some(selected_node);
                                     active_tab = 0;

@@ -10,7 +10,7 @@ use std::{
 use actix_rt::{time::sleep, System};
 use futures_core::{future::BoxFuture, Stream};
 use futures_util::stream::StreamExt as _;
-use tokio::sync::{mpsc::UnboundedReceiver, oneshot};
+use tokio::sync::{mpsc::UnboundedReceiver, oneshot, watch};
 use tracing::{error, info};
 
 use crate::{
@@ -23,6 +23,8 @@ use crate::{
     worker::{ServerWorker, ServerWorkerConfig, WorkerHandleServer},
     ServerHandle,
 };
+
+const SYSTEM_STOP_DELAY: Duration = Duration::from_millis(300);
 
 #[derive(Debug)]
 pub(crate) enum ServerCommand {
@@ -66,12 +68,22 @@ pub(crate) enum ServerCommand {
 /// server has fully shut down.
 ///
 /// # Shutdown Signals
+///
 /// On UNIX systems, `SIGTERM` will start a graceful shutdown and `SIGQUIT` or `SIGINT` will start a
 /// forced shutdown. On Windows, a Ctrl-C signal will start a forced shutdown.
 ///
 /// A graceful shutdown will wait for all workers to stop first.
 ///
+/// # Drop Behavior
+///
+/// Dropping a running server closes its listeners and requests **forced** worker shutdown,
+/// including when graceful shutdown is still in progress.
+///
+/// Drop waits for the acceptor thread to exit, but does not wait for worker threads to exit. Keep
+/// polling the server until it completes to finish a graceful shutdown.
+///
 /// # Examples
+///
 /// The following is a TCP echo server. Test using `telnet 127.0.0.1 8080`.
 ///
 /// ```no_run
@@ -165,6 +177,7 @@ pub struct ServerInner {
     waker_queue: WakerQueue,
     system_stop: bool,
     stopping: bool,
+    graceful_shutdown_tx: watch::Sender<()>,
 }
 
 impl ServerInner {
@@ -227,6 +240,7 @@ impl ServerInner {
             services: builder.factories,
             system_stop: builder.exit,
             stopping: false,
+            graceful_shutdown_tx: builder.graceful_shutdown_tx,
         };
 
         Ok((server, mux))
@@ -250,6 +264,10 @@ impl ServerInner {
                 force_system_stop,
             } => {
                 self.stopping = true;
+
+                if graceful {
+                    self.graceful_shutdown_tx.send_replace(());
+                }
 
                 // Signal accept thread to stop.
                 // Signal is non-blocking; we wait for thread to stop later.
@@ -279,7 +297,7 @@ impl ServerInner {
                 }
 
                 if self.system_stop || force_system_stop {
-                    sleep(Duration::from_millis(300)).await;
+                    sleep(SYSTEM_STOP_DELAY).await;
                     System::try_current().as_ref().map(System::stop);
                 }
             }
@@ -288,7 +306,7 @@ impl ServerInner {
                 // TODO: maybe just return with warning log if not found ?
                 assert!(self.worker_handles.iter().any(|wrk| wrk.idx == idx));
 
-                error!("worker {} has died; restarting", idx);
+                error!("Worker {idx} has died; restarting");
 
                 let factories = self
                     .services
@@ -312,7 +330,7 @@ impl ServerInner {
                         self.waker_queue.wake(WakerInterest::Worker(handle_accept));
                     }
 
-                    Err(err) => error!("can not restart worker {}: {}", idx, err),
+                    Err(err) => error!("Can not restart worker {idx}: {err}"),
                 };
             }
         }
@@ -378,5 +396,24 @@ impl Stream for ServerEventMultiplexer {
         }
 
         this.cmd_rx.poll_recv(cx)
+    }
+}
+
+impl Drop for ServerInner {
+    fn drop(&mut self) {
+        if let Some(handle) = self.accept_handle.take() {
+            // Shutdown may have started without completing. Do not wake an acceptor
+            // that has already received Stop and may have dropped its poll instance.
+            if !self.stopping {
+                self.waker_queue.wake(WakerInterest::Stop);
+            }
+
+            for worker in &self.worker_handles {
+                drop(worker.stop(false));
+            }
+
+            // The acceptor owns the listeners. Wait for it to release them.
+            let _ = handle.join();
+        }
     }
 }

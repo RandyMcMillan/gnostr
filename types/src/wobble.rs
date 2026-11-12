@@ -48,7 +48,10 @@ pub fn wobble_millis_sync() -> Result<f64, ascii::AsciiChar> {
     }
     //gnostr-chat uses millis
     let wobble = now_millis as f64 % tmp_u64 as f64;
-    debug!("wobble_millis_sync: blockheight={}, wobble_millis={}", tmp_u64, wobble);
+    debug!(
+        "wobble_millis_sync: blockheight={}, wobble_millis={}",
+        tmp_u64, wobble
+    );
     unsafe { env::set_var("WOBBLE_MILLIS", wobble.to_string()) };
     Ok(wobble.floor())
 }
@@ -92,7 +95,48 @@ pub async fn wobble_millis_async() -> Result<f64, ascii::AsciiChar> {
     }
     //gnostr-chat uses millis
     let wobble = now_millis as f64 % tmp_u64 as f64;
-    debug!("wobble_millis_async: blockheight={}, wobble_millis={}", tmp_u64, wobble);
+    debug!(
+        "wobble_millis_async: blockheight={}, wobble_millis={}",
+        tmp_u64, wobble
+    );
     unsafe { env::set_var("WOBBLE_MILLIS", wobble.to_string()) };
     Ok(wobble.floor())
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use serial_test::serial;
+
+    #[test]
+    #[ignore = "hits live block-height APIs over the network"]
+    #[serial]
+    fn wobble_sync_is_modulo_blockheight() {
+        // Arrange / Act
+        let wobble = wobble_sync().expect("wobble_sync");
+        let blockheight: f64 = crate::blockheight::blockheight_sync()
+            .parse()
+            .expect("blockheight must parse as f64");
+
+        // Assert: 0 <= wobble < blockheight (modulo semantics)
+        assert!(wobble >= 0.0, "wobble must be non-negative, got {wobble}");
+        assert!(
+            wobble < blockheight,
+            "wobble {wobble} must be < blockheight {blockheight}"
+        );
+        assert_eq!(wobble, wobble.floor());
+    }
+
+    #[test]
+    #[ignore = "hits live block-height APIs over the network"]
+    #[serial]
+    fn wobble_millis_sync_invariants() {
+        // Arrange / Act
+        let wobble = wobble_millis_sync().expect("wobble_millis_sync");
+
+        // Assert: floored, non-negative, env var set
+        assert!(wobble >= 0.0);
+        assert_eq!(wobble, wobble.floor());
+        let _ = env::var("WOBBLE_MILLIS").expect("WOBBLE_MILLIS env var must be set");
+    }
 }

@@ -11,18 +11,18 @@ use std::{
 // Working Nostr Client Implementation with proper interface
 use anyhow::Result;
 // NIP-44 related imports
-use futures_util::{SinkExt, StreamExt};
-use futures::stream;
 use futures::future::join_all;
+use futures::stream;
+use futures_util::{SinkExt, StreamExt};
 use tokio::time::timeout;
 use tokio_tungstenite::{connect_async, tungstenite::Message as WsMessage};
 use tracing::{debug, info, warn};
 use url::Url;
 
 use crate::nostr::{
-    private_key::content_encryption::ContentEncryptionAlgorithm, ClientMessage, Error, Event,
-    EventBuilder, EventKind, Filter, Id, Keys, Metadata, PublicKey, RelayMessage, RelayUrl,
-    SubscriptionId, Tag,
+    ClientMessage, Error, Event, EventBuilder, EventKind, EventMining, Filter, Id, Keys, Metadata,
+    PublicKey, RelayMessage, RelayUrl, SubscriptionId, Tag,
+    private_key::content_encryption::ContentEncryptionAlgorithm,
 };
 
 fn broadcast_log_path() -> Result<PathBuf, Error> {
@@ -128,7 +128,11 @@ pub fn local_relay_urls() -> Vec<String> {
 
     for path in local_relay_endpoint_paths() {
         if let Ok(contents) = fs::read_to_string(&path) {
-            for relay in contents.lines().map(normalize_candidate_relay_url).flatten() {
+            for relay in contents
+                .lines()
+                .map(normalize_candidate_relay_url)
+                .flatten()
+            {
                 relays.push(relay);
             }
         }
@@ -393,17 +397,49 @@ impl Client {
 
     /// Publish profile metadata.
     pub async fn set_metadata(&self, metadata: &Metadata) -> Result<Id, Error> {
+        self.set_metadata_with_tags(metadata, Vec::new()).await
+    }
+
+    /// Build signed profile metadata with additional event tags.
+    pub fn build_metadata_event(
+        &self,
+        metadata: &Metadata,
+        tags: Vec<Tag>,
+    ) -> Result<Event, Error> {
+        self.build_metadata_event_with_mining(
+            metadata,
+            tags,
+            &EventMining::Difficulty(self.options.difficulty),
+        )
+    }
+
+    /// Build metadata with an independent bit or vanity-prefix target.
+    pub fn build_metadata_event_with_mining(
+        &self,
+        metadata: &Metadata,
+        tags: Vec<Tag>,
+        target: &EventMining,
+    ) -> Result<Event, Error> {
         let content = serde_json::to_string(metadata).map_err(|e| Error::Custom(e.into()))?;
 
-        let metadata_event = EventBuilder::new(EventKind::Metadata, content, Vec::new())
-            .to_event(
+        EventBuilder::new(EventKind::Metadata, content, tags)
+            .to_mined_event(
                 &self
                     .keys
                     .secret_key()
                     .map_err(|e| Error::Custom(e.into()))?,
+                target,
             )
-            .map_err(|e| Error::Custom(e.into()))?;
+            .map_err(|e| Error::Custom(e.into()))
+    }
 
+    /// Publish profile metadata with additional event tags.
+    pub async fn set_metadata_with_tags(
+        &self,
+        metadata: &Metadata,
+        tags: Vec<Tag>,
+    ) -> Result<Id, Error> {
+        let metadata_event = self.build_metadata_event(metadata, tags)?;
         self.send_event(metadata_event).await
     }
 
@@ -512,6 +548,24 @@ impl Client {
 
     /// Serialize and send an event to each configured relay.
     pub async fn send_event(&self, event: Event) -> Result<Id, Error> {
+        let id = event.id;
+        let _ = self.send_event_to_relays(event, false).await?;
+        Ok(id)
+    }
+
+    /// Return only relays acknowledging this event with a matching `OK true`.
+    ///
+    /// Returns an error if no relay accepts the event. The send timeout covers
+    /// connection, publication, and acknowledgement for each relay.
+    pub async fn send_event_confirmed(&self, event: Event) -> Result<Vec<RelayUrl>, Error> {
+        self.send_event_to_relays(event, true).await
+    }
+
+    async fn send_event_to_relays(
+        &self,
+        event: Event,
+        require_ack: bool,
+    ) -> Result<Vec<RelayUrl>, Error> {
         debug!(
             "send_event: start event={} relays={}",
             event.id,
@@ -543,65 +597,99 @@ impl Client {
         let message_json =
             serde_json::to_string(&client_message).map_err(|e| Error::Custom(e.into()))?;
 
-        let relay_urls: Vec<String> = self
-            .relays
-            .iter()
-            .map(|relay_url| relay_url.as_str().to_string())
-            .collect();
+        let relay_urls = self.relays.clone();
 
         let relay_timeout = self.options.send_timeout.unwrap_or(Duration::from_secs(1));
 
-        let results = stream::iter(relay_urls.into_iter().map(|ws_url| {
+        let results = stream::iter(relay_urls.into_iter().map(|relay| {
             let message_json = message_json.clone();
             let event_id = event.id;
             async move {
+                let ws_url = relay.as_str();
                 debug!("send_event: trying relay {ws_url} for event {event_id}");
                 append_broadcast_log(&format!("connecting relay {ws_url}"));
 
                 match timeout(relay_timeout, async {
-                    match connect_async(&ws_url).await {
-                        Ok((ws_stream, _)) => {
-                            debug!("send_event: connected relay {ws_url} for event {event_id}");
-                            let (mut ws_write, _) = ws_stream.split();
-
-                            if let Err(e) = ws_write
-                                .send(WsMessage::Text(message_json.clone().into()))
-                                .await
-                            {
-                                debug!(
-                                    "send_event: relay {ws_url} failed for event {event_id}: {e}"
-                                );
-                                let _ = append_relay_to_crawler_shitlist(&ws_url);
-                                append_broadcast_log(&format!(
-                                    "broadcast failed relay={ws_url} error={e}"
-                                ));
-                                false
-                            } else {
-                                debug!(
-                                    "send_event: relay {ws_url} succeeded for event {event_id}"
-                                );
-                                let _ = append_relay_to_crawler_recent(&ws_url);
-                                append_broadcast_log(&format!(
-                                    "broadcast succeeded relay={ws_url} event={event_id}"
-                                ));
-                                true
+                    let (mut websocket, _) = connect_async(ws_url)
+                        .await
+                        .map_err(|e| Error::Custom(e.into()))?;
+                    debug!("send_event: connected relay {ws_url} for event {event_id}");
+                    websocket
+                        .send(WsMessage::Text(message_json.into()))
+                        .await
+                        .map_err(|e| Error::Custom(e.into()))?;
+                    if require_ack {
+                        while let Some(message) = websocket.next().await {
+                            match message.map_err(|e| Error::Custom(e.into()))? {
+                                WsMessage::Text(text) => {
+                                    let response: RelayMessage = serde_json::from_str(&text)
+                                        .map_err(|e| Error::Custom(e.into()))?;
+                                    match response {
+                                        RelayMessage::Ok(id, accepted, reason) if id == event_id => {
+                                            if accepted {
+                                                return Ok(());
+                                            }
+                                            return Err(Error::Custom(
+                                                format!("relay rejected event {event_id}: {reason}")
+                                                    .into(),
+                                            ));
+                                        }
+                                        RelayMessage::Notice(message) => {
+                                            debug!("relay {ws_url} notice: {message}");
+                                        }
+                                        RelayMessage::Auth(_) => {
+                                            return Err(Error::Custom(
+                                                "relay requires authentication before acceptance"
+                                                    .into(),
+                                            ));
+                                        }
+                                        _ => {}
+                                    }
+                                }
+                                WsMessage::Ping(payload) => {
+                                    websocket
+                                        .send(WsMessage::Pong(payload))
+                                        .await
+                                        .map_err(|e| Error::Custom(e.into()))?;
+                                }
+                                WsMessage::Close(_) => break,
+                                WsMessage::Binary(_) | WsMessage::Pong(_) | WsMessage::Frame(_) => {}
                             }
                         }
-                        Err(e) => {
-                            debug!(
-                                "send_event: relay {ws_url} connect failed for event {event_id}: {e}"
-                            );
-                            let _ = append_relay_to_crawler_shitlist(&ws_url);
-                            append_broadcast_log(&format!(
-                                "broadcast failed relay={ws_url} error={e}"
-                            ));
-                            false
-                        }
+                        return Err(Error::Custom(
+                            "relay closed without acknowledging the event".into(),
+                        ));
                     }
+                    Ok::<(), Error>(())
                 })
                 .await
                 {
-                    Ok(sent) => sent,
+                    Ok(Ok(())) => {
+                        if require_ack {
+                            log::info!("Relay {ws_url} accepted event {event_id} (OK true)");
+                        } else {
+                            log::info!(
+                                "Sent event {event_id} to relay {ws_url} (WebSocket write completed; relay acceptance not confirmed)"
+                            );
+                        }
+                        let _ = append_relay_to_crawler_recent(ws_url);
+                        append_broadcast_log(&format!(
+                            "broadcast succeeded relay={ws_url} event={event_id} confirmed={require_ack}"
+                        ));
+                        Some(relay)
+                    }
+                    Ok(Err(err)) => {
+                        if require_ack {
+                            warn!("relay {ws_url} did not accept event {event_id}: {err}");
+                        } else {
+                            debug!("send_event: relay {ws_url} failed for event {event_id}: {err}");
+                            let _ = append_relay_to_crawler_shitlist(ws_url);
+                        }
+                        append_broadcast_log(&format!(
+                            "broadcast failed relay={ws_url} event={event_id} error={err}"
+                        ));
+                        None
+                    }
                     Err(_) => {
                         debug!(
                             "send_event: relay {ws_url} timed out for event {event_id} after {}s",
@@ -611,23 +699,44 @@ impl Client {
                             "broadcast failed relay={ws_url} timeout={}s",
                             relay_timeout.as_secs_f32()
                         ));
-                        false
+                        None
                     }
                 }
             }
         }))
         .buffer_unordered(8)
-        .collect::<Vec<bool>>()
+        .collect::<Vec<Option<RelayUrl>>>()
         .await;
 
-        if results.into_iter().any(|sent| sent) {
-            debug!("send_event: success id={}", event.id);
-            Ok(event.id)
+        let attempted = results.len();
+        let mut successful = results.into_iter().flatten().collect::<Vec<_>>();
+        successful.sort_by(|a, b| a.as_str().cmp(b.as_str()));
+        successful.dedup();
+        if !successful.is_empty() {
+            if require_ack {
+                log::info!(
+                    "Event {} accepted by {}/{} relay(s) (OK true)",
+                    event.id,
+                    successful.len(),
+                    attempted
+                );
+            } else {
+                log::info!(
+                    "Sent event {} to {}/{} relay(s) (WebSocket writes completed)",
+                    event.id,
+                    successful.len(),
+                    attempted
+                );
+            }
+            Ok(successful)
         } else {
             debug!("send_event: failure id={}", event.id);
-            Err(Error::Custom(
-                "Failed to send event to any configured relay.".into(),
-            ))
+            let reason = if require_ack {
+                "No configured relay acknowledged acceptance of the event."
+            } else {
+                "Failed to send event to any configured relay."
+            };
+            Err(Error::Custom(reason.into()))
         }
     }
 }
@@ -709,6 +818,139 @@ impl std::fmt::Display for Client {
 mod tests {
     use super::*;
 
+    async fn profile_ack_relay(
+        responses: Vec<WsMessage>,
+    ) -> (String, tokio::task::JoinHandle<Event>) {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = format!("ws://{}/", listener.local_addr().unwrap());
+        let task = tokio::spawn(async move {
+            tokio::time::timeout(Duration::from_secs(3), async {
+                let (socket, _) = listener.accept().await.unwrap();
+                let mut websocket = tokio_tungstenite::accept_async(socket).await.unwrap();
+                let message = websocket
+                    .next()
+                    .await
+                    .unwrap()
+                    .unwrap()
+                    .into_text()
+                    .unwrap();
+                let wire: serde_json::Value = serde_json::from_str(&message).unwrap();
+                assert_eq!(wire[0], "EVENT");
+                let event: Event = serde_json::from_value(wire[1].clone()).unwrap();
+                for response in responses {
+                    websocket.send(response).await.unwrap();
+                }
+                while let Some(Ok(message)) = websocket.next().await {
+                    if matches!(message, WsMessage::Close(_)) {
+                        break;
+                    }
+                }
+                event
+            })
+            .await
+            .unwrap()
+        });
+        (url, task)
+    }
+
+    #[tokio::test]
+    async fn confirmed_profile_publication_requires_matching_ok_true() {
+        let keys = Keys::parse(
+            "473a0f4c3be8a93681a267e3b1e9a7dcda1185436fe141f7749120a303721813".to_string(),
+        )
+        .unwrap();
+        let mut client = Client::new(
+            &keys,
+            Options::new().send_timeout(Some(Duration::from_millis(500))),
+        );
+        let event = client
+            .build_metadata_event(&Metadata::default(), vec![])
+            .unwrap();
+        let response = |id: Id, accepted| {
+            WsMessage::Text(
+                serde_json::json!(["OK", id.as_hex_string(), accepted, "test receipt"])
+                    .to_string()
+                    .into(),
+            )
+        };
+        let (accepted, accepted_task) = profile_ack_relay(vec![
+            WsMessage::Ping(vec![1, 2, 3].into()),
+            WsMessage::Text(
+                serde_json::json!(["NOTICE", "test notice"])
+                    .to_string()
+                    .into(),
+            ),
+            response(Id::mock(), true),
+            response(event.id, true),
+        ])
+        .await;
+        let mut tasks = vec![accepted_task];
+        let mut urls = vec![accepted.clone()];
+        for replies in [
+            vec![response(event.id, false)],
+            vec![response(Id::mock(), true)],
+            vec![],
+            vec![WsMessage::Text("not JSON".into())],
+            vec![WsMessage::Close(None)],
+        ] {
+            let (url, task) = profile_ack_relay(replies).await;
+            urls.push(url);
+            tasks.push(task);
+        }
+        client.add_relays(urls).await.unwrap();
+        let confirmed = client.send_event_confirmed(event.clone()).await.unwrap();
+        assert_eq!(confirmed, vec![RelayUrl::try_from_str(&accepted).unwrap()]);
+        for task in tasks {
+            assert_eq!(task.await.unwrap().id, event.id);
+        }
+
+        let (rejected, task) = profile_ack_relay(vec![response(event.id, false)]).await;
+        let mut rejected_client = Client::new(&keys, Options::new());
+        rejected_client.add_relays(vec![rejected]).await.unwrap();
+        assert!(
+            rejected_client
+                .send_event_confirmed(event.clone())
+                .await
+                .is_err()
+        );
+        assert_eq!(task.await.unwrap().id, event.id);
+
+        let (write_only, task) = profile_ack_relay(vec![]).await;
+        let mut legacy_client = Client::new(&keys, Options::new());
+        legacy_client.add_relays(vec![write_only]).await.unwrap();
+        assert_eq!(
+            legacy_client.send_event(event.clone()).await.unwrap(),
+            event.id
+        );
+        assert_eq!(task.await.unwrap().id, event.id);
+        assert!(
+            Client::new(&keys, Options::new())
+                .send_event_confirmed(event)
+                .await
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn tagged_metadata_preserves_profile_content_and_signer() {
+        let keys = Keys::generate();
+        let client = Client::new(&keys, Options::new());
+        let metadata = Metadata {
+            picture: Some(crate::nostr::DEFAULT_AVATAR.to_string()),
+            ..Metadata::default()
+        };
+        let tag = Tag::new_tag("t", "gnostr");
+        let event = client
+            .build_metadata_event(&metadata, vec![tag.clone()])
+            .unwrap();
+        event.verify(None).unwrap();
+        assert_eq!(event.kind, EventKind::Metadata);
+        assert_eq!(event.pubkey, keys.public_key());
+        assert_eq!(event.tags, vec![tag]);
+        let profile: Metadata = serde_json::from_str(&event.content).unwrap();
+        assert_eq!(profile, metadata);
+    }
+
     fn test_private_key(seed: u8) -> crate::nostr::PrivateKey {
         crate::nostr::PrivateKey(
             secp256k1::SecretKey::from_slice(&[seed; 32]).unwrap(),
@@ -718,8 +960,10 @@ mod tests {
 
     #[test]
     fn build_nip44_direct_message_event_uses_real_keys_and_recipient_tag() {
-        let sender =
-            crate::nostr::PrivateKey(crate::nostr::default_gnostr_private_key(), crate::nostr::KeySecurity::Weak);
+        let sender = crate::nostr::PrivateKey(
+            crate::nostr::default_gnostr_private_key(),
+            crate::nostr::KeySecurity::Weak,
+        );
         let recipient = test_private_key(2);
         let client = Client::new(&Keys::new(sender.clone()), Options::new());
 
@@ -733,7 +977,10 @@ mod tests {
         assert_eq!(event.pubkey, sender.public_key());
         assert_eq!(event.tags.len(), 1);
         assert_eq!(event.tags[0].tagname(), "p");
-        assert_eq!(event.tags[0].parse_pubkey().unwrap().0, recipient.public_key());
+        assert_eq!(
+            event.tags[0].parse_pubkey().unwrap().0,
+            recipient.public_key()
+        );
         assert_eq!(
             recipient
                 .decrypt(&sender.public_key(), &event.content)

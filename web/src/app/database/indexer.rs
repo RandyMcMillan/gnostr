@@ -4,7 +4,7 @@ use std::{
     fmt::Debug,
     fs,
     path::{Path, PathBuf},
-    sync::Arc,
+    sync::{Arc, Mutex},
 };
 
 use anyhow::Context;
@@ -33,7 +33,9 @@ fn is_help_material_fixture(path: &Path) -> bool {
     }
 
     fs::read_to_string(path.join("description"))
-        .map(|description| description.contains("gnostr learning repo for browsing commits, trees, and patches"))
+        .map(|description| {
+            description.contains("gnostr learning repo for browsing commits, trees, and patches")
+        })
         .unwrap_or(false)
 }
 
@@ -66,11 +68,7 @@ fn stage_paths(repo: &git2::Repository, paths: &[&str]) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn commit_fixture(
-    repo: &git2::Repository,
-    message: &str,
-    paths: &[&str],
-) -> anyhow::Result<()> {
+fn commit_fixture(repo: &git2::Repository, message: &str, paths: &[&str]) -> anyhow::Result<()> {
     stage_paths(repo, paths)?;
 
     let tree_id = repo.index()?.write_tree()?;
@@ -130,32 +128,40 @@ fn create_help_material_source_repo(source_repo: &Path) -> anyhow::Result<git2::
         &["docs/nostr-basics.md", "docs/repo-tour.md"],
     )?;
 
-    commit_fixture(
-        &repo,
-        "Add CRLF patch demo",
-        &["examples/crlf-demo.txt"],
-    )?;
+    commit_fixture(&repo, "Add CRLF patch demo", &["examples/crlf-demo.txt"])?;
 
     Ok(repo)
 }
 
-pub fn ensure_bare_repo_fixture(fixture_root: &Path, fixture_name: &str) -> anyhow::Result<PathBuf> {
+pub fn ensure_bare_repo_fixture(
+    fixture_root: &Path,
+    fixture_name: &str,
+) -> anyhow::Result<PathBuf> {
     let fixture_path = fixture_root.join(format!("{fixture_name}.git"));
 
     if is_help_material_fixture(&fixture_path) {
         return Ok(fixture_path);
     }
 
-    fs::create_dir_all(fixture_root)
-        .with_context(|| format!("failed to create fixture directory {}", fixture_root.display()))?;
+    fs::create_dir_all(fixture_root).with_context(|| {
+        format!(
+            "failed to create fixture directory {}",
+            fixture_root.display()
+        )
+    })?;
 
     if fixture_path.exists() {
-        fs::remove_dir_all(&fixture_path)
-            .with_context(|| format!("failed to remove stale fixture {}", fixture_path.display()))?;
+        fs::remove_dir_all(&fixture_path).with_context(|| {
+            format!("failed to remove stale fixture {}", fixture_path.display())
+        })?;
     }
 
-    let source_repo_dir = tempfile::tempdir_in(fixture_root)
-        .with_context(|| format!("failed to create temp repo under {}", fixture_root.display()))?;
+    let source_repo_dir = tempfile::tempdir_in(fixture_root).with_context(|| {
+        format!(
+            "failed to create temp repo under {}",
+            fixture_root.display()
+        )
+    })?;
     create_help_material_source_repo(source_repo_dir.path())?;
 
     RepoBuilder::new()
@@ -184,14 +190,24 @@ pub fn ensure_bare_repo_fixture(fixture_root: &Path, fixture_name: &str) -> anyh
         .context("failed to peel fixture HEAD to commit")?
         .id();
     fixture_repo
-        .reference("refs/heads/main", head_commit, true, "ensure fixture main ref")
+        .reference(
+            "refs/heads/main",
+            head_commit,
+            true,
+            "ensure fixture main ref",
+        )
         .context("failed to write fixture main ref")?;
 
     fs::write(
         fixture_path.join("description"),
         b"Interactive gnostr learning repo for browsing commits, trees, and patches\n",
     )
-    .with_context(|| format!("failed to write {}", fixture_path.join("description").display()))?;
+    .with_context(|| {
+        format!(
+            "failed to write {}",
+            fixture_path.join("description").display()
+        )
+    })?;
 
     Ok(fixture_path)
 }
@@ -227,11 +243,12 @@ fn update_repository_metadata(scan_path: &Path, db: &rocksdb::DB) {
         let Some(relative) = get_relative_path(scan_path, &repository) else {
             continue;
         };
-        println!(
+        debug!(
             "Processing repository: relative={}, repository={}",
             relative.display(),
             repository.display()
         );
+        println!("Processing repository: repository={}", repository.display());
 
         let id = match Repository::open(db, relative) {
             Ok(v) => v.map_or_else(RepositoryId::new, |v| {
@@ -247,15 +264,9 @@ fn update_repository_metadata(scan_path: &Path, db: &rocksdb::DB) {
         };
 
         let name = if relative == Path::new(".") {
-            scan_path
-                .file_name()
-                .and_then(OsStr::to_str)
-                .unwrap_or(".")
+            scan_path.file_name().and_then(OsStr::to_str).unwrap_or(".")
         } else {
-            relative
-                .file_name()
-                .and_then(OsStr::to_str)
-                .unwrap_or(".")
+            relative.file_name().and_then(OsStr::to_str).unwrap_or(".")
         };
         // Read description from correct location based on repository type
         let description_path = if std::process::Command::new("git")
@@ -287,13 +298,14 @@ fn update_repository_metadata(scan_path: &Path, db: &rocksdb::DB) {
             }
         }
 
-        let mut git_repository = match gix::open(repository_path.clone()) {
-            Ok(v) => v,
-            Err(error) => {
-                warn!(%error, "Failed to open repository {} to update metadata, skipping", relative.display());
-                continue;
-            }
-        };
+        let mut git_repository: gix::Repository =
+            match gix::open::Options::isolated().open(&repository_path) {
+                Ok(v) => v.into(),
+                Err(error) => {
+                    debug!(%error, "Skipping non-repository path {}", relative.display());
+                    continue;
+                }
+            };
 
         git_repository.object_cache_size(10 * 1024 * 1024);
 
@@ -625,13 +637,14 @@ fn open_repo<P: AsRef<Path> + Debug>(
         full_path.display(),
         relative_path
     );
-    match gix::open(&full_path) {
-        Ok(mut v) => {
+    match gix::open::Options::isolated().open(&full_path) {
+        Ok(v) => {
+            let mut v: gix::Repository = v.into();
             v.object_cache_size(10 * 1024 * 1024);
             Some(v)
         }
-        Err(gix::open::Error::Io(e)) if e.kind() == std::io::ErrorKind::NotFound => {
-            warn!("Repository gone from disk, removing from db");
+        Err(error) => {
+            debug!(%error, "Removing stale repository entry {}", full_path.display());
 
             if let Err(error) = db_repository.delete(db, relative_path) {
                 warn!(%error, "Failed to delete dangling index");
@@ -639,19 +652,15 @@ fn open_repo<P: AsRef<Path> + Debug>(
 
             None
         }
-        Err(error) => {
-            warn!(%error, "Failed to reindex, skipping");
-            None
-        }
     }
 }
 
 fn get_relative_path<'a>(relative_to: &Path, full_path: &'a Path) -> Option<&'a Path> {
-    println!(
+    debug!(
         "get_relative_path:relative_to:{} (scan_path)",
         &relative_to.display()
     ); //scan_path
-    println!(
+    debug!(
         "get_relative_path:full_path:{} (repository)",
         &full_path.display()
     ); //repository
@@ -664,74 +673,51 @@ fn get_relative_path<'a>(relative_to: &Path, full_path: &'a Path) -> Option<&'a 
     }
 }
 
-fn discover_repositories(current: &Path, discovered_repos: &mut Vec<PathBuf>) {
-    // First check if current path is itself a bare repository
-    // is_bare_repository
-    if is_bare_repository(current) {
-        debug!("Discovered bare Git repository at: {}", current.display());
-        discovered_repos.push(current.to_path_buf());
-        return; // Stop recursion for this path
+fn is_git_worktree(path: &Path) -> bool {
+    // A directory that contains a .git file or directory is a git worktree.
+    // We deliberately do not use gix::open here so that subdirectories of a
+    // repository are not mistaken for repositories themselves.
+    path.join(".git").exists()
+}
+
+fn discover_repositories(scan_path: &Path, discovered_repos: &mut Vec<PathBuf>) {
+    let discovered = Arc::new(Mutex::new(Vec::new()));
+    let discovered_filter = Arc::clone(&discovered);
+
+    if is_bare_repository(scan_path) || is_git_worktree(scan_path) {
+        discovered.lock().unwrap().push(scan_path.to_path_buf());
     }
 
-    // Existing check for working tree or normal repository
-    let is_repo = gix::open(current).is_ok();
-    if is_repo {
-        debug!("Discovered Git repository at: {}", current.display());
-        discovered_repos.push(current.to_path_buf());
-    }
-
-    // Check if current is a directory that contains .git
-    if current.is_dir() && !is_repo {
-        let git_path = current.join(".git");
-
-        // Check if .git exists as either file or directory
-        if git_path.exists() {
-            // Try to open as repository (handles both .git file (worktree) and .git directory)
-            if gix::open(current).is_ok() {
-                debug!("Discovered Git repository at: {}", current.display());
-                discovered_repos.push(current.to_path_buf());
-                return; // Stop recursion for this path
-            } else {
-                debug!(
-                    "Found .git at {} but not a valid repository",
-                    current.display()
-                );
+    let scan_path_owned = scan_path.to_path_buf();
+    let mut walker = ignore::WalkBuilder::new(scan_path)
+        .git_ignore(true)
+        .git_global(false)
+        .git_exclude(false)
+        .filter_entry(move |entry| {
+            let path = entry.path();
+            if path == scan_path_owned {
+                return true;
             }
-        }
-    } else {
-        println!("current.is_file()={}", current.is_file());
-    }
-
-    // If it's not a repository, and it's a directory, then we can recurse.
-    let current_dir_entries = match std::fs::read_dir(current) {
-        Ok(v) => v,
-        Err(error) => {
-            // Don't log an error if we just can't read a directory, it might be permissions, etc.
-            // Only log if it's unexpected.
-            if error.kind() != std::io::ErrorKind::NotFound
-                && error.kind() != std::io::ErrorKind::PermissionDenied
-            {
-                error!(%error, "Failed to read directory {}", current.display());
+            let is_dir = entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false);
+            if !is_dir {
+                return true;
             }
-            return;
-        }
-    };
-
-    for entry in current_dir_entries.filter_map(Result::ok) {
-        let path = entry.path();
-
-        if path.is_dir() {
-            if path.file_name() == Some(OsStr::new(".git")) {
-                continue;
+            if is_bare_repository(path) || is_git_worktree(path) {
+                println!("Discovered repository: {}", path.display());
+                discovered_filter.lock().unwrap().push(path.to_path_buf());
+                return false; // do not descend into repositories
             }
-            // Skip directories under `target/`
-            if path.components().any(|c| c.as_os_str() == "target") {
-                debug!("Skipping target directory: {}", path.display());
-                continue;
-            }
-            discover_repositories(&path, discovered_repos);
+            true
+        })
+        .build();
+
+    for result in &mut walker {
+        if let Err(err) = result {
+            eprintln!("Repository discovery walk error: {}", err);
         }
     }
+
+    discovered_repos.append(&mut discovered.lock().unwrap());
 }
 
 fn find_gitweb_owner(repository_path: &Path) -> Option<String> {

@@ -8,6 +8,45 @@
 import Foundation
 
 enum NostrKind: Int {
+    static let nip34_kinds = [
+        repository_announcement.rawValue, repository_state_announcement.rawValue,
+        repository_reply.rawValue, repository_reply_legacy.rawValue,
+        repository_patch.rawValue, repository_pull_request.rawValue,
+        repository_pull_request_update.rawValue, repository_issue.rawValue,
+        repository_issue_open.rawValue, repository_issue_applied.rawValue,
+        repository_issue_closed.rawValue, repository_issue_draft.rawValue,
+        repository_grasp_list.rawValue,
+    ]
+
+    static func search_kinds(nip34_only: Bool, selected: Set<Int>? = nil,
+                             requested: [Int]? = nil) -> [Int] {
+        guard nip34_only else { return requested ?? ([1, 42] + nip34_kinds) }
+        return nip34_kinds.filter {
+            (selected?.contains($0) ?? true) && (requested?.contains($0) ?? true)
+        }
+    }
+
+    static func nip34_kind_name(_ kind: Int) -> String {
+        switch NostrKind(rawValue: kind) {
+            
+        //Commented out for ui space
+        case .repository_announcement: return ""//"Repositories"
+        case .repository_state_announcement: return ""//"Repository state"
+        case .repository_patch: return ""//"Patches"
+        case .repository_pull_request: return ""//"Pull requests"
+        case .repository_pull_request_update: return ""//"PR updates"
+        case .repository_issue: return ""//"Issues"
+        case .repository_reply: return ""//"Replies"
+        case .repository_reply_legacy: return ""//"Legacy replies"
+        case .repository_issue_open: return ""//"Open"
+        case .repository_issue_applied: return ""//"Applied / resolved"
+        case .repository_issue_closed: return ""//"Closed"
+        case .repository_issue_draft: return ""//"Draft"
+        case .repository_grasp_list: return ""//"Grasp servers"
+        default: return "Kind \(kind)"
+        }
+    }
+
     case metadata = 0
     case text = 1
     case contacts = 3
@@ -22,10 +61,15 @@ enum NostrKind: Int {
     case repository_state_announcement = 30618 //add GitView to view
     case repository_reply = 1111
     case repository_patch = 1617 //add GitView to view
+    case repository_pull_request = 1618
+    case repository_pull_request_update = 1619
+    case repository_issue = 1621
+    case repository_reply_legacy = 1622
     case repository_issue_open = 1630
     case repository_issue_applied = 1631
     case repository_issue_closed = 1632
     case repository_issue_draft = 1633 //add GitView to view
+    case repository_grasp_list = 10317
 
     // NIP-51
     case mute_list = 10000

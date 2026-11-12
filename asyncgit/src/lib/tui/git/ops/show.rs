@@ -1,7 +1,7 @@
 use super::OpTrait;
 use crate::{
-    tui::git::gitui_error::Error, tui::git::items::TargetData, tui::git::ops::Action, tui::git::screen,
-    tui::git::state::State,
+    tui::git::gitui_error::Error, tui::git::items::TargetData, tui::git::ops::Action,
+    tui::git::screen, tui::git::state::State,
 };
 use core::str;
 use std::{path::Path, process::Command, rc::Rc};
@@ -44,7 +44,7 @@ fn goto_show_screen(r: String) -> Option<Action> {
             screen::show::create(
                 Rc::clone(&state.config),
                 Rc::clone(&state.repo),
-                term.size().map_err(Error::Term)?,
+                term.size().map_err(|e| Error::Term(e.into()))?,
                 r.clone(),
             )
             .expect("Couldn't create screen"),

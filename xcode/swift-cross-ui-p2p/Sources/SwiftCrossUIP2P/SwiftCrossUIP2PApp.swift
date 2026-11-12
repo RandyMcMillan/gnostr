@@ -4,13 +4,10 @@ import Foundation
 import LibP2P
 import LibP2PDCUtR
 import LibP2PKadDHT
+import LibP2PMDNS
 import LibP2PNoise
 import LibP2PYAMUX
 import SwiftCrossUI
-
-#if os(macOS) || os(iOS)
-    import LibP2PMDNS
-#endif
 
 #if os(iOS) && !targetEnvironment(macCatalyst)
     import GnostrGit
@@ -374,11 +371,7 @@ final class P2PDemoViewModel {
         app.security.use(.noise)
         app.muxers.use(.yamux)
         app.dcutr.use(.dcutr)
-        #if os(macOS) || os(iOS)
-            // TODO: Linux mDNS needs a Swift-facing Avahi backend or conditional wrapper; dnssd is Apple-only.
-            // mDNS is local LAN discovery only; keep it on Apple platforms where dnssd exists.
-            app.discovery.use(.mdns)
-        #endif
+        app.discovery.use(.mdns)
         app.discovery.use(.kadDHT)
         app.listen(.tcp(host: "0.0.0.0", port: listenPort))
         return app
@@ -560,40 +553,16 @@ struct ContentView: View {
     @SwiftCrossUI.Environment(P2PDemoViewModel.self) var model
 
     var body: some View {
-        NavigationSplitView(
-            sidebar: {
-                VStack(alignment: .leading, spacing: 0) {
-                    sidebarHeader
-
-                    List(P2PDemoViewModel.Demo.allCases, id: { $0 }, selection: model.$selectedDemo) { demo in
-                        Text(demo.rawValue)
-                    }
-                }
-            },
-            detail: {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
-                        header
-                        controls
-                        selectedDemo
-                        activityPanel
-                    }
-                    .padding(16)
-                }
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                header
+                controls
+                demoPicker
+                selectedDemo
+                activityPanel
             }
-        )
-    }
-
-    var sidebarHeader: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Demos")
-                .font(.headline)
-            Text("Choose a libp2p scene")
-                .font(.caption)
+            .padding(16)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
     }
 
     var header: some View {
@@ -616,6 +585,16 @@ struct ContentView: View {
             Button("Restart") { model.restart() }
             Spacer()
             Text("State: \(model.state.rawValue.capitalized)")
+        }
+    }
+
+    var demoPicker: some View {
+        HStack {
+            Text("Demo")
+            Picker(
+                of: P2PDemoViewModel.Demo.allCases,
+                selection: model.$selectedDemo
+            )
         }
     }
 

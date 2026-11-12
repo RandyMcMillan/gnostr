@@ -514,8 +514,13 @@ impl Mul<&MontgomeryPoint> for &Scalar {
 mod test {
     use super::*;
     use crate::constants;
+    use getrandom::{
+        SysRng,
+        rand_core::{Rng, TryRng, UnwrapErr},
+    };
 
-    use rand_core::{CryptoRng, RngCore, TryRngCore};
+    #[cfg(feature = "rand_core")]
+    use rand_core::CryptoRng;
 
     #[test]
     fn identity_in_different_coordinates() {
@@ -532,17 +537,18 @@ mod test {
 
     #[test]
     #[cfg(feature = "serde")]
-    fn serde_bincode_basepoint_roundtrip() {
-        use bincode;
-
-        let encoded = bincode::serialize(&constants::X25519_BASEPOINT).unwrap();
-        let decoded: MontgomeryPoint = bincode::deserialize(&encoded).unwrap();
+    fn serde_postcard_basepoint_roundtrip() {
+        let encoded = postcard::to_allocvec(&constants::X25519_BASEPOINT).unwrap();
+        let decoded: MontgomeryPoint = postcard::from_bytes(&encoded).unwrap();
 
         assert_eq!(encoded.len(), 32);
         assert_eq!(decoded, constants::X25519_BASEPOINT);
 
+        // Check that the encoding itself matches the usual one.
+        // serde::Deserialize on fixed-size arrays calls tuple deserialization. postcard
+        // (de)serializes tuples by just doing each element and that's it.
         let raw_bytes = constants::X25519_BASEPOINT.as_bytes();
-        let bp: MontgomeryPoint = bincode::deserialize(raw_bytes).unwrap();
+        let bp: MontgomeryPoint = postcard::from_bytes(raw_bytes).unwrap();
         assert_eq!(bp, constants::X25519_BASEPOINT);
     }
 
@@ -599,6 +605,7 @@ mod test {
     }
 
     /// Returns a random point on the prime-order subgroup
+    #[cfg(feature = "rand_core")]
     fn rand_prime_order_point<R: CryptoRng + ?Sized>(rng: &mut R) -> EdwardsPoint {
         let s: Scalar = Scalar::random(rng);
         EdwardsPoint::mul_base(&s)
@@ -616,9 +623,10 @@ mod test {
         })
     }
 
+    #[cfg(feature = "rand_core")]
     #[test]
     fn montgomery_ladder_matches_edwards_scalarmult() {
-        let mut csprng = rand_core::OsRng.unwrap_err();
+        let mut csprng = UnwrapErr(SysRng);
 
         for _ in 0..100 {
             let p_edwards = rand_prime_order_point(&mut csprng);
@@ -634,9 +642,10 @@ mod test {
 
     // Tests that, on the prime-order subgroup, MontgomeryPoint::mul_bits_be is the same as
     // multiplying by the Scalar representation of the same bits
+    #[cfg(feature = "rand_core")]
     #[test]
     fn montgomery_mul_bits_be() {
-        let mut csprng = rand_core::OsRng.unwrap_err();
+        let mut csprng = UnwrapErr(SysRng);
 
         for _ in 0..100 {
             // Make a random prime-order point P
@@ -661,7 +670,7 @@ mod test {
     // integers b₁, b₂ and random (curve or twist) point P.
     #[test]
     fn montgomery_mul_bits_be_twist() {
-        let mut csprng = rand_core::OsRng.unwrap_err();
+        let mut csprng = UnwrapErr(SysRng);
 
         for _ in 0..100 {
             // Make a random point P on the curve or its twist
@@ -694,7 +703,7 @@ mod test {
     /// Check that mul_base_clamped and mul_clamped agree
     #[test]
     fn mul_base_clamped() {
-        let mut csprng = rand_core::OsRng;
+        let mut csprng = UnwrapErr(SysRng);
 
         // Test agreement on a large integer. Even after clamping, this is not reduced mod l.
         let a_bytes = [0xff; 32];
