@@ -239,25 +239,45 @@ impl From<RepairJsonEventV2> for FractalBehaviourV2Event {
 pub async fn build_fractal_swarm_v2(
     local_key: libp2p::identity::Keypair,
 ) -> Result<Swarm<FractalBehaviourV2>, Box<dyn Error + Send + Sync>> {
-    let build = |key: &libp2p::identity::Keypair| -> Result<FractalBehaviourV2, Box<dyn Error + Send + Sync>> {
-        let _ = key;
-        Ok(FractalBehaviourV2 {
-            repair_bin: RepairBinV2::new(
-                [(
-                    StreamProtocol::new(REPAIR_PROTOCOL_V2_POSTCARD),
-                    request_response::ProtocolSupport::Full,
-                )],
-                request_response::Config::default(),
-            ),
-            repair_json: RepairJsonV2::new(
-                [(
-                    StreamProtocol::new(REPAIR_PROTOCOL_V2_JSON),
-                    request_response::ProtocolSupport::Full,
-                )],
-                request_response::Config::default(),
-            ),
-        })
-    };
+    build_fractal_swarm_v2_with_protocols(
+        local_key,
+        REPAIR_PROTOCOL_V2_POSTCARD,
+        REPAIR_PROTOCOL_V2_JSON,
+    )
+    .await
+}
+
+/// Build the v2 repair swarm with explicit protocol ids.
+///
+/// Production code should use [`build_fractal_swarm_v2`]; this exists so
+/// compat tests can mount the v2 behaviours on v1's protocol id and prove at
+/// the network level why the ids must not be shared.
+pub async fn build_fractal_swarm_v2_with_protocols(
+    local_key: libp2p::identity::Keypair,
+    postcard_protocol: &str,
+    json_protocol: &str,
+) -> Result<Swarm<FractalBehaviourV2>, Box<dyn Error + Send + Sync>> {
+    let postcard_protocol = postcard_protocol.to_string();
+    let json_protocol = json_protocol.to_string();
+    let build =
+        move |_: &libp2p::identity::Keypair| -> Result<FractalBehaviourV2, Box<dyn Error + Send + Sync>> {
+            Ok(FractalBehaviourV2 {
+                repair_bin: RepairBinV2::new(
+                    [(
+                        StreamProtocol::try_from_owned(postcard_protocol)?,
+                        request_response::ProtocolSupport::Full,
+                    )],
+                    request_response::Config::default(),
+                ),
+                repair_json: RepairJsonV2::new(
+                    [(
+                        StreamProtocol::try_from_owned(json_protocol)?,
+                        request_response::ProtocolSupport::Full,
+                    )],
+                    request_response::Config::default(),
+                ),
+            })
+        };
 
     #[cfg(target_os = "tvos")]
     let swarm = libp2p::SwarmBuilder::with_existing_identity(local_key)
