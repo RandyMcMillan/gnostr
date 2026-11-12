@@ -184,10 +184,31 @@ jobs:
           target: ${{ matrix.target }}
           save: true
 
+      - name: Restore Rust toolchain cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.rustup/toolchains
+          # Exact-version keys are written by the save step below (dtolnay's
+          # cachekey output); here we just want the newest cached toolchain
+          # for this OS/toolchain, which rustup then updates in place.
+          key: rustup-${{ runner.os }}-${{ runner.arch }}-${{ matrix.toolchain }}-none
+          restore-keys: |
+            rustup-${{ runner.os }}-${{ runner.arch }}-${{ matrix.toolchain }}-
+
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
+        id: rust-toolchain
         with:
           toolchain: ${{ matrix.toolchain }}
+
+      - name: Save Rust toolchain cache
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.rustup/toolchains
+          key: rustup-${{ runner.os }}-${{ runner.arch }}-${{ matrix.toolchain }}-${{ steps.rust-toolchain.outputs.cachekey }}
+          # Immutable once written; concurrent matrix jobs with the same
+          # toolchain race and the losers warn-and-skip. Never clobbers a
+          # good entry because the key is content-addressed by rustc itself.
 
       - name: Setup OpenSSL and Perl for Windows
         if: runner.os == 'Windows'
@@ -311,6 +332,21 @@ jobs:
           triple="${{ matrix.target }}"
           echo "CXXFLAGS_${triple//-/_}=-include cstdint" >> "$GITHUB_ENV"
 
+      - name: Restore patched aarch64-musl std cache
+        if: runner.os == 'Linux' && matrix.target == 'aarch64-unknown-linux-musl'
+        id: musl-std-cache
+        uses: actions/cache/restore@v4
+        with:
+          # The std download (~120MB) and the sigsetjmp repack below are
+          # both deterministic for a given rustc, so cache the whole
+          # rustlib dir for the target. Keyed by the toolchain cachekey
+          # plus a script-generation marker; bump the marker when
+          # patch-musl-sigsetjmp.sh changes.
+          path: ~/.rustup/toolchains/${{ matrix.toolchain }}-x86_64-unknown-linux-gnu/lib/rustlib/aarch64-unknown-linux-musl
+          key: rustlib-aarch64-unknown-linux-musl-${{ matrix.toolchain }}-${{ steps.rust-toolchain.outputs.cachekey }}-sigsetjmp1
+          restore-keys: |
+            rustlib-aarch64-unknown-linux-musl-${{ matrix.toolchain }}-
+
       - name: Patch musl sigsetjmp long-branch (aarch64-musl only)
         if: runner.os == 'Linux' && matrix.target == 'aarch64-unknown-linux-musl'
         shell: bash
@@ -321,13 +357,36 @@ jobs:
           # "relocation truncated to fit: R_AARCH64_CONDBR19". Repack the
           # archive with an equivalent CBNZ+B sequence (+-128MB) before
           # cross mounts the rustup sysroot into the build container.
+          # Idempotent: a no-op when the restored cache is already patched.
           sudo apt-get update -qq
           sudo apt-get install -y -qq binutils-aarch64-linux-gnu
           # The toolchain action installs with --profile minimal and no extra
           # targets, so the aarch64-musl std (and its self-contained libc.a)
-          # is missing until we add it here on the x86_64 host.
+          # is missing until we add it here on the x86_64 host. Near-instant
+          # when the rustlib dir was restored from cache above.
           rustup target add aarch64-unknown-linux-musl
           ./scripts/patch-musl-sigsetjmp.sh
+
+      - name: Save patched aarch64-musl std cache
+        if: runner.os == 'Linux' && matrix.target == 'aarch64-unknown-linux-musl' && steps.musl-std-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.rustup/toolchains/${{ matrix.toolchain }}-x86_64-unknown-linux-gnu/lib/rustlib/aarch64-unknown-linux-musl
+          key: rustlib-aarch64-unknown-linux-musl-${{ matrix.toolchain }}-${{ steps.rust-toolchain.outputs.cachekey }}-sigsetjmp1
+
+      - name: Enable layer cache for custom cross images
+        if: runner.os == 'Linux' && (contains(matrix.target, '-musl') || matrix.target == 'aarch64-unknown-linux-gnu')
+        shell: bash
+        run: |
+          # Cross.toml ships custom Dockerfiles for the musl targets and
+          # aarch64-gnu; cross 0.2.5 re-runs `docker build` for them on
+          # every job (no image-exists check). cross passes CROSS_BUILD_OPTS
+          # through to that build, so wire the buildx GHA cache backend in
+          # with a per-target scope: the apt layers then persist across
+          # runs instead of re-running apt-get update/install each time.
+          {
+            echo "CROSS_BUILD_OPTS=--cache-from type=gha,scope=cross-${{ matrix.target }} --cache-to type=gha,mode=max,scope=cross-${{ matrix.target }}"
+          } >> "$GITHUB_ENV"
 
       - name: Build release binary
         shell: bash
@@ -405,7 +464,22 @@ jobs:
           profile: debug
           save: true
 
+      - name: Restore Rust toolchain cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.rustup/toolchains
+          key: rustup-${{ runner.os }}-${{ runner.arch }}-stable-none
+          restore-keys: |
+            rustup-${{ runner.os }}-${{ runner.arch }}-stable-
+
       - uses: dtolnay/rust-toolchain@stable
+        id: rust-toolchain
+
+      - name: Save Rust toolchain cache
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.rustup/toolchains
+          key: rustup-${{ runner.os }}-${{ runner.arch }}-stable-${{ steps.rust-toolchain.outputs.cachekey }}
 
       - name: Force-include <cstdint> for rocksdb on GCC >= 14
         shell: bash
