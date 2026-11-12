@@ -121,10 +121,15 @@ jobs:
           if selected != "all":
               targets = [target for target in all_targets if target["build"] == selected]
           else:
+              # Note: on push/tag events the toggle env vars are set to the
+              # EMPTY STRING (inputs.* is unset outside workflow_dispatch),
+              # and an empty toggle means the default: build the target.
               targets = [
                   target
                   for target in all_targets
-                  if os.environ.get(f"TOGGLE_{target['build'].replace('-', '_').upper()}", "true") == "true"
+                  if os.environ.get(
+                      f"TOGGLE_{target['build'].replace('-', '_').upper()}", "true"
+                  ) in ("", "true")
               ]
 
           if not targets:
