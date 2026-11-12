@@ -6,10 +6,11 @@
 //!   `Err("not held: <id>")`. The v1 empty-placeholder response, which was
 //!   indistinguishable from a zero-length leaf, is gone.
 //! - **Plan 2 — binary wire.** The production codec is postcard on
-//!   `/fractal/repair/1.1.0/postcard`; JSON stays mounted on
-//!   `/fractal/repair/1.0.0/json` for debugging. [`WireCodecV2`] selects which
-//!   behaviour a requester sends on; both are always mounted so a node can
-//!   serve either.
+//!   `/fractal/repair/1.1.0/postcard`; JSON stays mounted beside it for
+//!   debugging on `/fractal/repair/2.0.0/json` — versioned per stack so a v2
+//!   node never negotiates the debug codec against a v1 peer answering plain
+//!   `ProtocolSlice`. [`WireCodecV2`] selects which behaviour a requester
+//!   sends on; both are always mounted so a node can serve either.
 //! - **Plan 6 — `git fsck --strict`.** [`git_fsck_strict`] runs before the
 //!   clone-based verification in the v2 example and tests.
 
@@ -32,7 +33,7 @@ use serde::{de::DeserializeOwned, Serialize};
 /// Binary (postcard) repair protocol id — the v2 production codec.
 pub const REPAIR_PROTOCOL_V2_POSTCARD: &str = "/fractal/repair/1.1.0/postcard";
 /// JSON repair protocol id — kept for debugging/inspection.
-pub const REPAIR_PROTOCOL_V2_JSON: &str = "/fractal/repair/1.0.0/json";
+pub const REPAIR_PROTOCOL_V2_JSON: &str = "/fractal/repair/2.0.0/json";
 
 /// Repair response: explicit presence/absence on the wire (TODO.md plan 1).
 pub type RepairResponseV2 = Result<ProtocolSliceV2, String>;
@@ -44,7 +45,9 @@ pub enum WireCodecV2 {
     /// postcard on `/fractal/repair/1.1.0/postcard` (default, production).
     #[default]
     Binary,
-    /// JSON on `/fractal/repair/1.0.0/json` (debugging/inspection).
+    /// JSON on `/fractal/repair/2.0.0/json` (debugging/inspection). The id is
+    /// versioned per stack so a v2 node never negotiates the debug codec
+    /// against a v1 peer answering plain `ProtocolSlice`.
     Json,
 }
 

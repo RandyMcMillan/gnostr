@@ -53,7 +53,7 @@ struct CliV2 {
     #[arg(long, num_args = 0..=1, default_missing_value = "info")]
     logging: Option<String>,
 
-    /// Use the JSON repair protocol (/fractal/repair/1.0.0/json) for wire
+    /// Use the JSON repair protocol (/fractal/repair/2.0.0/json) for wire
     /// traffic instead of the default binary postcard codec
     /// (/fractal/repair/1.1.0/postcard).
     #[arg(long)]

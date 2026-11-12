@@ -48,20 +48,23 @@ cost on every ~730-byte slice.
 - Both behaviours are mounted on every v2 swarm, newtyped
   (`RepairBinV2`/`RepairJsonV2`) so the composite behaviour can tell their
   events apart: postcard on `/fractal/repair/1.1.0/postcard`, JSON on
-  `/fractal/repair/1.0.0/json` (per this plan; see the caveat below).
-  `WireCodecV2` selects the outbound codec; default is binary.
+  `/fractal/repair/2.0.0/json`. `WireCodecV2` selects the outbound codec;
+  default is binary.
+- Protocol-id note: the original plan kept v2's JSON on v1's
+  `/fractal/repair/1.0.0/json`, which would let a v1 and v2 node negotiate
+  the debug stream and then fail every request on the response-type mismatch
+  (serde cannot parse `Result<ProtocolSliceV2, String>` into v1's
+  `ProtocolSlice`). It failed rather than corrupted, but v2's JSON behaviour
+  now uses its own id, `/fractal/repair/2.0.0/json`, so the two stacks never
+  negotiate a shared debug codec at all. The binary protocol id is already
+  v2-only (`1.1.0/postcard`).
 - Measured and pinned by `postcard_wire_size_beats_json_on_real_packet_batch`:
   a real 4096-byte payload, 15 packets — JSON 36546B vs postcard 10517B,
   **71.2% smaller** on the wire (test asserts >50%).
 - Round-trip verified by `postcard_codec_round_trips_requests_and_responses`
   (request, `Ok` response, `Err` response).
-- Caveat: v2's JSON behaviour reuses v1's protocol string
-  (`/fractal/repair/1.0.0/json`) as the plan specified. A v1 and v2 node
-  negotiating that stream would fail requests on the response-type mismatch
-  (serde cannot parse `Result<ProtocolSliceV2, String>` into v1's
-  `ProtocolSlice`) — it fails, it does not corrupt. A distinct string
-  (e.g. `/fractal/repair/2.0.0/json`) is a one-line change if v1/v2 interop
-  on the debug codec ever matters.
+- The `--json` flag on the v2 example (`fractal_swarm_perfect_ip_v2`)
+  selects the JSON behaviour for outbound requests; the default is binary.
 
 ## 3. Per-slice authentication — FIXED in v2
 
@@ -206,9 +209,6 @@ a valid repo but can tolerate object-store corruption.
   to `ManifestEntry` without a format break. Not built.
 - Reed-Solomon/RaptorQ evaluation for lossy links: deferred; manifest v2's
   `(offset, len)` keying is the seam it plugs into.
-- v1↔v2 JSON protocol-id collision on `/fractal/repair/1.0.0/json`: fails
-  requests rather than corrupting; one-line change to a v2-specific id if
-  debug-codec interop is ever wanted.
 - `Repair-by-id as the git-transport loss path` (primary = stream, repair =
   slice requests by id) is what `--fetch` demos; production integration
   (manifest distribution to fetchers) is not built.
