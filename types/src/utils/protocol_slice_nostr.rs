@@ -4,7 +4,7 @@
 //! transport: each slice becomes one signed event that any relay can carry
 //! and any receiver can verify against the manifest.
 //!
-//! Envelope (NIP-78 app data, kind 30078):
+//! Envelope (a signed kind-9261 regular event; see [`PERFECT_IP_NOSTR_KIND`]):
 //!
 //! - content: `serde_json` of the slice — v1 [`ProtocolSlice`] or v2
 //!   [`ProtocolSliceV2`], exactly the bytes the libp2p wire compat matrix
@@ -33,12 +33,21 @@ use super::protocol_slice::ProtocolSlice;
 use super::protocol_slice_v2::ProtocolSliceV2;
 use crate::nostr::{Event, EventBuilder, EventKind, PrivateKey, Tag};
 
-/// NIP-78 app-data kind carrying perfect_ip slices.
-pub const PERFECT_IP_NOSTR_KIND: u32 = 30078;
+/// Regular event kind carrying perfect_ip slices.
+///
+/// This MUST be a regular (non-replaceable) kind: the vendored gnostr-relay
+/// keys replaceable and parameterized-replaceable storage by `(pubkey,
+/// kind)` only, ignoring the `d` tag — with a 30xxx kind every slice event
+/// after the first answers `OK false "replaced: have newer event"` and only
+/// one slice would ever be stored. Kind 9261 is unassigned in the NIP
+/// registry (9000-9999 regular range, only 9041/9372/9735 are taken).
+pub const PERFECT_IP_NOSTR_KIND: u32 = 9261;
 /// Tag marking the payload version: `["perfect_ip", "1"|"2"]`.
 pub const PERFECT_IP_TAG: &str = "perfect_ip";
 /// Discovery hashtag value.
 pub const PERFECT_IP_TOPIC: &str = "perfect_ip";
+/// d-tag third field marking the manifest event for a root.
+pub const PERFECT_IP_MANIFEST_MARK: &str = "manifest";
 /// Version marker for v1 payloads.
 pub const PERFECT_IP_VERSION_V1: &str = "1";
 /// Version marker for v2 payloads.
@@ -60,6 +69,10 @@ pub enum NostrCarrierError {
     MissingDTag,
     /// The event's `d` tag names a different root than expected.
     WrongRoot { expected: String, found: String },
+    /// The event is a manifest, not a slice.
+    NotASlice,
+    /// The event is a slice, not a manifest.
+    NotAManifest,
     /// Event content is not JSON for the expected slice shape.
     ContentJson(String),
     /// The event could not be built or signed.
@@ -83,6 +96,8 @@ impl fmt::Display for NostrCarrierError {
             Self::WrongRoot { expected, found } => {
                 write!(f, "wrong root: expected {expected}, found {found}")
             }
+            Self::NotASlice => write!(f, "event is a manifest, not a slice"),
+            Self::NotAManifest => write!(f, "event is a slice, not a manifest"),
             Self::ContentJson(message) => write!(f, "content json error: {message}"),
             Self::EventBuild(message) => write!(f, "event build error: {message}"),
         }
@@ -132,7 +147,7 @@ fn check_envelope(
     Ok(())
 }
 
-/// Wrap a v2 slice in a signed kind-30078 event.
+/// Wrap a v2 slice in a signed kind-9261 event.
 pub fn slice_event_v2(
     keys: &PrivateKey,
     root_id: &str,
@@ -149,7 +164,7 @@ pub fn slice_event_v2(
     .map_err(|error| NostrCarrierError::EventBuild(error.to_string()))
 }
 
-/// Wrap a v1 slice in a signed kind-30078 event.
+/// Wrap a v1 slice in a signed kind-9261 event.
 pub fn slice_event_v1(
     keys: &PrivateKey,
     root_id: &str,
@@ -166,12 +181,94 @@ pub fn slice_event_v1(
     .map_err(|error| NostrCarrierError::EventBuild(error.to_string()))
 }
 
+/// The d-tag third field of an event, discriminating slice from manifest.
+fn d_tag_kind(event: &Event) -> &str {
+    find_tag(event, "d")
+        .map(|tag| tag.get_index(2))
+        .unwrap_or("")
+}
+
+fn manifest_tags(root_id: &str, version: &str) -> Vec<Tag> {
+    vec![
+        Tag::new(&["d", root_id, PERFECT_IP_MANIFEST_MARK]),
+        Tag::new(&[PERFECT_IP_TAG, version]),
+        Tag::new(&["t", PERFECT_IP_TOPIC]),
+    ]
+}
+
+/// Wrap the v2 manifest in a signed kind-9261 event.
+///
+/// The manifest is what makes the nostr transport self-sufficient: a
+/// receiver that only knows the root id can fetch it, then hash-verify and
+/// reassemble every slice event it collects.
+pub fn manifest_event_v2(
+    keys: &PrivateKey,
+    root_id: &str,
+    manifest: &[crate::perfect_ip_v2::ManifestEntry],
+) -> Result<Event, NostrCarrierError> {
+    let content = serde_json::to_string(manifest)
+        .map_err(|error| NostrCarrierError::ContentJson(error.to_string()))?;
+    EventBuilder::new(
+        EventKind::from(PERFECT_IP_NOSTR_KIND),
+        content,
+        manifest_tags(root_id, PERFECT_IP_VERSION_V2),
+    )
+    .to_event(keys)
+    .map_err(|error| NostrCarrierError::EventBuild(error.to_string()))
+}
+
+/// Wrap the v1 manifest (a bare id list) in a signed kind-9261 event.
+pub fn manifest_event_v1(
+    keys: &PrivateKey,
+    root_id: &str,
+    manifest_ids: &[String],
+) -> Result<Event, NostrCarrierError> {
+    let content = serde_json::to_string(manifest_ids)
+        .map_err(|error| NostrCarrierError::ContentJson(error.to_string()))?;
+    EventBuilder::new(
+        EventKind::from(PERFECT_IP_NOSTR_KIND),
+        content,
+        manifest_tags(root_id, PERFECT_IP_VERSION_V1),
+    )
+    .to_event(keys)
+    .map_err(|error| NostrCarrierError::EventBuild(error.to_string()))
+}
+
+/// Decode and strictly validate a v2 manifest event.
+pub fn event_to_manifest_v2(
+    event: &Event,
+    root_id: &str,
+) -> Result<Vec<crate::perfect_ip_v2::ManifestEntry>, NostrCarrierError> {
+    check_envelope(event, root_id, PERFECT_IP_VERSION_V2)?;
+    if d_tag_kind(event) != PERFECT_IP_MANIFEST_MARK {
+        return Err(NostrCarrierError::NotAManifest);
+    }
+    serde_json::from_str(&event.content)
+        .map_err(|error| NostrCarrierError::ContentJson(error.to_string()))
+}
+
+/// Decode and strictly validate a v1 manifest event (a bare id list).
+pub fn event_to_manifest_v1(
+    event: &Event,
+    root_id: &str,
+) -> Result<Vec<String>, NostrCarrierError> {
+    check_envelope(event, root_id, PERFECT_IP_VERSION_V1)?;
+    if d_tag_kind(event) != PERFECT_IP_MANIFEST_MARK {
+        return Err(NostrCarrierError::NotAManifest);
+    }
+    serde_json::from_str(&event.content)
+        .map_err(|error| NostrCarrierError::ContentJson(error.to_string()))
+}
+
 /// Decode and strictly validate a v2 slice event.
 pub fn event_to_slice_v2(
     event: &Event,
     root_id: &str,
 ) -> Result<ProtocolSliceV2, NostrCarrierError> {
     check_envelope(event, root_id, PERFECT_IP_VERSION_V2)?;
+    if d_tag_kind(event) == PERFECT_IP_MANIFEST_MARK {
+        return Err(NostrCarrierError::NotASlice);
+    }
     serde_json::from_str(&event.content)
         .map_err(|error| NostrCarrierError::ContentJson(error.to_string()))
 }
@@ -179,6 +276,9 @@ pub fn event_to_slice_v2(
 /// Decode and strictly validate a v1 slice event.
 pub fn event_to_slice_v1(event: &Event, root_id: &str) -> Result<ProtocolSlice, NostrCarrierError> {
     check_envelope(event, root_id, PERFECT_IP_VERSION_V1)?;
+    if d_tag_kind(event) == PERFECT_IP_MANIFEST_MARK {
+        return Err(NostrCarrierError::NotASlice);
+    }
     serde_json::from_str(&event.content)
         .map_err(|error| NostrCarrierError::ContentJson(error.to_string()))
 }
@@ -380,5 +480,209 @@ mod tests {
             event_to_slice_v2(&no_d, "R").expect_err("missing d"),
             NostrCarrierError::MissingDTag
         ));
+    }
+
+    #[test]
+    fn manifest_event_round_trips_and_discriminates() {
+        let keys = test_key();
+        let payload: Vec<u8> = (0..3000).map(|i| (i % 251) as u8).collect();
+        let result = packetize_v2("ROOT".to_string(), payload);
+
+        let event = manifest_event_v2(&keys, "ROOT", &result.manifest).expect("build manifest");
+        let d_tag = find_tag(&event, "d").expect("d tag");
+        assert_eq!(d_tag.get_index(1), "ROOT");
+        assert_eq!(d_tag.get_index(2), PERFECT_IP_MANIFEST_MARK);
+
+        let decoded = event_to_manifest_v2(&event, "ROOT").expect("decode manifest");
+        assert_eq!(decoded, result.manifest);
+
+        // A manifest event is not a slice, and a slice event is not a
+        // manifest — the decoders discriminate explicitly.
+        assert!(matches!(
+            event_to_slice_v2(&event, "ROOT").expect_err("manifest is not a slice"),
+            NostrCarrierError::NotASlice
+        ));
+        let slice_event = slice_event_v2(&keys, "ROOT", &result.batch.packets[0]).unwrap();
+        assert!(matches!(
+            event_to_manifest_v2(&slice_event, "ROOT").expect_err("slice is not a manifest"),
+            NostrCarrierError::NotAManifest
+        ));
+
+        // v1 manifest (bare id list) round trips too.
+        let ids: Vec<String> = result
+            .manifest
+            .iter()
+            .map(|entry| entry.id.clone())
+            .collect();
+        let v1_event = manifest_event_v1(&keys, "ROOT", &ids).expect("build v1 manifest");
+        assert_eq!(
+            event_to_manifest_v1(&v1_event, "ROOT").expect("decode v1"),
+            ids
+        );
+    }
+
+    /// End-to-end: publish the manifest + every slice as kind-9261 events to
+    /// a live loopback gnostr-relay, fetch them back with a tag filter, and
+    /// reconstruct the payload using ONLY the root id as prior knowledge.
+    #[tokio::test]
+    #[serial_test::serial]
+    async fn slice_events_round_trip_through_live_relay() {
+        use actix_test::start;
+        use gnostr_relay::App as GnostrRelayApp;
+        use tempfile::tempdir;
+
+        struct EnvVarGuard {
+            key: &'static str,
+            value: Option<std::ffi::OsString>,
+        }
+        impl EnvVarGuard {
+            fn set(key: &'static str, value: impl AsRef<std::ffi::OsStr>) -> Self {
+                let previous = std::env::var_os(key);
+                unsafe {
+                    std::env::set_var(key, value);
+                }
+                Self {
+                    key,
+                    value: previous,
+                }
+            }
+        }
+        impl Drop for EnvVarGuard {
+            fn drop(&mut self) {
+                match &self.value {
+                    Some(value) => unsafe {
+                        std::env::set_var(self.key, value);
+                    },
+                    None => unsafe {
+                        std::env::remove_var(self.key);
+                    },
+                }
+            }
+        }
+
+        let home_dir = tempdir().expect("home dir");
+        let _home_guard = EnvVarGuard::set("HOME", home_dir.path());
+        let _xdg_guard = EnvVarGuard::set("XDG_CONFIG_HOME", home_dir.path().join("config"));
+
+        let config_dir = tempdir().expect("relay config dir");
+        let config_path = config_dir.path().join("relay.toml");
+        std::fs::write(
+            &config_path,
+            r#"
+[server]
+port = 0
+host = "127.0.0.1"
+
+[database]
+path = ":memory:"
+"#,
+        )
+        .expect("write relay config");
+
+        let data_dir = tempdir().expect("relay data dir");
+        let data_path = data_dir.path().to_path_buf();
+        let relay_srv = start(move || {
+            let app_data = GnostrRelayApp::create(
+                Some(config_path.as_path()),
+                true,
+                Some("NOSTR".to_owned()),
+                Some(data_path.as_path()),
+            )
+            .expect("failed to create relay app");
+            app_data.web_app()
+        });
+        let relay_url = relay_srv.url("/").replace("http", "ws");
+
+        let keys = test_key();
+        let payload: Vec<u8> = (0..3000).map(|i| (i % 251) as u8).collect();
+        let result = packetize_v2("ROOT".to_string(), payload.clone());
+        let expected_events = result.batch.packets.len() + 1; // slices + manifest
+
+        let mut client = crate::nostr::Client::new(
+            &crate::nostr::Keys::new(keys.clone()),
+            crate::nostr::Options::new()
+                .wait_for_send(true)
+                // Each confirmed send opens a fresh WebSocket and waits for
+                // the relay's OK; the option default of 1s is too tight
+                // under sequential sends.
+                .send_timeout(Some(std::time::Duration::from_secs(10))),
+        );
+        client
+            .add_relays(vec![relay_url.clone()])
+            .await
+            .expect("add relay");
+        client.connect().await;
+
+        // Publish: manifest first, then every slice. Confirmed sends wait
+        // for the relay's `OK true`, surfacing any rejection instead of
+        // fire-and-forgetting.
+        client
+            .send_event_confirmed(
+                manifest_event_v2(&keys, "ROOT", &result.manifest).expect("manifest"),
+            )
+            .await
+            .expect("publish manifest");
+        for slice in &result.batch.packets {
+            client
+                .send_event_confirmed(slice_event_v2(&keys, "ROOT", slice).expect("slice event"))
+                .await
+                .expect("publish slice");
+        }
+
+        // Fetch everything tagged for this root. The LMDB write worker is
+        // async, so retry the query briefly until the set is complete.
+        let mut events = Vec::new();
+        for _ in 0..10 {
+            let mut filter = crate::nostr::Filter::new();
+            filter
+                .add_event_kind(EventKind::from(PERFECT_IP_NOSTR_KIND))
+                .add_tag_value('t', PERFECT_IP_TOPIC.to_string());
+            events = client
+                .get_events_of(vec![filter], Some(std::time::Duration::from_secs(5)))
+                .await
+                .expect("query relay");
+            if events.len() >= expected_events {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+        }
+        assert_eq!(
+            events.len(),
+            expected_events,
+            "expected {expected_events} events from relay, got {}",
+            events.len()
+        );
+
+        // Receiver side: prior knowledge is ONLY the root id. The manifest
+        // event supplies the verification material; slice events are
+        // hash-checked against it on record.
+        let manifest_event = events
+            .iter()
+            .find(|event| d_tag_kind(event) == PERFECT_IP_MANIFEST_MARK)
+            .expect("manifest event in relay set");
+        let manifest = event_to_manifest_v2(manifest_event, "ROOT").expect("decode manifest");
+
+        let mut manager = IntegrityManagerV2::new(manifest);
+        let mut slice_count = 0usize;
+        for event in &events {
+            if d_tag_kind(event) == PERFECT_IP_MANIFEST_MARK {
+                continue;
+            }
+            let slice = event_to_slice_v2(event, "ROOT").expect("decode slice event");
+            manager.record_slice(slice);
+            slice_count += 1;
+        }
+        assert_eq!(slice_count, result.batch.packets.len());
+        assert!(
+            manager.rejected.is_empty(),
+            "relay-delivered slices must hash-verify: {:?}",
+            manager.rejected
+        );
+        assert!(manager.verify_integrity());
+        assert_eq!(
+            manager.reconstruct_payload().expect("payload"),
+            payload,
+            "payload reconstructed from relay-delivered events must be byte-exact"
+        );
     }
 }
