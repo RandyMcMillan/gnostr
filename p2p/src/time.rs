@@ -170,8 +170,11 @@ impl SyncState {
         d_overs.sort_by(|a, b| a.partial_cmp(b).unwrap());
         d_unders.sort_by(|a, b| a.partial_cmp(b).unwrap());
 
-        let m_min = d_overs[self.f];
-        let m_max = d_unders[count - 1 - self.f];
+        // Marzullo selection: m_min is the (f+1)-th largest lower bound,
+        // m_max the (f+1)-th smallest upper bound, so the window is covered
+        // by at least n - f estimate intervals.
+        let m_min = d_unders[count - 1 - self.f];
+        let m_max = d_overs[self.f];
 
         if m_min <= m_max {
             let offset = (m_min + m_max) / 2.0;
@@ -485,8 +488,8 @@ mod tests {
         d_overs.sort_by(|a, b| a.partial_cmp(b).unwrap());
         d_unders.sort_by(|a, b| a.partial_cmp(b).unwrap());
 
-        let m_min = d_overs[state.f];
-        let m_max = d_unders[estimates.len() - 1 - state.f];
+        let m_min = d_unders[estimates.len() - 1 - state.f];
+        let m_max = d_overs[state.f];
         println!("consensus window: m_min={:.6}s m_max={:.6}s", m_min, m_max);
 
         state.apply_bft_sync(estimates);
@@ -594,8 +597,8 @@ mod tests {
             d_overs.sort_by(|a, b| a.partial_cmp(b).unwrap());
             d_unders.sort_by(|a, b| a.partial_cmp(b).unwrap());
 
-            let m_min = d_overs[state.f];
-            let m_max = d_unders[estimates.len() - 1 - state.f];
+            let m_min = d_unders[estimates.len() - 1 - state.f];
+            let m_max = d_overs[state.f];
             println!("consensus window: m_min={:.6}s m_max={:.6}s", m_min, m_max);
 
             state.apply_bft_sync(estimates);
@@ -746,8 +749,8 @@ mod tests {
             d_overs.sort_by(|a, b| a.partial_cmp(b).unwrap());
             d_unders.sort_by(|a, b| a.partial_cmp(b).unwrap());
 
-            let m_min = d_overs[state.f];
-            let m_max = d_unders[estimates.len() - 1 - state.f];
+            let m_min = d_unders[estimates.len() - 1 - state.f];
+            let m_max = d_overs[state.f];
             println!("consensus window: m_min={:.6}s m_max={:.6}s", m_min, m_max);
 
             state.apply_bft_sync(estimates);
@@ -879,8 +882,8 @@ mod tests {
             let mut d_unders: Vec<f64> = estimates.iter().map(|e| e.d - e.a).collect();
             d_overs.sort_by(|a, b| a.partial_cmp(b).unwrap());
             d_unders.sort_by(|a, b| a.partial_cmp(b).unwrap());
-            let m_min = d_overs[1];
-            let m_max = d_unders[estimates.len() - 2];
+            let m_min = d_unders[estimates.len() - 2];
+            let m_max = d_overs[1];
             println!("  consensus window: m_min={m_min:.6}s m_max={m_max:.6}s");
 
             let pre_blockheight = blockheight_state.get_logical_utc();
