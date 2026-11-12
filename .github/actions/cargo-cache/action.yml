@@ -19,6 +19,14 @@ inputs:
       Consumers (test/clippy workflows) leave this empty so their keys and
       restore prefixes match any factory target on the same OS/arch.
     default: ""
+  profile:
+    description: >-
+      Cargo profile segment: "release" for the build-artifact factory,
+      "debug" for consumers that build with cargo's default debug profile
+      (their artifacts live in target/debug, which a release cache never
+      warms). Keys are cargo-v2; the v1 target keys predate the profile
+      segment and are intentionally not restored.
+    default: "release"
   save:
     description: >-
       "true" saves caches on miss. Only the cache factory should set this;
@@ -74,11 +82,10 @@ runs:
       uses: actions/cache/restore@v4
       with:
         path: ${{ inputs.target-path }}
-        key: cargo-v1-target-${{ runner.os }}-${{ runner.arch }}-${{ inputs.toolchain }}${{ inputs.target != '' && format('-{0}', inputs.target) || '' }}-${{ inputs.lock-hash }}
+        key: cargo-v2-target-${{ runner.os }}-${{ runner.arch }}-${{ inputs.toolchain }}-${{ inputs.profile }}${{ inputs.target != '' && format('-{0}', inputs.target) || '' }}-${{ inputs.lock-hash }}
         restore-keys: |
-          cargo-v1-target-${{ runner.os }}-${{ runner.arch }}-${{ inputs.toolchain }}${{ inputs.target != '' && format('-{0}', inputs.target) || '' }}-
-          cargo-v1-target-${{ runner.os }}-${{ runner.arch }}-${{ inputs.toolchain }}-
-          cargo-v1-target-${{ runner.os }}-${{ runner.arch }}-
+          cargo-v2-target-${{ runner.os }}-${{ runner.arch }}-${{ inputs.toolchain }}-${{ inputs.profile }}${{ inputs.target != '' && format('-{0}', inputs.target) || '' }}-
+          cargo-v2-target-${{ runner.os }}-${{ runner.arch }}-${{ inputs.toolchain }}-${{ inputs.profile }}-
 
     - name: Restore+save Cargo target directory (factory)
       if: inputs.save == 'true'
@@ -86,8 +93,7 @@ runs:
       uses: actions/cache@v4
       with:
         path: ${{ inputs.target-path }}
-        key: cargo-v1-target-${{ runner.os }}-${{ runner.arch }}-${{ inputs.toolchain }}${{ inputs.target != '' && format('-{0}', inputs.target) || '' }}-${{ inputs.lock-hash }}
+        key: cargo-v2-target-${{ runner.os }}-${{ runner.arch }}-${{ inputs.toolchain }}-${{ inputs.profile }}${{ inputs.target != '' && format('-{0}', inputs.target) || '' }}-${{ inputs.lock-hash }}
         restore-keys: |
-          cargo-v1-target-${{ runner.os }}-${{ runner.arch }}-${{ inputs.toolchain }}${{ inputs.target != '' && format('-{0}', inputs.target) || '' }}-
-          cargo-v1-target-${{ runner.os }}-${{ runner.arch }}-${{ inputs.toolchain }}-
-          cargo-v1-target-${{ runner.os }}-${{ runner.arch }}-
+          cargo-v2-target-${{ runner.os }}-${{ runner.arch }}-${{ inputs.toolchain }}-${{ inputs.profile }}${{ inputs.target != '' && format('-{0}', inputs.target) || '' }}-
+          cargo-v2-target-${{ runner.os }}-${{ runner.arch }}-${{ inputs.toolchain }}-${{ inputs.profile }}-

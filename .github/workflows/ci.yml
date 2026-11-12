@@ -23,6 +23,9 @@ jobs:
       - uses: ./.github/actions/cargo-cache
         with:
           lock-hash: ${{ hashFiles('Cargo.lock') }}
+          # ci builds with cargo's default (debug) profile; restore the
+          # debug factory target cache, not the release one.
+          profile: debug
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
@@ -42,6 +45,9 @@ jobs:
       - uses: ./.github/actions/cargo-cache
         with:
           lock-hash: ${{ hashFiles('Cargo.lock') }}
+          # ci builds with cargo's default (debug) profile; restore the
+          # debug factory target cache, not the release one.
+          profile: debug
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
