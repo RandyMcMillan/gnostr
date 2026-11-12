@@ -24,6 +24,12 @@
 //!   writes JSON with a `"v": 1` marker; [`IntegrityManagerV2::load_from_disk`]
 //!   refuses any version it does not know and re-verifies every loaded slice,
 //!   so tampered state is rejected rather than trusted.
+//! - **Raw-leaf CIDs.** Every manifest entry's sha256 IS the multihash
+//!   digest, so [`ManifestEntry::cid`] derives a `CIDv1(raw, sha2-256)` —
+//!   the same shape `ipfs add --raw-leaves` produces — with no new
+//!   dependencies and no manifest format change. A slice can be served and
+//!   fetched back through any trustless gateway by CID and verified against
+//!   the manifest on record ([`verify_slice_against_cid`]).
 //!
 //! Wire/behaviour code lives in `gnostr-p2p` (`fractal/fractal_ip_core_v2.rs`).
 
@@ -43,6 +49,130 @@ pub const MAX_LEAF_PAYLOAD_V2: usize = MTU_PAYLOAD / 2;
 
 /// Persisted-state format version written by [`IntegrityManagerV2::persist`].
 pub const PERSIST_FORMAT_VERSION_V2: u32 = 1;
+
+/// CIDv1 version marker.
+pub const CID_VERSION_V2: u8 = 0x01;
+/// CIDv1 codec for an untyped raw block (`ipfs add --raw-leaves` shape).
+pub const CID_CODEC_RAW_V2: u8 = 0x55;
+/// Multihash code for sha2-256.
+pub const CID_SHA2_256_V2: u8 = 0x12;
+/// Multibase code for lowercase base32 (the `b` in `bafk...`).
+pub const CID_MULTIBASE_BASE32_V2: char = 'b';
+
+/// RFC 4648 lowercase base32 alphabet (multibase base32, no padding).
+const BASE32_ALPHABET_LOWER: &[u8; 32] = b"abcdefghijklmnopqrstuvwxyz234567";
+
+/// Encode bytes as lowercase base32 without padding (multibase base32).
+fn base32_lower_encode(bytes: &[u8]) -> String {
+    let mut out = String::with_capacity(bytes.len() * 8 / 5 + 8);
+    let mut buffer: u32 = 0;
+    let mut bits = 0u32;
+    for &byte in bytes {
+        buffer = (buffer << 8) | byte as u32;
+        bits += 8;
+        while bits >= 5 {
+            bits -= 5;
+            let index = ((buffer >> bits) & 0x1F) as usize;
+            out.push(BASE32_ALPHABET_LOWER[index] as char);
+        }
+    }
+    if bits > 0 {
+        let index = ((buffer << (5 - bits)) & 0x1F) as usize;
+        out.push(BASE32_ALPHABET_LOWER[index] as char);
+    }
+    out
+}
+
+fn hex_decode_32(bytes: &[u8]) -> Option<[u8; 32]> {
+    if bytes.len() != 64 {
+        return None;
+    }
+    fn nibble(byte: u8) -> Option<u8> {
+        match byte {
+            b'0'..=b'9' => Some(byte - b'0'),
+            b'a'..=b'f' => Some(byte - b'a' + 10),
+            b'A'..=b'F' => Some(byte - b'A' + 10),
+            _ => None,
+        }
+    }
+    let (pairs, _) = bytes.as_chunks::<2>();
+    let mut digest = [0u8; 32];
+    for (index, pair) in pairs.iter().enumerate() {
+        digest[index] = (nibble(pair[0])? << 4) | nibble(pair[1])?;
+    }
+    Some(digest)
+}
+
+/// Derive a `CIDv1(raw, sha2-256)` string from a sha256 hex digest.
+///
+/// The manifest sha256 is the raw multihash digest, so a slice's CID is
+/// purely a function of bytes the manifest already carries — no format
+/// change, no new dependencies. This is the exact shape Kubo produces for a
+/// small file with `ipfs add --raw-leaves`, so each slice is independently
+/// addressable through any IPFS gateway. Returns `None` for a malformed
+/// digest (not 64 hex chars).
+pub fn raw_leaf_cid_from_sha256(sha256_hex_digest: &str) -> Option<String> {
+    let digest = hex_decode_32(sha256_hex_digest.as_bytes())?;
+    // CIDv1: version varint || codec varint || multihash(code, len, digest).
+    // All values are < 128, so every unsigned-varint is a single byte.
+    let mut body = Vec::with_capacity(4 + 32);
+    body.push(CID_VERSION_V2);
+    body.push(CID_CODEC_RAW_V2);
+    body.push(CID_SHA2_256_V2);
+    body.push(32);
+    body.extend_from_slice(&digest);
+    let mut cid = String::with_capacity(1 + 60);
+    cid.push(CID_MULTIBASE_BASE32_V2);
+    cid.push_str(&base32_lower_encode(&body));
+    Some(cid)
+}
+
+/// Verify that `data` is the exact block a `CIDv1(raw, sha2-256)` addresses.
+///
+/// This is the trustless-gateway seam: bytes fetched back by CID from any
+/// gateway (or any untrusted peer) are checked locally against the digest
+/// encoded in the CID itself, with no manifest needed. Returns `false` for
+/// CIDs of any other shape — this deliberately understands exactly one CID
+/// form rather than guessing.
+pub fn verify_slice_against_cid(cid: &str, data: &[u8]) -> bool {
+    let Some(encoded) = cid.strip_prefix(CID_MULTIBASE_BASE32_V2) else {
+        return false;
+    };
+    let body = match base32_lower_decode(encoded.as_bytes()) {
+        Some(bytes) => bytes,
+        None => return false,
+    };
+    // version || codec || multihash code || multihash len || digest
+    if body.len() != 4 + 32
+        || body[0] != CID_VERSION_V2
+        || body[1] != CID_CODEC_RAW_V2
+        || body[2] != CID_SHA2_256_V2
+        || body[3] != 32
+    {
+        return false;
+    }
+    sha256_hex(data) == hex::encode(&body[4..])
+}
+
+fn base32_lower_decode(encoded: &[u8]) -> Option<Vec<u8>> {
+    let mut out = Vec::with_capacity(encoded.len() * 5 / 8 + 1);
+    let mut buffer: u32 = 0;
+    let mut bits = 0u32;
+    for &byte in encoded {
+        let value = match byte {
+            b'a'..=b'z' => byte - b'a',
+            b'2'..=b'7' => byte - b'2' + 26,
+            _ => return None,
+        } as u32;
+        buffer = (buffer << 5) | value;
+        bits += 5;
+        if bits >= 8 {
+            bits -= 8;
+            out.push((buffer >> bits) as u8);
+        }
+    }
+    Some(out)
+}
 
 /// Packet header metadata shared by all packet types in the v2 tree.
 ///
@@ -93,6 +223,19 @@ pub struct ManifestEntry {
     pub offset: u64,
     pub len: u64,
     pub sha256: String,
+}
+
+impl ManifestEntry {
+    /// The `CIDv1(raw, sha2-256)` addressing this slice's data.
+    ///
+    /// Derived from the manifest sha256 (which is the raw multihash digest),
+    /// so a fetcher needs only the manifest to pull any slice through an
+    /// IPFS gateway by CID and verify it with [`verify_slice_against_cid`].
+    /// Returns `None` only if the entry's sha256 is malformed, which
+    /// generated manifests never produce.
+    pub fn cid(&self) -> Option<String> {
+        raw_leaf_cid_from_sha256(&self.sha256)
+    }
 }
 
 /// A recorded slice that failed verification. Counted, never stored.
@@ -990,6 +1133,84 @@ mod tests {
         assert!(encoded.contains("\"len\":4"));
         let decoded: ProtocolSliceV2 = serde_json::from_str(&encoded).expect("decode");
         assert_eq!(decoded, slice);
+    }
+
+    #[test]
+    fn raw_leaf_cid_matches_known_vectors() {
+        // Empty payload: the well-known CIDv1(raw, sha2-256) of the empty
+        // block, independently reproduced from sha256(b"") = e3b0c442...
+        let empty = sha256_hex(&[]);
+        assert_eq!(
+            raw_leaf_cid_from_sha256(&empty).expect("cid"),
+            "bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku"
+        );
+        // Independently computed vector for b"hello world".
+        let hello = sha256_hex(b"hello world");
+        assert_eq!(
+            raw_leaf_cid_from_sha256(&hello).expect("cid"),
+            "bafkreifzjut3te2nhyekklss27nh3k72ysco7y32koao5eei66wof36n5e"
+        );
+
+        // Malformed digests are refused, never guessed.
+        assert!(raw_leaf_cid_from_sha256("").is_none());
+        assert!(raw_leaf_cid_from_sha256("e3b0").is_none());
+        assert!(raw_leaf_cid_from_sha256(&"ff".repeat(33)).is_none());
+        assert!(raw_leaf_cid_from_sha256(&"zz".repeat(32)).is_none());
+    }
+
+    #[test]
+    fn manifest_entry_cids_address_their_slices() {
+        // The gateway-backfill invariant: for every slice, the CID derived
+        // from the manifest entry addresses exactly the slice's bytes, and
+        // verification in both directions holds.
+        let payload = sample_payload(2500);
+        let result = packetize_v2("ROOT".to_string(), payload);
+        for entry in &result.manifest {
+            let slice = result
+                .batch
+                .packets
+                .iter()
+                .find(|packet| packet.id == entry.id)
+                .expect("slice for manifest entry");
+            let cid = entry.cid().expect("entry cid");
+            assert!(cid.starts_with("bafkrei"));
+            assert!(
+                verify_slice_against_cid(&cid, &slice.data),
+                "cid {cid} must verify against slice {}",
+                entry.id
+            );
+            // The same CID derived straight from the data agrees.
+            let from_data = raw_leaf_cid_from_sha256(&sha256_hex(&slice.data)).expect("cid");
+            assert_eq!(cid, from_data);
+        }
+
+        // A single flipped byte anywhere fails verification.
+        let entry = &result.manifest[0];
+        let cid = entry.cid().expect("entry cid");
+        let mut tampered = result.batch.packets[0].data.clone();
+        tampered[0] ^= 0xFF;
+        assert!(!verify_slice_against_cid(&cid, &tampered));
+    }
+
+    #[test]
+    fn verify_slice_against_cid_refuses_other_shapes() {
+        let data = b"gateway backfill";
+        let cid = raw_leaf_cid_from_sha256(&sha256_hex(data)).expect("cid");
+        assert!(verify_slice_against_cid(&cid, data));
+
+        // Uppercase multibase char, mutated header bytes, truncated digest:
+        // all refused rather than guessed. (Char 1 spans the low bits of the
+        // version byte and the high bits of the codec byte, so either
+        // mutation breaks the CIDv1(raw, sha2-256) header check.)
+        assert!(!verify_slice_against_cid(&cid.to_uppercase(), data));
+        let mut wrong_version = cid.clone();
+        wrong_version.replace_range(1..2, "c");
+        assert!(!verify_slice_against_cid(&wrong_version, data));
+        let mut wrong_codec = cid.clone();
+        wrong_codec.replace_range(1..2, "g");
+        assert!(!verify_slice_against_cid(&wrong_codec, data));
+        assert!(!verify_slice_against_cid("bafkreishort", data));
+        assert!(!verify_slice_against_cid("not-a-cid", data));
     }
 
     #[test]

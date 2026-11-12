@@ -227,11 +227,34 @@ a valid repo but can tolerate object-store corruption.
   (real-swarm negotiation refusals, the shared-id failure modes that
   motivated the protocol-id split, and a v2↔v2 both-codecs control).
 
+## 8. Slices as raw-leaf CIDs — FIXED in v2
+
+Trustless serving + gateway backfill: any slice must be fetchable from an
+IPFS gateway by CID and verifiable without trusting the gateway.
+
+### What v2 does
+
+- `raw_leaf_cid_from_sha256` / `ManifestEntry::cid` /
+  `verify_slice_against_cid`
+  (types/src/utils/protocol_slice_v2.rs) derive a `CIDv1(raw, sha2-256)`
+  — the exact `ipfs add --raw-leaves` shape — from the manifest sha256,
+  which already IS the raw multihash digest. Hand-rolled base32/varint
+  (all varints single-byte), no new dependencies, and no manifest format
+  change: the CID is computed on demand instead of stored, so persisted
+  state and the nostr carrier are untouched.
+- `verify_slice_against_cid` re-checks gateway-fetched bytes against the
+  digest encoded in the CID itself, so backfill works with zero manifest
+  knowledge; it understands exactly this one CID shape and refuses every
+  other rather than guessing.
+- Verified: `raw_leaf_cid_matches_known_vectors` (empty-block and
+  `b"hello world"` vectors, malformed digests refused),
+  `manifest_entry_cids_address_their_slices` (every packetized slice's CID
+  verifies against its bytes; one flipped byte fails),
+  `verify_slice_against_cid_refuses_other_shapes` (uppercase multibase,
+  mutated header bytes, truncated digests).
+
 ## Still open / later
 
-- Slices as raw-leaf CIDs (trustless serving + gateway backfill): the
-  manifest sha256 is already the multihash digest; a `cid` field can be added
-  to `ManifestEntry` without a format break. Not built.
 - Reed-Solomon/RaptorQ evaluation for lossy links: deferred; manifest v2's
   `(offset, len)` keying is the seam it plugs into.
 - `Repair-by-id as the git-transport loss path` (primary = stream, repair =
