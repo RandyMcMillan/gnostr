@@ -90,7 +90,10 @@ jobs:
     permissions:
       contents: read
     strategy:
-      fail-fast: true
+      # Let every target finish: green targets save their caches and a re-run
+      # then only rebuilds the red ones (actions/cache saves with
+      # post-if: success(), so failed jobs never clobber a good cache).
+      fail-fast: false
       matrix: ${{ fromJSON(needs.setup.outputs.matrix) }}
     steps:
       - name: Checkout repository
