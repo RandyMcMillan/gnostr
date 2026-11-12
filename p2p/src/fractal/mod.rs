@@ -3,6 +3,8 @@ use std::error::Error;
 
 pub mod fractal_ip;
 pub mod fractal_ip_core;
+pub mod fractal_ip_core_v2;
+pub mod fractal_ip_v2;
 
 use futures::StreamExt;
 use gnostr_types::FileSliceReader;

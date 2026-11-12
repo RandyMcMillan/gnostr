@@ -27,7 +27,7 @@ for distributed time sync.
 | `src/crawler_broadcast.rs` | Relay bucket gossip + Nostr relay publishing |
 | `src/relay_bridge.rs` | Nostr relay WebSocket bridge from the P2P side |
 | `src/kvs.rs` | Request/response file-exchange demo over Kademlia |
-| `src/fractal.rs`, `src/perfect_ip.rs` | Experimental QUIC repair/gossip protocols |
+| `src/fractal/` | Experimental QUIC repair/gossip protocols: `fractal_ip*` / `fractal_ip_core*` (v1) and the `*_v2` gap-fill of `p2p/TODO.md` (explicit-absence repair responses, postcard+JSON wire codecs, sha256-verified manifest v2) |
 | `src/git_publisher.rs` | Publish git tags/commits/diffs to Kademlia + gossipsub |
 | `src/utils.rs` | `multiaddr_with_peer_id`, logging init, key generation |
 

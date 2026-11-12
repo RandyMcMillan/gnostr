@@ -166,6 +166,21 @@ pub use fractal::fractal_ip_core::{
 pub use fractal::{
     build_fractal_swarm, run_fractal_engine, FractalBehaviour, FractalBehaviourEvent, FractalSlice,
 };
+#[cfg(not(target_os = "tvos"))]
+pub use fractal::fractal_ip_v2 as perfect_ip_v2;
+#[cfg(not(target_os = "tvos"))]
+pub use fractal::fractal_ip_core_v2 as perfect_ip_core_v2;
+#[cfg(not(target_os = "tvos"))]
+pub use fractal::fractal_ip_core_v2::{
+    build_fractal_swarm_v2, git_fsck_strict, request_slices_v2, run_fractal_engine_v2,
+    FractalBehaviourV2, FractalBehaviourV2Event, PostcardCodec, RepairResponseV2, WireCodecV2,
+};
+#[cfg(not(target_os = "tvos"))]
+pub use gnostr_types::perfect_ip_v2::{
+    generate_manifest_v2, packetize_v2, reconstruct_directory_v2, run_directory_walk_v2,
+    DirectoryWalkV2, FileEntryV2, HeaderV2, IntegrityManagerV2, ManifestEntry, PacketBatchV2,
+    ProtocolSliceV2, RecoveryReport, ReconstructErrorV2, RejectedSlice,
+};
 #[cfg(all(not(doc), feature = "js", not(target_os = "tvos")))]
 pub use js::get_js_assets;
 #[cfg(not(target_os = "tvos"))]
