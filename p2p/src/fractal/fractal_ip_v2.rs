@@ -104,6 +104,50 @@ fn is_bare_git_repo(path: &Path) -> bool {
         .unwrap_or(false)
 }
 
+/// True only when `path` is itself a git repository the reconstructed tree
+/// can be cloned from — its own `.git` (non-bare) or its own bare layout.
+///
+/// Unlike `is_git_repo`, this never matches a directory that merely lives
+/// inside some parent repository: `git rev-parse --git-dir` succeeds for
+/// those too, which would send a plain reconstructed directory into the
+/// clone step to fail with `fatal: repository ... does not exist`.
+fn is_self_contained_git_repo(path: &Path) -> bool {
+    let canonical = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
+    let rev_parse = |arg: &str| {
+        Command::new("git")
+            .arg("-C")
+            .arg(path)
+            .args(["rev-parse", arg])
+            .output()
+            .ok()
+            .filter(|output| output.status.success())
+            .map(|output| String::from_utf8_lossy(&output.stdout).trim().to_string())
+    };
+    if let Some(toplevel) = rev_parse("--show-toplevel") {
+        // Non-bare: the work-tree root must be exactly `path`, not a parent.
+        return Path::new(&toplevel)
+            .canonicalize()
+            .map(|resolved| resolved == canonical)
+            .unwrap_or(false);
+    }
+    // Bare (e.g. a reconstructed `*.git` fixture): the git dir must be
+    // `path` itself.
+    rev_parse("--git-dir")
+        .map(|git_dir| {
+            let git_dir = Path::new(&git_dir);
+            let resolved = if git_dir.is_absolute() {
+                git_dir.to_path_buf()
+            } else {
+                path.join(git_dir)
+            };
+            resolved
+                .canonicalize()
+                .map(|resolved| resolved == canonical)
+                .unwrap_or(false)
+        })
+        .unwrap_or(false)
+}
+
 fn with_git_extension(path: &Path) -> PathBuf {
     let s = path.as_os_str().to_string_lossy();
     if s.ends_with(".git") {
@@ -269,7 +313,7 @@ pub async fn run_v2() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             println!("recursively reconstructed directory to {}", out.display());
         }
 
-        if is_git_repo(&out) {
+        if is_self_contained_git_repo(&out) {
             fsck_clone_and_verify_reconstructed_repo(&out, &clone_dest)?;
         } else {
             println!("reconstructed path is not a git repo; skipping fsck/clone verification");

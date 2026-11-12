@@ -114,6 +114,50 @@ fn is_bare_git_repo(path: &Path) -> bool {
         .unwrap_or(false)
 }
 
+/// True only when `path` is itself a git repository the reconstructed tree
+/// can be cloned from — its own `.git` (non-bare) or its own bare layout.
+///
+/// Unlike `is_git_repo`, this never matches a directory that merely lives
+/// inside some parent repository: `git rev-parse --git-dir` succeeds for
+/// those too, which made the clone step fire on plain reconstructed
+/// directories and fail with `fatal: repository ... does not exist`.
+fn is_self_contained_git_repo(path: &Path) -> bool {
+    let canonical = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
+    let rev_parse = |arg: &str| {
+        Command::new("git")
+            .arg("-C")
+            .arg(path)
+            .args(["rev-parse", arg])
+            .output()
+            .ok()
+            .filter(|output| output.status.success())
+            .map(|output| String::from_utf8_lossy(&output.stdout).trim().to_string())
+    };
+    if let Some(toplevel) = rev_parse("--show-toplevel") {
+        // Non-bare: the work-tree root must be exactly `path`, not a parent.
+        return Path::new(&toplevel)
+            .canonicalize()
+            .map(|resolved| resolved == canonical)
+            .unwrap_or(false);
+    }
+    // Bare (e.g. a reconstructed `*.git` fixture): the git dir must be
+    // `path` itself.
+    rev_parse("--git-dir")
+        .map(|git_dir| {
+            let git_dir = Path::new(&git_dir);
+            let resolved = if git_dir.is_absolute() {
+                git_dir.to_path_buf()
+            } else {
+                path.join(git_dir)
+            };
+            resolved
+                .canonicalize()
+                .map(|resolved| resolved == canonical)
+                .unwrap_or(false)
+        })
+        .unwrap_or(false)
+}
+
 fn with_git_extension(path: &Path) -> PathBuf {
     let s = path.as_os_str().to_string_lossy();
     if s.ends_with(".git") {
@@ -183,7 +227,13 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let walk = run_directory_walk(input, depth, cli.logging.is_some())?;
         reconstruct_directory(walk, &out)?;
         println!("recursively reconstructed directory to {}", out.display());
-        clone_and_verify_reconstructed_repo(&out, &clone_dest)?;
+        if is_self_contained_git_repo(&out) {
+            clone_and_verify_reconstructed_repo(&out, &clone_dest)?;
+        } else {
+            println!(
+                "reconstructed path is not a self-contained git repo; skipping clone verification"
+            );
+        }
         return Ok(());
     }
 
@@ -227,4 +277,54 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     println!("file reconstruction complete; exiting");
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn git(args: &[&str], dir: &Path) {
+        let status = Command::new("git")
+            .arg("-C")
+            .arg(dir)
+            .args(args)
+            .status()
+            .expect("spawn git");
+        assert!(status.success(), "git {:?} failed", args);
+    }
+
+    #[test]
+    fn self_contained_repo_detection_distinguishes_own_repo_from_parent_repo() {
+        let temp = tempfile::TempDir::new().expect("temp dir");
+        let root = temp.path();
+
+        // A plain directory is not a repo, even when it lives inside a
+        // parent repository (the p2p/TODO.md v1 clone-step failure: a
+        // reconstructed directory must not be sent to git clone just
+        // because some parent dir has a .git).
+        let plain = root.join("plain");
+        fs::create_dir_all(&plain).expect("mkdir");
+        assert!(!is_self_contained_git_repo(&plain));
+
+        // A real repo at exactly `path` qualifies, bare or non-bare.
+        let repo = root.join("repo");
+        fs::create_dir_all(&repo).expect("mkdir");
+        git(&["init", "-q"], &repo);
+        assert!(is_self_contained_git_repo(&repo));
+
+        let bare = root.join("bare.git");
+        fs::create_dir_all(&bare).expect("mkdir");
+        git(&["init", "-q", "--bare"], &bare);
+        assert!(is_self_contained_git_repo(&bare));
+
+        // But a subdirectory inside a repo is not "self-contained" — this is
+        // the case `is_git_repo` alone gets wrong via `rev-parse --git-dir`.
+        let nested = repo.join("nested");
+        fs::create_dir_all(&nested).expect("mkdir");
+        assert!(is_git_repo(&nested), "fixture: nested dir is inside a repo");
+        assert!(
+            !is_self_contained_git_repo(&nested),
+            "a subdirectory of a parent repo must not count as its own repo"
+        );
+    }
 }
