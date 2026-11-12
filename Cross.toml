@@ -15,8 +15,13 @@ passthrough = [
   "PKG_CONFIG_SYSROOT_DIR",
   "CC_aarch64_unknown_linux_gnu",
   "CXX_aarch64_unknown_linux_gnu",
+  "CXXFLAGS_aarch64_unknown_linux_gnu",
   "CC_x86_64_unknown_linux_musl",
   "CXX_x86_64_unknown_linux_musl",
+  "CXXFLAGS_x86_64_unknown_linux_musl",
+  "CC_aarch64_unknown_linux_musl",
+  "CXX_aarch64_unknown_linux_musl",
+  "CXXFLAGS_aarch64_unknown_linux_musl",
 ]
 
 [target.aarch64-unknown-linux-gnu]

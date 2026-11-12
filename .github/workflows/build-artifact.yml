@@ -218,6 +218,18 @@ jobs:
               ;;
           esac
 
+      - name: Force-include <cstdint> for rocksdb on GCC >= 14
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          # rocksdb 8.10 headers use uint64_t/int64_t without #include
+          # <cstdint>; GCC >= 14 no longer pulls it in transitively
+          # (ubuntu-latest now ships GCC 15, the cross images g++ 14).
+          # cc-rs reads CXXFLAGS_<triple>; Cross.toml passes these through
+          # into the cross containers.
+          triple="${{ matrix.target }}"
+          echo "CXXFLAGS_${triple//-/_}=-include cstdint" >> "$GITHUB_ENV"
+
       - name: Build release binary
         shell: bash
         run: |
