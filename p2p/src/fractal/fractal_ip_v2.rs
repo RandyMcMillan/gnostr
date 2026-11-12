@@ -64,6 +64,11 @@ struct CliV2 {
     /// INPUT locally; the payload comes from the peer.
     #[arg(long, value_name = "MULTIADDR", requires = "clone")]
     fetch: Option<String>,
+
+    /// Remove a previous OUTPUT and OUTPUT_repo before reconstructing, so a
+    /// re-run does not fail on 'destination path already exists'.
+    #[arg(long, requires = "clone")]
+    force: bool,
 }
 
 fn git_output(repo: &Path, args: &[&str]) -> String {
@@ -278,6 +283,30 @@ pub async fn run_v2() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             out.file_name().unwrap_or_default().to_string_lossy()
         ));
 
+        if cli.force {
+            // Clear previous runs: a stale OUTPUT/OUTPUT_repo makes git
+            // clone fail with 'destination path already exists', and a
+            // stale OUTPUT inside a walked tree would be re-ingested.
+            for path in [&out, &clone_dest] {
+                if !path.exists() {
+                    continue;
+                }
+                if path == input {
+                    return Err(format!(
+                        "--force refuses to remove the input path {}",
+                        path.display()
+                    )
+                    .into());
+                }
+                if path.is_dir() {
+                    fs::remove_dir_all(path)?;
+                } else {
+                    fs::remove_file(path)?;
+                }
+                info!("--force: removed previous {}", path.display());
+            }
+        }
+
         info!("recursive walk root: {}", input.display());
         info!("recursive depth: {depth}");
         let walk = run_directory_walk_v2(input, depth, cli.logging.is_some())?;
@@ -357,6 +386,9 @@ pub async fn run_v2() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let reconstructed = integrity
         .reconstruct_payload()
         .map_err(|error| format!("v2 reconstruction failed: {error}"))?;
+    if cli.force && out.is_dir() {
+        fs::remove_dir_all(&out)?;
+    }
     let reconstructed_sha256 = sha256_hex(&reconstructed);
     fs::write(&out, &reconstructed)?;
 
