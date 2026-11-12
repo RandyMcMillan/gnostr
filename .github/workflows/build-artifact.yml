@@ -203,12 +203,15 @@ jobs:
         run: |
           case "${{ matrix.target }}" in
             x86_64-unknown-linux-musl)
-              echo "CC_x86_64_unknown_linux_musl=x86_64-linux-musl-gcc" >> "$GITHUB_ENV"
-              echo "CXX_x86_64_unknown_linux_musl=x86_64-linux-musl-g++" >> "$GITHUB_ENV"
+              # cross-rs :main images install the toolchain as
+              # /x-tools/<triple>/bin/<triple>-gcc; the short
+              # x86_64-linux-musl-gcc name does not exist there.
+              echo "CC_x86_64_unknown_linux_musl=x86_64-unknown-linux-musl-gcc" >> "$GITHUB_ENV"
+              echo "CXX_x86_64_unknown_linux_musl=x86_64-unknown-linux-musl-g++" >> "$GITHUB_ENV"
               ;;
             aarch64-unknown-linux-musl)
-              echo "CC_aarch64_unknown_linux_musl=aarch64-linux-musl-gcc" >> "$GITHUB_ENV"
-              echo "CXX_aarch64_unknown_linux_musl=aarch64-linux-musl-g++" >> "$GITHUB_ENV"
+              echo "CC_aarch64_unknown_linux_musl=aarch64-unknown-linux-musl-gcc" >> "$GITHUB_ENV"
+              echo "CXX_aarch64_unknown_linux_musl=aarch64-unknown-linux-musl-g++" >> "$GITHUB_ENV"
               ;;
           esac
 
