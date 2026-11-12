@@ -285,6 +285,20 @@ jobs:
           triple="${{ matrix.target }}"
           echo "CXXFLAGS_${triple//-/_}=-include cstdint" >> "$GITHUB_ENV"
 
+      - name: Patch musl sigsetjmp long-branch (aarch64-musl only)
+        if: runner.os == 'Linux' && matrix.target == 'aarch64-unknown-linux-musl'
+        shell: bash
+        run: |
+          # rust's self-contained musl libc.a has an unfixed aarch64 quirk:
+          # sigsetjmp reaches setjmp via CBZ (+-1MB), and large static
+          # binaries place them further apart, failing the final link with
+          # "relocation truncated to fit: R_AARCH64_CONDBR19". Repack the
+          # archive with an equivalent CBNZ+B sequence (+-128MB) before
+          # cross mounts the rustup sysroot into the build container.
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq binutils-aarch64-linux-gnu
+          ./scripts/patch-musl-sigsetjmp.sh
+
       - name: Build release binary
         shell: bash
         run: |
