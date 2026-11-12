@@ -323,8 +323,12 @@ jobs:
 
           bin="$BUILD_NAME/git-remote-blossom${exe_suffix}"
           test -x "$bin" && echo "ok: $bin"
-          # git-remote-blossom requires remote/url args, so just verify it runs and prints usage.
-          "$bin" 2>&1 | grep -q "git-remote-blossom"
+          # git-remote-blossom prints usage to stderr and exits 1 without
+          # args, so ignore its exit code and just verify it runs and the
+          # usage line names the binary.
+          output="$("$bin" 2>&1 || true)"
+          grep -q "git-remote-blossom" <<<"$output"
+          head -n 1 <<<"$output"
 
       - name: Upload asset
         uses: actions/upload-artifact@v4
