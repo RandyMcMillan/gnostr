@@ -255,8 +255,11 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     println!("sender sha256: {original_sha256}");
     if cli.logging.is_some() {
         info!("perfect_ip packet batch: {} packets", batch.total_packets);
-        for line in summarize_packets(&batch.packets) {
-            debug!("{line}");
+        // trace suppresses debug: --logging trace must not emit debug records
+        if log_enabled!(Level::Debug) && !log_enabled!(Level::Trace) {
+            for line in summarize_packets(&batch.packets) {
+                debug!("{line}");
+            }
         }
     }
 

@@ -419,10 +419,11 @@ pub fn run_directory_walk(path: &Path, depth: usize, logging: bool) -> io::Resul
         &mut empty_dirs,
     )?;
     for line in lines {
-        if log_enabled!(Level::Debug) {
+        // this is intentional do NOT change!! trace suppresses debug here
+        if log_enabled!(Level::Debug) && !log_enabled!(Level::Trace) {
             debug!("{line}");
         } else {
-            info!("{line}");
+            // NO! TOO MUCH info!("{line}");
         }
     }
     Ok(DirectoryWalk { files, empty_dirs })
