@@ -20,7 +20,7 @@ on:
         default: ''
         type: string
       os:
-        description: "OS / target to build (select \"all\" to build every target)"
+        description: "OS / target to build (select \"all\" to use the on/off toggles below)"
         required: false
         default: all
         type: choice
@@ -33,6 +33,41 @@ on:
           - windows-x64
           - macos-x64
           - macos-arm64
+      linux_x64:
+        description: "Build linux-x64"
+        required: false
+        default: true
+        type: boolean
+      linux_x64_musl:
+        description: "Build linux-x64-musl"
+        required: false
+        default: true
+        type: boolean
+      linux_arm64:
+        description: "Build linux-arm64"
+        required: false
+        default: true
+        type: boolean
+      linux_arm64_musl:
+        description: "Build linux-arm64-musl"
+        required: false
+        default: true
+        type: boolean
+      windows_x64:
+        description: "Build windows-x64"
+        required: false
+        default: true
+        type: boolean
+      macos_x64:
+        description: "Build macos-x64"
+        required: false
+        default: true
+        type: boolean
+      macos_arm64:
+        description: "Build macos-arm64"
+        required: false
+        default: true
+        type: boolean
       toolchain:
         description: "Rust toolchain to use"
         required: false
@@ -58,6 +93,15 @@ jobs:
         env:
           SELECTED_OS: ${{ inputs.os || 'all' }}
           SELECTED_TOOLCHAIN: ${{ inputs.toolchain || 'stable' }}
+          # workflow_dispatch booleans arrive as INPUT_<NAME>; empty (push /
+          # schedule) means every toggle defaults to on.
+          TOGGLE_LINUX_X64: ${{ inputs.linux_x64 }}
+          TOGGLE_LINUX_X64_MUSL: ${{ inputs.linux_x64_musl }}
+          TOGGLE_LINUX_ARM64: ${{ inputs.linux_arm64 }}
+          TOGGLE_LINUX_ARM64_MUSL: ${{ inputs.linux_arm64_musl }}
+          TOGGLE_WINDOWS_X64: ${{ inputs.windows_x64 }}
+          TOGGLE_MACOS_X64: ${{ inputs.macos_x64 }}
+          TOGGLE_MACOS_ARM64: ${{ inputs.macos_arm64 }}
         run: |
           import json
           import os
@@ -74,7 +118,18 @@ jobs:
 
           selected = os.environ["SELECTED_OS"] or "all"
           toolchain = os.environ["SELECTED_TOOLCHAIN"] or "stable"
-          targets = all_targets if selected == "all" else [target for target in all_targets if target["build"] == selected]
+          if selected != "all":
+              targets = [target for target in all_targets if target["build"] == selected]
+          else:
+              targets = [
+                  target
+                  for target in all_targets
+                  if os.environ.get(f"TOGGLE_{target['build'].replace('-', '_').upper()}", "true") == "true"
+              ]
+
+          if not targets:
+              raise SystemExit("no targets selected: enable at least one os toggle or pick a single os")
+
           matrix = {
               "build": [target["build"] for target in targets],
               "include": [{**target, "toolchain": toolchain} for target in targets],
