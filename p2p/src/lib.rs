@@ -182,6 +182,12 @@ pub use gnostr_types::perfect_ip_v2::{
     DirectoryWalkV2, FileEntryV2, HeaderV2, IntegrityManagerV2, ManifestEntry, PacketBatchV2,
     ProtocolSliceV2, ReconstructErrorV2, RecoveryReport, RejectedSlice,
 };
+#[cfg(not(target_os = "tvos"))]
+pub use gnostr_types::perfect_ip_nostr::{
+    event_to_slice_v1, event_to_slice_v2, slice_event_v1, slice_event_v2, NostrCarrierError,
+    PERFECT_IP_NOSTR_KIND, PERFECT_IP_TAG, PERFECT_IP_TOPIC, PERFECT_IP_VERSION_V1,
+    PERFECT_IP_VERSION_V2,
+};
 #[cfg(all(not(doc), feature = "js", not(target_os = "tvos")))]
 pub use js::get_js_assets;
 #[cfg(not(target_os = "tvos"))]

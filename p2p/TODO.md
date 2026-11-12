@@ -198,6 +198,15 @@ a valid repo but can tolerate object-store corruption.
   `--recursive`, `--depth`, `--logging`, `--json` (text wire protocol),
   `--fetch <MULTIADDR>` (repair-by-id demo: manifest from a local walk,
   payload fetched slice-by-slice over the selected codec).
+- Nostr carrier: `types/src/utils/protocol_slice_nostr.rs` —
+  `slice_event_v1`/`slice_event_v2` wrap a slice as a signed kind-30078
+  (NIP-78) event (content = the exact pinned slice JSON; tags `["d", root,
+  slice]`, `["perfect_ip", "1"|"2"]`, `["t","perfect_ip"]`);
+  `event_to_slice_v1`/`event_to_slice_v2` validate the envelope strictly —
+  the version tag is checked before content is parsed, so the nostr plane
+  is strict in both directions where raw serde silently drops v2's `len`.
+  This is the perfect_ip-over-nostr transport: the packet tree becomes a
+  relay-carryable event set, verified on record by `IntegrityManagerV2`.
 - Tests: unit tests in both modules; integration in
   `p2p/tests/fractal_clone_v2.rs`; networked `#[ignore]` tests in
   `fractal_ip_core_v2.rs` (full sync + missing-slice/repair); byte-level
@@ -218,3 +227,8 @@ a valid repo but can tolerate object-store corruption.
 - `Repair-by-id as the git-transport loss path` (primary = stream, repair =
   slice requests by id) is what `--fetch` demos; production integration
   (manifest distribution to fetchers) is not built.
+- Nostr carrier relay interop: the envelope and event codec are built and
+  unit-tested, but an end-to-end publish/subscribe through a live relay
+  (e.g. via `RelayBridgeSession`) is not. The natural test is a kind-30078
+  publish -> relay -> filter -> decode -> reconstruct round trip against a
+  loopback `gnostr-relay`.
