@@ -203,7 +203,10 @@ a valid repo but can tolerate object-store corruption.
   `fractal_ip_core_v2.rs` (full sync + missing-slice/repair); byte-level
   v1↔v2 wire compat matrix in `p2p/tests/fractal_wire_compat.rs` (golden
   JSON/postcard frames both directions, including the proof that v1's
-  empty-placeholder bytes are unparseable by v2).
+  empty-placeholder bytes are unparseable by v2); networked v1↔v2
+  round-trip matrix in `p2p/tests/fractal_wire_compat_networked.rs`
+  (real-swarm negotiation refusals, the shared-id failure modes that
+  motivated the protocol-id split, and a v2↔v2 both-codecs control).
 
 ## Still open / later
 
