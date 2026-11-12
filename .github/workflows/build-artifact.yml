@@ -97,16 +97,20 @@ jobs:
         env:
           REPO: ${{ github.repository }}
         run: |
-          best=$(git ls-remote --heads "https://github.com/$REPO.git" 'refs/heads/[0-9]*/*/*' \
+          # Capture the full sorted list before taking the first line:
+          # `sort | head` trips pipefail via SIGPIPE on large ref lists.
+          lines=$(git ls-remote --heads "https://github.com/$REPO.git" 'refs/heads/[0-9]*/*/*' \
             | awk '{print $2}' \
             | sed 's|^refs/heads/||' \
             | awk -F/ 'NF>=3 && $1+0==$1 && $2+0==$2 && $3+0==$3 {
                 printf "%020d %020d %020d %s\n", $1, $2, $3, $0
               }' \
-            | sort -r \
-            | head -n1 \
-            | cut -d' ' -f4-)
-          if [ -z "$best" ]; then
+            | sort -r) || exit 1
+          # Unquoted expansion on purpose: quoting any part of a ${var#pat}
+          # pattern makes the wildcards literal (bash semantics).
+          line=${lines%%$'\n'*}
+          best=${line#* * * }
+          if [ -z "$best" ] || [ "$best" = "$line" ]; then
             echo "ERROR: ref=auto but no <blockheight>/<weeble>/<wobble> branch was found" >&2
             exit 1
           fi
