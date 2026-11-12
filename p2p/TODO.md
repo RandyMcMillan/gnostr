@@ -255,8 +255,19 @@ IPFS gateway by CID and verifiable without trusting the gateway.
 
 ## Still open / later
 
-- Reed-Solomon/RaptorQ evaluation for lossy links: deferred; manifest v2's
-  `(offset, len)` keying is the seam it plugs into.
+- Reed-Solomon/RaptorQ evaluation for lossy links: EVALUATED, integration
+  still deferred. `xor_repair_loss_rate_evaluation`
+  (types/src/utils/protocol_slice_v2.rs) is a seeded Monte Carlo of full
+  payload recovery under independent per-slice loss, tabulated against a
+  Reed-Solomon baseline at lower wire overhead (k + 25% parity vs the XOR
+  tree's ~100%). Measured: the XOR ceiling collapses with scale — at 256 KiB
+  (1023 slices) full recovery is 8.6% at 5% loss and 0% at ≥10%, while RS(25%)
+  stays at 100% through 10% loss and degrades gracefully to its 20%
+  theoretical ceiling. Verdict: keep XOR repair as the cheap assist for
+  scattered single losses; plug a systematic code (reed-solomon-erasure or
+  similar) in at the manifest `(offset, len)` seam when a lossy-link
+  transport is actually built. RaptorQ has no mature maintained Rust crate;
+  not recommended as a dependency today.
 - `Repair-by-id as the git-transport loss path` (primary = stream, repair =
   slice requests by id) is what `--fetch` demos; production integration
   (manifest distribution to fetchers) is not built.

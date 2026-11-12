@@ -1214,6 +1214,108 @@ mod tests {
     }
 
     #[test]
+    fn xor_repair_loss_rate_evaluation() {
+        // TODO.md open issue: Reed-Solomon/RaptorQ evaluation for lossy
+        // links. This is the measurement half — a deterministic Monte Carlo
+        // (seeded PRNG, no flakiness) of the XOR tree's repair ceiling under
+        // independent per-slice loss, tabulated against a Reed-Solomon
+        // baseline at LOWER wire overhead (k + 25% parity vs the XOR tree's
+        // ~100%). recover_missing gets exactly one pass, as on the wire.
+        use rand::{Rng, SeedableRng};
+        let mut rng = rand::rngs::StdRng::seed_from_u64(0xF7AC71A1);
+        let sizes = [4_096usize, 65_536, 262_144];
+        let rates = [0.01f64, 0.02, 0.05, 0.10, 0.20, 0.30];
+        // Trials scale down as slice count grows so the suite stays fast;
+        // the seeded PRNG keeps every number reproducible.
+        let trials_for = |slices: usize| (60_000 / slices).clamp(40, 120);
+
+        // P(Binom(n, p) <= k), summed iteratively to stay exact.
+        fn binom_cdf_at_most(n: u64, p: f64, k: u64) -> f64 {
+            if k >= n {
+                return 1.0;
+            }
+            let mut term = (1.0 - p).powf(n as f64); // i = 0
+            let mut sum = term;
+            for i in 1..=k {
+                term *= (n - (i - 1)) as f64 / i as f64 * p / (1.0 - p);
+                sum += term;
+            }
+            sum.min(1.0)
+        }
+
+        println!(
+            "{:>9} {:>6} {:>6} {:>10} {:>10}",
+            "payload", "slices", "loss", "xor_ok", "rs25_th"
+        );
+        let mut previous_column: Vec<f64> = Vec::new();
+        for (size_index, &size) in sizes.iter().enumerate() {
+            let result = packetize_v2("ROOT".to_string(), sample_payload(size));
+            let slice_count = result.manifest.len();
+            let data_leaves = result
+                .manifest
+                .iter()
+                .filter(|entry| !entry.id.ends_with(".P"))
+                .count();
+            // RS baseline: same data leaves, 25% parity, recovers iff at most
+            // 25% of the RS codeword is lost — independent of loss pattern.
+            let rs_parity = (data_leaves + 3) / 4;
+            let trials = trials_for(slice_count);
+            let mut column: Vec<f64> = Vec::new();
+            for &rate in &rates {
+                let mut recovered_payloads = 0usize;
+                for _ in 0..trials {
+                    let mut manager = IntegrityManagerV2::new(result.manifest.clone());
+                    for packet in &result.batch.packets {
+                        if rng.gen_range(0.0..1.0) >= rate {
+                            manager.record_slice(packet.clone());
+                        }
+                    }
+                    manager.recover_missing();
+                    if manager.reconstruct_payload().is_ok() {
+                        recovered_payloads += 1;
+                    }
+                }
+                let xor_rate = recovered_payloads as f64 / trials as f64;
+                let rs_rate =
+                    binom_cdf_at_most((data_leaves + rs_parity) as u64, rate, rs_parity as u64);
+                column.push(xor_rate);
+                println!(
+                    "{size:>9} {slice_count:>6} {:>5.0}% {xor_rate:>10.3} {rs_rate:>10.3}",
+                    rate * 100.0
+                );
+                if size_index == sizes.len() - 1 {
+                    // At 256 KiB (1023 slices) the XOR ceiling is
+                    // structural: hundreds of independent leaf pairs make a
+                    // clean sweep unlikely even at 5% loss.
+                    if rate >= 0.05 {
+                        assert!(
+                            xor_rate < 0.2,
+                            "XOR repair at {rate} loss over {slice_count} slices must collapse, got {xor_rate}"
+                        );
+                    }
+                    // RS at 25% overhead tolerates up to 20% loss; certainty
+                    // holds well below the threshold (10%), not at it.
+                    if rate <= 0.10 {
+                        assert!(
+                            rs_rate > 0.99,
+                            "RS(25%) at {rate} loss should be ~certain, got {rs_rate}"
+                        );
+                    }
+                }
+            }
+            if !previous_column.is_empty() {
+                // Success is monotone non-increasing in loss rate for a fixed
+                // payload size (deterministic seed keeps this stable).
+                assert!(
+                    column.windows(2).all(|pair| pair[0] + 1e-9 >= pair[1]),
+                    "success must not increase with loss rate"
+                );
+            }
+            previous_column = column;
+        }
+    }
+
+    #[test]
     fn repair_response_v2_result_shape_round_trips_in_json() {
         let ok: Result<ProtocolSliceV2, String> = Ok(ProtocolSliceV2 {
             id: "ROOT.0".to_string(),
