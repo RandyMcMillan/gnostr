@@ -8,6 +8,10 @@ on:
   push:
     tags:
       - '*'
+    branches:
+      # Cache-factory scope: caches created on the default branch are
+      # readable by every other workflow/PR; tag-run caches are not.
+      - master
   workflow_dispatch:
     inputs:
       ref:
@@ -105,14 +109,13 @@ jobs:
       - name: Fetch tags
         run: git fetch --tags --force
 
-      - name: Restore Cargo cache
-        uses: actions/cache@v4
+      - name: "Restore Cargo cache (factory: saves on miss)"
+        uses: ./.github/actions/cargo-cache
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-${{ runner.arch }}-${{ matrix.toolchain }}-${{ matrix.target }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          lock-hash: ${{ hashFiles('Cargo.lock') }}
+          toolchain: ${{ matrix.toolchain }}
+          target: ${{ matrix.target }}
+          save: true
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
