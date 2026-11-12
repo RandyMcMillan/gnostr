@@ -400,6 +400,14 @@ main() {
   HOST_TRIPLE="$(rustup run "$TOOLCHAIN" rustc -vV | awk '/^host: / { print $2 }')" ||
     die "could not inspect rustc for $TOOLCHAIN"
   [[ -n "$HOST_TRIPLE" ]] || die "rustc did not report a host triple"
+  # cross composes "<toolchain>-<host>" itself; hand it the bare channel or
+  # rustup rejects the doubled name (e.g. stable-x86_64-...-x86_64-...).
+  case "$TOOLCHAIN" in
+    *-"$HOST_TRIPLE")
+      TOOLCHAIN="${TOOLCHAIN%-"$HOST_TRIPLE"}"
+      log "normalized toolchain for cross: $TOOLCHAIN"
+      ;;
+  esac
 
   if [[ "$INTERACTIVE" == true && "$LIST_ONLY" != true ]]; then
     local choices=() candidate name triple tool
