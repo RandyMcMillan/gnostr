@@ -40,10 +40,10 @@ inputs:
 outputs:
   registry-hit:
     description: Whether the registry/git cache was restored.
-    value: ${{ steps.registry-save.outputs.cache-hit || steps.registry-restore.outputs.cache-hit }}
+    value: ${{ steps.registry-factory.outputs.cache-hit || steps.registry-restore.outputs.cache-hit }}
   target-hit:
     description: Whether the target directory cache was restored.
-    value: ${{ steps.target-save.outputs.cache-hit || steps.target-restore.outputs.cache-hit }}
+    value: ${{ steps.target-factory.outputs.cache-hit || steps.target-restore.outputs.cache-hit }}
 
 runs:
   using: composite
@@ -62,10 +62,10 @@ runs:
           cargo-v1-registry-${{ runner.os }}-${{ runner.arch }}-
           cargo-v1-registry-${{ runner.os }}-
 
-    - name: Restore+save Cargo registry and git dependencies (factory)
+    - name: Restore Cargo registry and git dependencies (factory)
       if: inputs.save == 'true'
-      id: registry-save
-      uses: actions/cache@v4
+      id: registry-factory
+      uses: actions/cache/restore@v4
       with:
         path: |
           ~/.cargo/registry
@@ -75,6 +75,19 @@ runs:
           cargo-v1-registry-${{ runner.os }}-${{ runner.arch }}-${{ inputs.toolchain }}-
           cargo-v1-registry-${{ runner.os }}-${{ runner.arch }}-
           cargo-v1-registry-${{ runner.os }}-
+
+    - name: Save Cargo registry and git dependencies (factory, even on failure)
+      # always(): a failed build still downloaded/compiled hundreds of
+      # crates; a partial cache is strictly better than none and cargo's
+      # fingerprinting resumes cleanly from it. Skips when the exact-key
+      # cache already exists (immutable) or the restore hit.
+      if: always() && inputs.save == 'true' && steps.registry-factory.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+        key: cargo-v1-registry-${{ runner.os }}-${{ runner.arch }}-${{ inputs.toolchain }}-${{ inputs.lock-hash }}
 
     - name: Restore Cargo target directory
       if: inputs.save != 'true'
@@ -87,13 +100,23 @@ runs:
           cargo-v2-target-${{ runner.os }}-${{ runner.arch }}-${{ inputs.toolchain }}-${{ inputs.profile }}${{ inputs.target != '' && format('-{0}', inputs.target) || '' }}-
           cargo-v2-target-${{ runner.os }}-${{ runner.arch }}-${{ inputs.toolchain }}-${{ inputs.profile }}-
 
-    - name: Restore+save Cargo target directory (factory)
+    - name: Restore Cargo target directory (factory)
       if: inputs.save == 'true'
-      id: target-save
-      uses: actions/cache@v4
+      id: target-factory
+      uses: actions/cache/restore@v4
       with:
         path: ${{ inputs.target-path }}
         key: cargo-v2-target-${{ runner.os }}-${{ runner.arch }}-${{ inputs.toolchain }}-${{ inputs.profile }}${{ inputs.target != '' && format('-{0}', inputs.target) || '' }}-${{ inputs.lock-hash }}
         restore-keys: |
           cargo-v2-target-${{ runner.os }}-${{ runner.arch }}-${{ inputs.toolchain }}-${{ inputs.profile }}${{ inputs.target != '' && format('-{0}', inputs.target) || '' }}-
           cargo-v2-target-${{ runner.os }}-${{ runner.arch }}-${{ inputs.toolchain }}-${{ inputs.profile }}-
+
+    - name: Save Cargo target directory (factory, even on failure)
+      # always(): keep the per-crate incremental state (target/ IS the
+      # per-crate cache) when the build dies mid-way, so a re-run resumes
+      # from the last compiled crate instead of starting over.
+      if: always() && inputs.save == 'true' && steps.target-factory.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: ${{ inputs.target-path }}
+        key: cargo-v2-target-${{ runner.os }}-${{ runner.arch }}-${{ inputs.toolchain }}-${{ inputs.profile }}${{ inputs.target != '' && format('-{0}', inputs.target) || '' }}-${{ inputs.lock-hash }}
